@@ -1,8 +1,1 @@
-spacy
-tabulate
-pandas
 fastapi
-SQLAlchemy
-unicodecsv
-openpyxl
-numpy
