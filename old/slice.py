@@ -168,7 +168,7 @@ class Slice:
     def __validate(self):
         """Validates the definition and adds missing information"""
 
-        self.dimensions = {dim.name: False for dim in self.cube.dimensions}
+        self.dimensions = {dim._name: False for dim in self.cube.dimensions}
 
         # 1. add title and description is missing
         if "title" not in self.definition:

@@ -45,14 +45,14 @@ class Cube:
 
     def get_dimension_ordinal(self, name: str):
         """Returns the dimension defined for the given dimension index."""
-        for idx, dim_name in enumerate([dim.name for dim in self.dimensions]):
+        for idx, dim_name in enumerate([dim._name for dim in self.dimensions]):
             if name == dim_name:
                 return idx
         return -1
 
     def get_dimension(self, name:str):
         """Returns the dimension defined for the given dimension index."""
-        result = [dim for dim in self.dimensions if dim.name == name]
+        result = [dim for dim in self.dimensions if dim._name == name]
         if not result:
             raise ValueError(f"Requested dimension '{name}' is not a dimension of cube {self.name}.")
         return result[0]
@@ -177,5 +177,5 @@ class Cube:
                 idx_address[d] = self.dimensions[d].member_idx_lookup[address[d]]
                 super_level += self.dimensions[d].members[idx_address[d]][self.dimensions[d].LEVEL]
             else:
-                raise ValueError(f"'{address[d]}' is not a member of dimension '{self.dimensions[d].name}'.")
+                raise ValueError(f"'{address[d]}' is not a member of dimension '{self.dimensions[d]._name}'.")
         return tuple(idx_address), super_level, idx_measure

@@ -1,5 +1,7 @@
 import gc
 import math
+import os
+from pathlib import Path
 from unittest import TestCase
 import time
 from database import Database
@@ -10,16 +12,23 @@ import itertools
 
 class TestCube(TestCase):
 
+    def setUp(self):
+        # delete database if exists
+        self.database_name = "test_cube"
+        file = os.path.join(os.getcwd(), "db", self.database_name + ".db")
+        if Path(file).exists():
+            os.remove(file)
+
     def test_create(self):
 
-        db = Database("test_temp")
+        db = Database(self.database_name)
 
-        dim_years = db.dimension_add("Years")
+        dim_years = db.dimension_add("years")
         dim_years.edit_begin()
         dim_years.member_add(["2020", "2021", "2022"])
         dim_years.edit_commit()
 
-        dim_months = db.dimension_add("Months")
+        dim_months = db.dimension_add("months")
         dim_months.edit_begin()
         dim_months.member_add(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
                                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
@@ -29,12 +38,12 @@ class TestCube(TestCase):
         dim_months.member_add("Year", ("Q1", "Q2", "Q3", "Q4"))
         dim_months.edit_commit()
 
-        dim_regions = db.dimension_add("Regions")
+        dim_regions = db.dimension_add("regions")
         dim_regions.edit_begin()
         dim_regions.member_add("Total", ("North", "South", "West", "East"))
         dim_regions.edit_commit()
 
-        dim_products = db.dimension_add("Products")
+        dim_products = db.dimension_add("products")
         dim_products.edit_begin()
         dim_products.member_add("Total", ["A", "B", "C"])
         dim_products.edit_commit()
@@ -42,6 +51,11 @@ class TestCube(TestCase):
         measures = ["Sales", "Cost", "Profit"]
         cube = db.cube_add("Sales", [dim_years, dim_months, dim_regions, dim_products], measures)
         cube.add_formula("[Profit] = [Sales] - [Cost]")
+
+        # write, read, delete cell values by indexing
+        cube["2020", "Jan", "North", "A", "Sales"] = 123.0
+        value = cube["2020", "Jan", "North", "A", "Sales"]
+        del cube["2020", "Jan", "North", "A", "Sales"]
 
         # write/read a value to/from cube
         address = ("2020", "Jan", "North", "A")
@@ -102,7 +116,7 @@ class TestCube(TestCase):
         measures = [f"measure_{i}" for i in range(0, 10)]
         base_members = [f"member_{i}" for i in range(0, 10)]
 
-        db = Database("test_temp")
+        db = Database(self.database_name)
 
         for dims in range(min_dims, max_dims):
             dimensions = []
