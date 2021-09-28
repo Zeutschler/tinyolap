@@ -104,6 +104,8 @@ class Formulas:
         # Evaluates if a formula is defined for the given measure. If yes, the formula will be calculated
         # and the boolean value 'True' and the calculation result will be returned. If not 'False' and 'None'
         # will be returned.
+        if type(measure) is list:
+            measure = measure[0]
         if measure in self.targets:
             idx_formula = self.target_formulas[measure]
             formula_type = self.formulas[idx_formula]["type"]
@@ -116,6 +118,7 @@ class Formulas:
 
             # execute the compiled formula function
             result = self.formulas[idx_formula]["func"](variables)
+
             # due to inaccuracy of float operations, some rounding is required.
             if result < 1:
                 result = round(result, 10)

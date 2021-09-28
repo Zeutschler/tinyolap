@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import sqlite3
 from typing import List, Set, Tuple, Dict
+from collections.abc import Iterable
 
 import util
 from backend import Backend
@@ -93,7 +94,10 @@ class Database:
 
     # region Cube related methods
     def cube_add(self, name: str, dimensions: list, measures=None):
-
+        # validate cube name
+        if not util.is_valid_db_table_name(name):
+            raise CubeCreationException(f"Invalid cube name '{len(dimensions)}'. Cube names must contain "
+                                        f"lower case alphanumeric characters only, no blanks or special characters.")
         # validate dimensions
         if not dimensions:
             raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
@@ -120,21 +124,29 @@ class Database:
                 dims.append(dimension)
             else:
                 raise CubeCreationException(f"Unsupported dimension type '{str(dimension)}'.")
-
         # validate measures
-
-        cube = Cube.create(name, dims, measures)
-        cube._backend = self._backend
+        if measures:
+            if type(measures) is str:
+                if not util.is_valid_member_name(measures):
+                    raise CubeCreationException(f"Measure name '{str(measures)}' is not a valid measure name. "
+                                                f"Please refer the documentation for further details.")
+            elif isinstance(measures, Iterable):
+                for m in measures:
+                    if not util.is_valid_member_name(m):
+                        raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
+                                                    f"Please refer the documentation for further details.")
+        # create the cube
+        cube = Cube.create(self._backend, name, dims, measures)
         return cube
 
     def set(self, cube: str, address: Tuple[str], measure: str, value: float):
         """Writes a value to the database for the given cube, address and measure."""
-        return False
+        return self.cubes[cube].set(address, measure, value)
 
     def get(self, cube: str, address: Tuple[str], measure: str):
         """Returns a value from the database for a given cube, address and measure.
-                If no records exist for the given address, then 0.0 will be returned."""
-        return False
+                If no records exist for a given valid address, then 0.0 will be returned."""
+        return self.cubes[cube].get(address, measure)
 
     # endregion
 

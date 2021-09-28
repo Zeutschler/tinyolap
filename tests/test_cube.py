@@ -8,6 +8,7 @@ from database import Database
 from cube import Cube
 from dimension import Dimension
 import itertools
+from random import randrange
 
 
 class TestCube(TestCase):
@@ -15,6 +16,8 @@ class TestCube(TestCase):
     def setUp(self):
         # delete database if exists
         self.database_name = "test_cube"
+        self.clean_up = False
+
         file = os.path.join(os.getcwd(), "db", self.database_name + ".db")
         if Path(file).exists():
             os.remove(file)
@@ -49,7 +52,7 @@ class TestCube(TestCase):
         dim_products.edit_commit()
 
         measures = ["Sales", "Cost", "Profit"]
-        cube = db.cube_add("Sales", [dim_years, dim_months, dim_regions, dim_products], measures)
+        cube = db.cube_add("sales", [dim_years, dim_months, dim_regions, dim_products], measures)
         cube.add_formula("[Profit] = [Sales] - [Cost]")
 
         # write, read, delete cell values by indexing
@@ -106,19 +109,24 @@ class TestCube(TestCase):
         print(f"read {loops} formula records in {duration:.3}sec, total = {total}")
 
         # clean up
-        db.close()
-        db.remove()
+        if self.clean_up:
+            db.close()
+            db.remove()
 
-    def test_big_cube(self):
+    def test_cubes_of_all_dim_count_2_to_32(self):
 
-        min_dims = 2
-        max_dims = 8
+        min_dims = 1
+        max_dims = Database.MAX_DIMS
+
+        max_loop_base_level = 1000
+        max_loop_aggregation = 100
+
         measures = [f"measure_{i}" for i in range(0, 10)]
         base_members = [f"member_{i}" for i in range(0, 10)]
 
-        db = Database(self.database_name)
-
         for dims in range(min_dims, max_dims):
+            db = Database(self.database_name)
+
             dimensions = []
             members = []
             for d in range(dims):
@@ -137,20 +145,21 @@ class TestCube(TestCase):
 
             # fill entire cube = (10 ^ (dims + 1) cells
             z = 0
-            addresses = list(itertools.product(*members))
+            addresses = self.shuffle_addresses(members, max_loop_base_level)  # list(itertools.product(*members))
+
             start = time.time()
             for address in addresses:
                 for measure in measures:
                     cube.set(address, measure, 1.0)
                     z += 1
-                    if z == 10000:
+                    if z == max_loop_base_level:
                         break
-                if z == 10000:
+                if z == max_loop_base_level:
                     break
 
             duration = time.time() - start
             print(f"{dims} dimensions: {z:,.0f}x write operations in {duration:.3}sec, "
-                  f"{math.pow(10, dims + 1)/float(duration):,.0f} op/sec")
+                  f"{z/float(duration):,.0f} op/sec")
 
             z = 0
             start = time.time()
@@ -158,35 +167,50 @@ class TestCube(TestCase):
                 for measure in measures:
                     value = cube.get(address, measure)
                     z += 1
-                    if z == 10000:
+                    if z == max_loop_base_level:
                         break
-                if z == 10000:
+                if z == max_loop_base_level:
                     break
             duration = time.time() - start
             print(f"{dims} dimensions: {z:,.0f}x read base operations in {duration:.3}sec, "
                   f"value = {value}, {z/float(duration):,.0f} ops/sec")
 
             z = 0
-            cube.deactivate_caching()
+            cube.caching = False
             start = time.time()
             total_address = tuple(["Total"] * dims)
-            for i in range(1000):
+            for i in range(max_loop_aggregation):
                 for measure in measures:
                     value = cube.get(total_address, measure)
                     z += 1
-                    if z == 1000:
+                    if z == max_loop_aggregation:
                         break
-                if z == 1000:
+                if z == max_loop_aggregation:
                     break
             duration = time.time() - start
             print(f"{dims} dimensions: {z:,.0f}x read 'total' no cache operations in {duration:.3}sec, "
                   f"value = {value}, {z/duration:,.0f} ops/sec, "
                   f"{(z * value) /duration:,.0f} aggregations/sec")
-            cube.activate_caching()
+            cube.caching = True
 
-            cube = None
+            db.close()
+            db.remove()
+
             gc.collect()
 
+
         # clean up
-        db.close()
-        db.remove()
+        if self.clean_up:
+            db.close()
+            db.remove()
+
+
+    def shuffle_addresses(self, members, count):
+        records = []
+        for i in range(0, count):
+            record = []
+            for member in members:
+                record.append(member[randrange(len(member))])
+            records.append(record)
+
+        return records

@@ -58,6 +58,7 @@ class Dimension:
 
     def edit_commit(self):
         """Commits all changes since 'edit_begin()' was called and ends the edit mode."""
+        self.__update_member_hierachies()
         if self.backend:
             self.backend.dimension_update(self, self.to_json())
         # remove data for obsolete members (if any) from database
@@ -211,6 +212,25 @@ class Dimension:
         else:
             if parent_idx not in self.members[idx][self.ALL_PARENTS]:
                 self.members[idx][self.ALL_PARENTS].append(parent_idx)
+
+    def __update_member_hierachies(self):
+        for idx in self.member_idx_lookup.values():
+            if self.members[idx][self.LEVEL] > 0:
+                base_children = []
+                # update base level children
+                self.members[idx][self.BASE_CHILDREN] = self.__get_base_members(idx)
+
+    def __get_base_members(self, idx) -> list[int]:
+        if self.members[idx][self.LEVEL] == 0:
+            return [idx]
+        else:
+            base_members = []
+            for child_idx in self.members[idx][self.CHILDREN]:
+                if self.members[child_idx][self.LEVEL] == 0:
+                    base_members.append(child_idx)
+                else:
+                    base_members.extend(self.__get_base_members(child_idx))
+            return base_members
 
     def member_rename(self, member: str, new_name: str, new_description: str = None):
         """Renames a member."""

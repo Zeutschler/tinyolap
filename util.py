@@ -3,12 +3,18 @@ from collections.abc import Iterable
 import collections
 import string
 
-MEMBER_NAME_CHARS = set(string.ascii_lowercase + string.digits + '.-_/#+-*:,;|{}()"')
+MEMBER_NAME_CHARS = set(string.ascii_letters + string.digits + '.-_/#+-*:,;|{}()"')
+DB_NAME_CHARS = set(string.ascii_lowercase + string.digits + '_')
 
 
 def is_valid_member_name(name: str):
     """Checks if a given name is valid (only contains characters by MEMBER_NAME_CHARS)."""
     return set(name) <= MEMBER_NAME_CHARS
+
+
+def is_valid_db_table_name(name: str):
+    """Checks if a given name is valid (only contains characters by DB_NAME_CHARS)."""
+    return (set(name) <= DB_NAME_CHARS) and (name.lower() == name)
 
 
 def to_valid_key(s: str):

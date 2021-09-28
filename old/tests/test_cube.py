@@ -1,11 +1,12 @@
 import gc
 import math
+import sys
 from unittest import TestCase
 import time
-from tinyolap.cube import Cube
-from tinyolap.dimension import Dimension
+from old.cube import Cube
+from old.dimension import Dimension
 import itertools
-
+from random import randrange
 
 class TestCube(TestCase):
 
@@ -108,10 +109,12 @@ class TestCube(TestCase):
     def test_big_cube(self):
 
         min_dims = 2
-        max_dims = 8
+        max_dims = 32
         measures = [f"measure_{i}" for i in range(0, 10)]
         base_members = [f"member_{i}" for i in range(0, 10)]
-
+        max_loop_base_level = 1000
+        max_loop_aggregation = 100
+        
         for dims in range(min_dims, max_dims):
             dimensions = []
             members = []
@@ -127,20 +130,20 @@ class TestCube(TestCase):
 
             # fill entire cube = (10 ^ (dims + 1) cells
             z=0
-            addresses = list(itertools.product(*members))
+            addresses = self.shuffle_addresses(members, max_loop_base_level)  # list(itertools.product(*members))
             start = time.time()
             for address in addresses:
                 for measure in measures:
                     cube.set(address, measure, 1.0)
                     z += 1
-                    if z == 10000:
+                    if z == max_loop_base_level:
                         break
-                if z == 10000:
+                if z == max_loop_base_level:
                     break
 
             duration = time.time() - start
             print(f"{dims} dimensions: {z:,.0f}x write operations in {duration:.3}sec, "
-                  f"{math.pow(10, dims + 1)/float(duration):,.0f} op/sec")
+                  f"{z/float(duration):,.0f} op/sec")
 
             z=0
             start = time.time()
@@ -148,9 +151,9 @@ class TestCube(TestCase):
                 for measure in measures:
                     value = cube.get(address, measure)
                     z += 1
-                    if z == 10000:
+                    if z == max_loop_base_level:
                         break
-                if z == 10000:
+                if z == max_loop_base_level:
                     break
             duration = time.time() - start
             print(f"{dims} dimensions: {z:,.0f}x read base operations in {duration:.3}sec, "
@@ -160,13 +163,13 @@ class TestCube(TestCase):
             cube.deactivate_caching()
             start = time.time()
             total_address = tuple(["Total"] * dims)
-            for i in range(1000):
+            for i in range(max_loop_aggregation):
                 for measure in measures:
                     value = cube.get(total_address, measure)
                     z += 1
-                    if z == 1000:
+                    if z == max_loop_aggregation:
                         break
-                if z == 1000:
+                if z == max_loop_aggregation:
                     break
             duration = time.time() - start
             print(f"{dims} dimensions: {z:,.0f}x read 'total' no cache operations in {duration:.3}sec, "
@@ -179,3 +182,83 @@ class TestCube(TestCase):
 
         time.sleep(0.1)
 
+    def test_one_million_cells(self):
+
+        max_dims = 3
+        measures = [f"measure_{i}" for i in range(0, 10)]
+        base_members = [f"member_{i}" for i in range(0, 10)]
+
+        dimensions = []
+        members = []
+        for d in range(max_dims):
+            dimension = Dimension(f"dim_{d}")
+            for member in base_members:
+                dimension.member_add(member)
+            for member in base_members:
+                dimension.member_add(member, "Total")
+            dimensions.append(dimension)
+            members.append(base_members)
+        cube = Cube("cube", dimensions, measures)
+
+        # fill entire cube = (10 ^ (dims + 1) cells
+        z = 0
+        addresses = list(itertools.product(*members))
+        start = time.time()
+        start_sub = time.time()
+        for address in addresses:
+            for measure in measures:
+                cube.set(address, measure, 1.0)
+                z += 1
+                if z % 100000 == 0:
+                    duration = time.time() - start_sub
+                    print(f"   {z/len(addresses)/10:0.0%} {100000 / float(duration):,.0f} op/sec")
+                    start_sub = time.time()
+
+        duration = time.time() - start
+        print(f"{max_dims} dimensions: {z:,.0f}x write operations in {duration:.3}sec, "
+              f"{z / float(duration):,.0f} op/sec")
+
+        z = 0
+        start = time.time()
+        for address in addresses:
+            for measure in measures:
+                value = cube.get(address, measure)
+                z += 1
+                if z % 100000 == 0:
+                    duration = time.time() - start_sub
+                    print(f"   {z/len(addresses)/10:0%} {100000 / float(duration):,.0f} op/sec")
+                    start_sub = time.time()
+
+        duration = time.time() - start
+        print(f"{max_dims} dimensions: {z:,.0f}x read base operations in {duration:.3}sec, "
+              f"value = {value}, {z / float(duration):,.0f} ops/sec")
+
+        z = 0
+        cube.deactivate_caching()
+        start = time.time()
+        total_address = tuple(["Total"] * max_dims)
+        for i in range(10):
+            for measure in measures:
+                value = cube.get(total_address, measure)
+                z += 1
+                duration = time.time() - start_sub
+                print(f"   {z/len(addresses)/10:0%} {10 / float(duration):,.0f} op/sec")
+                start_sub = time.time()
+        duration = time.time() - start
+        print(f"{max_dims} dimensions: {z:,.0f}x read 'total' no cache operations in {duration:.3}sec, "
+              f"value = {value}, {z / duration:,.0f} ops/sec, "
+              f"{(z * value) / duration:,.0f} aggregations/sec")
+        cube.activate_caching()
+
+        gc.collect()
+        time.sleep(0.1)
+
+    def shuffle_addresses(self, members, count):
+        records = []
+        for i in range(0, count):
+            record = []
+            for member in members:
+                record.append(member[randrange(len(member))])
+            records.append(record)
+
+        return records

@@ -1,9 +1,10 @@
 import sqlite3
-from pathlib import Path
 import os
 from os import path
-from timeit import default_timer as timer
+from pathlib import Path
 import logging
+from timeit import default_timer as timer
+from collections.abc import Iterable
 from exceptions import *
 
 # noinspection SqlNoDataSourceInspection
@@ -17,7 +18,7 @@ class Backend:
     DB_EXTENSION = ".db"
 
     LOG_EXTENSION = ".log"
-    LOG_LEVEL = logging.DEBUG
+    LOG_LEVEL = logging.INFO
 
     def __init__(self, database_name: str, read_only: bool = False):
         self.conn: sqlite3.Connection = None
@@ -107,7 +108,10 @@ class Backend:
         """Returns a single measure from a cube fact table.
         If the address does not exist, value 0.0 will be returned.
         Arguments 'address' and 'measure' are index values of typ <int>."""
-        sql = f"SELECT m{measure} FROM {Backend.CUB_PREFIX + cube_name} " \
+        if not isinstance(measure, Iterable):
+            measure = [measure]
+        fields_clause = ', '.join(['m'+ str(m) for m in measure])
+        sql = f"SELECT {fields_clause} FROM {Backend.CUB_PREFIX + cube_name} " \
               f"WHERE {' AND '.join(['d' + str(i + 1) + '=' + str(d) for i, d in enumerate(address)])};"
         # records = self.cursor.execute(sql).fetchall()
         records = self.__fetchall(sql)
@@ -115,14 +119,21 @@ class Backend:
             return records[0][0]
         return 0.0
 
-    def cube_range_query(self, cube_name, member_lists: list[list[int]], measures: list[int]) -> list:
+    def cube_get_range(self, cube_name, member_lists: list[list[int]], measures, aggregate: bool =True) -> list:
         """Executes a range query on the cube fact table """
+        if not isinstance(measures, Iterable):
+            measures = [measures]
         member_list_text = []
         for i, ml in enumerate(member_lists):
-            member_list_text.append(f" d{i + 1} in ({','.join([str(m) for m in ml])})")
+            member_list_text.append(f"d{i + 1} in ({','.join([str(m) for m in ml])})")
         where_clause = ' AND '.join([m for m in member_list_text])
-        sql = f"SELECT m{', '.join(['m' + str(m) for m in measures])} " \
-              f"FROM {Backend.CUB_PREFIX + cube_name} WHERE {where_clause};"
+        if aggregate:
+            fields_clause = ', '.join(['SUM(m'+ str(m) + ')' for m in measures])
+        else:
+            fields_clause = ', '.join(['m'+ str(m) for m in measures])
+        sql = f"SELECT {fields_clause} " \
+              f"FROM {Backend.CUB_PREFIX + cube_name} " \
+              f"WHERE ({where_clause});"
         return self.__fetchall(sql)
 
     def cube_get_many(self, cube_name, address: list[int], measures: list[int]) -> list:
@@ -137,17 +148,24 @@ class Backend:
             return [float(v) for v in rs[0]]
         return [0.0 for _ in measures]
 
-    def cube_set(self, cube_name, address: list[int], measure: int, value):
+    def cube_set(self, cube_name, address: list[int], measure: int, value, instant_commit: bool = True):
         """Sets single measure value into a cube fact table.
         Note: This method executes an 'upsert' on a cube fact tables."""
         table = Backend.CUB_PREFIX + cube_name
-        dim_col_list = ', '.join(['d' + str(i + 1) for i, d in enumerate(address)])
-        measure_col = f"m{measure}"
-        sql = f"INSERT INTO {table}({dim_col_list}, {measure_col})" \
-              f"VALUES({', '.join([str(d) for d in address])}, {value}) " \
-              f"ON CONFLICT({dim_col_list}) " \
-              f"DO UPDATE SET {measure_col}=EXCLUDED.{measure_col};"
+        if value is None:
+            where_statement = ' AND '.join([('d' + str(i + 1) + '=' + str(d))for i, d in enumerate(address)])
+            sql = f"DELETE FROM {table} WHERE {where_statement};"
+        else:
+            dim_col_list = ', '.join(['d' + str(i + 1) for i, d in enumerate(address)])
+            measure_col = f"m{measure[0]}"
+            sql = f"INSERT INTO {table}({dim_col_list}, {measure_col})" \
+                  f"VALUES({', '.join([str(d) for d in address])}, {value}) " \
+                  f"ON CONFLICT({dim_col_list}) " \
+                  f"DO UPDATE SET {measure_col}=EXCLUDED.{measure_col};"
         self.__execute(sql)
+        if instant_commit:
+            self.commit()
+        return True
 
     def cube_set_many(self, cube_name, address, measures, values):
         """Sets multiple value for multiple measures in a cube table.
@@ -167,15 +185,16 @@ class Backend:
 
     def cube_add(self, cube_name, dimensions, measures):
         """Initializes the database with all required meta tables."""
-        table = Backend.CUB_PREFIX + cube_name
+        table_name = Backend.CUB_PREFIX + cube_name
         dim_col_list = ', '.join(['d' + str(i + 1) + ' int' for i, d in enumerate(dimensions)])
         dim_col_pk_list = ', '.join(['d' + str(i + 1) for i, d in enumerate(dimensions)])
         measure_list = ', '.join(['m' + str(m) + ' real' for m in measures])
-        sql = f"CREATE TABLE IF NOT EXISTS {table} (" \
+        sql = f"CREATE TABLE IF NOT EXISTS {table_name} (" \
               f"{dim_col_list}, {measure_list}, " \
               f"PRIMARY KEY ({dim_col_pk_list})) WITHOUT ROWID;"
         self.__execute(sql)
         self.logger.info(f"New cube '{cube_name}' added: {sql}")
+        return table_name
 
     def cube_remove(self, cube_name):
         table = Backend.CUB_PREFIX + cube_name
@@ -190,6 +209,7 @@ class Backend:
         self.__add_table(self.META_TABLE_DIM, self.META_TABLE_FIELDS)
         if not self.__table_exists(self.META_TABLE_DIM):
             self.logger.error(f"Failed to add meta tables.")
+            raise FatalException("Failed to add meta tables to database.")
         self.logger.info(f"Initialization of new database finished.")
 
 
@@ -279,7 +299,7 @@ class Backend:
 
         if self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
-            self.logger.degug(f"SQL transaction executed in {duration:.6f}s: {sql}")
+            self.logger.debug(f"SQL transaction executed in {duration:.6f}s: {sql}")
         return True
 
     def __fetchall(self, sql: str):
@@ -294,7 +314,7 @@ class Backend:
 
         if self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
-            self.logger.error(f"SQL transaction executed in {duration:.6f}s: {sql}")
+            self.logger.error(f"SQL fetchall executed in {duration:.6f}s: {sql}")
 
         return result
 

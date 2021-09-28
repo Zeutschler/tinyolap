@@ -1,5 +1,5 @@
-from tinyolap.fact_table import FactTable
-from tinyolap.formulas import Formulas
+from old.fact_table import FactTable
+from old.formulas import Formulas
 
 class Cube:
     def __init__(self, name: str, dimensions, measures):

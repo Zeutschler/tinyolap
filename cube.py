@@ -8,8 +8,11 @@ class Cube:
     __magic_key = object()
 
     @classmethod
-    def create(cls, name: str, dimensions: list[Dimension], measures: list[str]):
-        return Cube(Cube.__magic_key, name, dimensions, measures)
+    def create(cls, backend, name: str, dimensions: list[Dimension], measures: list[str]):
+        cube = Cube(Cube.__magic_key, name, dimensions, measures)
+        cube._backend = backend
+        cube._backend_table = backend.cube_add(name, dimensions, cube.measures.values())
+        return cube
 
     """Represents a multi-dimensional table."""
     def __init__(self, create_key,  name: str, dimensions: list[Dimension], measures: list[str]):
@@ -31,6 +34,7 @@ class Cube:
         self._aggregations = 0
         self.formulas = Formulas(self)
         self._backend = None
+        self._backend_table = None
         self._caching = True
         self._cache = {}
 
@@ -144,48 +148,48 @@ class Cube:
     # endregion
 
     # region Cell access (read/write values)
-    def get(self, address: tuple, measure=None):
+    def get(self, address: tuple, measures=None):
         """Returns a value from the cube for a given address and measure.
         If no records exist for the given address, then 0.0 will be returned."""
-        if type(measure) is str:
-            idx_address, super_level, idx_measure = self.__validate_address(address, measure)
-            if super_level == 0:
-                # This is a base-level cell
-                # ...direct lookup of value from fact table
-                return self.fact_table.get(idx_address, idx_measure)
-            else:
-                if self._caching:
-                    if address in self._cache:
-                        return self._cache[address]  # clear the cache
 
-                # This is an aggregated cell
-                #  ...check for rules execution first
-                if self.formulas:
-                    success, result = self.formulas.on_get(super_level, address, measure)
-                    if success:
-                        if self._caching:
-                            self._cache[address] = result  # save value to cache
-                        return result
+        # validate address and measures
+        if not measures:
+            measures = self.measures.keys()
+        elif type(measures) is str:
+            measures = [measures]
+        elif not isinstance(measures, Iterable):
+            raise InvalidKeyException(f"Invalid measures '{str(measures)}, string or list of string expected.")
+        idx_address, super_level, idx_measure = self.__validate_address(address, measures)
 
-                # ...execute a cell query and aggregate all returned records
-                total = 0.0
-                for row in self.fact_table.query(idx_address):
-                    value = self.fact_table.get_value_by_row(row, idx_measure)
-                    if type(value) is float:
-                        # This type check allows to store any datatype in the cube and ignore empty cells.
-                        total += self.fact_table.get_value_by_row(row, idx_measure)
-                    self._aggregations += 1
-                if self._caching:
-                    self._cache[address] = total  # save value to cache
-                return total
-
-        elif not measure:
-            return [self.get(address, m) for m in self.measures]
-        elif type(measure) is list or type(measure is tuple):
-            return [self.get(address, m) for m in measure]
+        if super_level == 0:
+            # This is a base-level cell
+            # ...direct lookup of value from fact table
+            return self._backend.cube_get(self._name, idx_address, idx_measure)
         else:
-            raise ValueError(f"Argument type not supported. Argument 'Measure' is of type {type(measure)} "
-                             f"but only types 'string', 'list' and 'tuple' or value 'None' are supported.")
+            if self._caching:
+                if address in self._cache:
+                    return self._cache[address]
+
+            # This is an aggregated cell
+            #  ...check for rules execution first
+            if self.formulas:
+                success, result = self.formulas.on_get(super_level, address, measures)
+                if success:
+                    if self._caching:
+                        self._cache[address] = result  # save value to cache
+                    return result
+
+            # ...prepare and execute a range query, aggregating all returned records
+            range_address = self._range_from_address(idx_address)
+            records = self._backend.cube_get_range(self._name, range_address, idx_measure, aggregate=True)
+            if records:
+                value = records[0][0]
+                if value is None:
+                    return 0.0
+                else:
+                    return value
+            else:
+                return 0.0
 
     def set(self, address: tuple, measure, value):
         """Writes a value to the cube for the given address and measure."""
@@ -198,7 +202,7 @@ class Cube:
             if super_level == 0:
                 # This is a base-level cell
                 # ...direct write to fact table
-                result = self.fact_table.set(idx_address, idx_measure, value)
+                result = self._backend.cube_set(self._name, idx_address, idx_measure, value)
 
                 #  ...check for base-level (push) rules to be execution first
                 if self.formulas:
@@ -249,14 +253,21 @@ class Cube:
                 else:
                     fact_table_index.index[d][idx_parent] = {row}
 
-    def __validate_address(self, address: tuple, measure):
-        """Validates a given address and measures and return the according indexes."""
-        if type(measure) is str:
-            if measure not in self.measures:
-                raise ValueError(f"'{measure}' is not a measure of cube '{self._name}'.")
-            idx_measure = self.measures[measure]
+    def __validate_address(self, address: tuple, measures):
+        """Validates a given address and measures and returns the according indexes."""
+        if type(measures) is str:
+            if measures not in self.measures:
+                raise ValueError(f"'{measures}' is not a measure of cube '{self._name}'.")
+            idx_measure = [self.measures[measures]]
+        elif isinstance(measures, Iterable):
+            idx_measure = []
+            for measure in measures:
+                if measure not in self.measures.keys():
+                    raise KeyNotFoundException(f"'{measure}' is not a measure of cube '{self._name}'.")
+                idx_measure.append(self.measures[measure])
         else:
             idx_measure = None
+
         if len(address) != self._dim_count:
             raise ValueError("Invalid number of dimensions in address.")
         idx_address = list(range(0, self._dim_count))
@@ -266,7 +277,7 @@ class Cube:
                 idx_address[d] = self.dimensions[d].member_idx_lookup[address[d]]
                 super_level += self.dimensions[d].members[idx_address[d]][self.dimensions[d].LEVEL]
             else:
-                raise ValueError(f"'{address[d]}' is not a member of dimension '{self.dimensions[d]._name}'.")
+                raise ValueError(f"'{address[d]}' is not a member of dimension '{self.dimensions[d].name}'.")
         return tuple(idx_address), super_level, idx_measure
 
     def __remove_members(self, dimension, members):
@@ -281,4 +292,19 @@ class Cube:
             cube.__remove_members(dimension, members)
         # todo: Invalidate rules containing obsolete members.
         pass
+
+    def _range_from_address(self, idx_address):
+        """Returns a range query from an aggregated address
+        by resolving all the base-level children for that address."""
+        range_from_address = []
+        for idx, dim in zip(idx_address, self.dimensions):
+            if dim.members[idx][dim.LEVEL] == 0:
+                # base level member
+                base_members = [idx]
+            else:
+                # aggregated member
+                base_members = dim.members[idx][dim.BASE_CHILDREN]
+            range_from_address.append(base_members)
+        return range_from_address
+
     # endregion

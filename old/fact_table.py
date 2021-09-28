@@ -1,5 +1,5 @@
 import weakref
-from tinyolap.fact_table_index import FactTableIndex
+from old.fact_table_index import FactTableIndex
 
 
 class FactTable:
