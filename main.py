@@ -1,33 +1,81 @@
-from database import Database
-from dimension import Dimension
-
-# Create or open a database
-db = Database("test")
-
-if len(db.dimensions) > 0:
-    names = list(db.dimensions.keys())
-    for d in names:
-        db.dimension_remove(d)
-
-if db.dimension_exists("years"):
-    db.dimension_remove("years")
+import time
 
 
-# A flat dimension, members have no parents and therefore no aggregation hierarchy.
-dim_years = db.dimension_add("years")
+def string_comparisons():
 
-# add some members
-dim_years.edit_begin()
-dim_years.member_add("2020")
-dim_years.member_add(["2021", "2022"])
-dim_years.member_add("All years", "2020")
-dim_years.member_add("All years", ["2021", "2022"])
-dim_years.edit_commit()
+    l = ["super glue", "Super Glue"," SuPer GluE   ", " SUPER GlUE  ", "SUPER GlUE ","sUPER GlUe"]
+    t = tuple(l)
+    loops = 1_000_000
 
-# add again some members
-dim_years.edit_begin()
-dim_years.member_add("2023")
-dim_years.member_add("All years", "2023")
-dim_years.edit_rollback()
+    # empty loop
+    start = time.time()
+    z = 0
+    while z < loops:
+        z = z + 1
+    duration_empty_loop = time.time() - start
 
-db.close()
+    # naive loop list
+    start = time.time()
+    z = 0
+    ll = []
+    while z < loops:
+        for text in l:
+            ll.append(text.strip().lower())
+        z = z + 1
+    duration = time.time() - start - duration_empty_loop
+    print(f"Naive local approach: {loops:,} loops records in {duration:.3}sec")
+
+    # optimized loop list
+    start = time.time()
+    z = 0
+    while z < loops:
+        strip = str.strip
+        lower = str.lower
+        ll = []
+        append = ll.append
+        for text in l:
+            append(strip(lower(text)))
+        z = z + 1
+    duration = time.time() - start - duration_empty_loop
+    print(f"Optimized loop: {loops:,} loops records in {duration:.3}sec")
+
+    # list comprehension loop list
+    start = time.time()
+    z = 0
+    strip = str.strip
+    lower = str.lower
+    while z < loops:
+        ll = [strip(lower(text)) for text in l]
+        z = z + 1
+    duration = time.time() - start - duration_empty_loop
+    print(f"List comprehension: {loops:,} loops records in {duration:.3}sec")
+
+    # list comprehension strip only
+    start = time.time()
+    z = 0
+    strip = str.strip
+    lower = str.lower
+    while z < loops:
+        ll = [strip(text) for text in l]
+        z = z + 1
+    duration = time.time() - start - duration_empty_loop
+    print(f"List comprehension strip only: {loops:,} loops records in {duration:.3}sec")
+
+    # list comprehension lower only
+    start = time.time()
+    z = 0
+    strip = str.strip
+    lower = str.lower
+    while z < loops:
+        tt = (lower(text) for text in t)
+        z = z + 1
+    duration = time.time() - start - duration_empty_loop
+    print(f"List comprehension strip only: {loops:,} loops records in {duration:.3}sec")
+
+
+def main():
+    string_comparisons()
+
+
+if __name__ == "__main__":
+    main()
