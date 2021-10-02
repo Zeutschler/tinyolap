@@ -48,8 +48,17 @@ class Backend:
         self.logger.addHandler(handler)
         self.logger.setLevel(self.LOG_LEVEL)
 
+    def delete_log_file(self):
+        """Deletes the database log file."""
+        try:
+            if path.exists(self.log_file):
+                os.remove(self.log_file)
+            return True
+        except OSError:
+            return False
+
     def delete(self):
-        """Closes the database and deletes the database file."""
+        """Closes an open database and deletes the database file."""
         if self._in_memory:
             return
         try:
@@ -58,7 +67,7 @@ class Backend:
                 os.remove(self.file_path)
             self.logger.info(f"Database file '{self.file_path}' has been deleted.")
             return True
-        except Exception as err:
+        except OSError as err:
             self.logger.error(f"Failed to delete database file '{self.file_path}'. {str(err)}")
             return False
 

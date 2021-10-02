@@ -4,7 +4,7 @@ from typing import Tuple, Dict
 from collections.abc import Iterable
 
 import utils
-from exceptions import *
+from tinyolap.exceptions import *
 from cube import Cube
 from dimension import Dimension
 from backend import Backend
@@ -37,13 +37,30 @@ class Database:
         """Closes the database."""
         self._backend.close()
 
-    def remove(self):
-        """Removes the database file if (1) it exists and (2) if the database is closed (not anymore in use)."""
-        if self._backend.conn:
-            if Path(self.file_path).exists():
-                os.remove(self.file_path)
-            if Path(self.file_path + ".log").exists():
-                os.remove(self.file_path + ".log")
+    def delete(self, including_log_file=True):
+        """Deletes the database file, if it exists and the database is closed. Only of relevant if database
+        is not in in-memory mode, if ``in_memory`` argument of database.__init__(...) was either skipped
+        or set to ``False``.
+        :param including_log_file: If set to ``True``, also the database log file will be deleted, if such exits.
+            Default value is ``True``. Log files are also not available in in_memory mode.
+        """
+        if self._in_memory:
+            return
+
+        try:
+            if not self._backend.conn:
+                if Path(self.file_path).exists():
+                    os.remove(self.file_path)
+                if Path(self.file_path + ".log").exists():
+                    os.remove(self.file_path + ".log")
+            else:
+                raise DatabaseFileException("Failed to delete database file. Database connection is still open.")
+        except OSError as err:
+            raise DatabaseFileException(f"Failed to delete database file. {str(err)}")
+
+        if including_log_file:
+            if not self._backend.delete_log_file():
+                raise DatabaseFileException(f"Failed to delete database log file.")
 
     # endregion
 
@@ -81,6 +98,11 @@ class Database:
             name = dimension._name
         if name not in self.dimensions:
             raise KeyNotFoundException(f"A dimension named '{name}' does not exist.")
+
+        uses =[cube.name  for cube in self.cubes.values() if len([name in [dim.name for dim in cube.dimensions]])]
+        if uses:
+            raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
+                                          f"and therefore can not be removed. Remove cubes first.")
 
         # todo: Check if the dimension can be removed safely (not in use by any cubes)
 

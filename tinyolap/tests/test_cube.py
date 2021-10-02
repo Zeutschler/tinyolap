@@ -26,6 +26,7 @@ class TestCube(TestCase):
         if Path(file).exists():
             os.remove(file)
 
+
     def test_create(self):
 
         db = Database(self.database_name, in_memory=True)
@@ -115,7 +116,7 @@ class TestCube(TestCase):
         # clean up
         if self.clean_up:
             db.close()
-            db.remove()
+            db.delete()
 
     def test_big_cube(self):
 

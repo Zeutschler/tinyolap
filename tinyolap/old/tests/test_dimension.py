@@ -5,6 +5,7 @@ from tinyolap.old.dimension import Dimension
 class DimensionTest(TestCase):
     pass
 
+
     def test_flat_dimension(self):
 
         members = [f"member_{i:03d}" for i in range(100)]

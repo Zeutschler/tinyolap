@@ -3,6 +3,8 @@
 MIT License
 -----------
 
+...maybe this: https://commonsclause.com
+
 **Copyright (c) 2021 Thomas Zeutschler**
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

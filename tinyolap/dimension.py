@@ -313,18 +313,18 @@ class Dimension:
 
             for child in children:
                 if idx in self.members[child][self.PARENTS]:
-                    self.members[child][self.PARENTS].remove(idx)
+                    self.members[child][self.PARENTS].delete(idx)
             for parent in parents:
                 if idx in self.members[parent][self.CHILDREN]:
-                    self.members[parent][self.CHILDREN].remove(idx)
+                    self.members[parent][self.CHILDREN].delete(idx)
 
         # remove from all related members
         for all_idx in self.member_idx_lookup.values():
             for member_idx in [self.member_idx_lookup[member] in member_list]:
                 if member_idx in self.members[all_idx][self.ALL_PARENTS]:
-                    self.members[all_idx][self.ALL_PARENTS].remove(member_idx)
+                    self.members[all_idx][self.ALL_PARENTS].delete(member_idx)
                 if member_idx in self.members[all_idx][self.BASE_CHILDREN]:
-                    self.members[all_idx][self.BASE_CHILDREN].remove(member_idx)
+                    self.members[all_idx][self.BASE_CHILDREN].delete(member_idx)
 
         # finally remove the members
         member_idx = [self.member_idx_lookup[m] for m in member_list]

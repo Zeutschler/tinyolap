@@ -4,7 +4,17 @@ class TinyOlapException(Exception):
 
 
 class CubeCreationException(TinyOlapException):
-    """Raised when the creation of a cube ."""
+    """Raised when the creation of a cube."""
+    pass
+
+
+class DimensionInUseException(TinyOlapException):
+    """Raised when the deletion of a dimension failed to to being used by a cube."""
+    pass
+
+
+class DatabaseFileException(TinyOlapException):
+    """Raised when an error occurs while handling database files."""
     pass
 
 
