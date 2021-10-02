@@ -115,7 +115,7 @@ class Test(TestCase):
                     continue
                 address = tuple(record[: dim_count])
                 value = float(record[dim_count])
-                cube.set(address, 1.0)
+                cube.set(address, value)
                 z+=1
 
         duration = time.time() - start
@@ -123,9 +123,10 @@ class Test(TestCase):
 
         # 5. read aggregated cell
         cube.caching = False
+        cube.reset_cell_requests()
         addresses = [("Alle Jahre", "Abweichung", "Welt gesamt", "Produkte gesamt", "Jahr gesamt", "DB1", "value")]
-        addresses = [("1994", "Ist", "Welt gesamt", "Produkte gesamt", "Januar", "Umsatz", "value")]
-        addresses = [("1994", "Ist", "USA", "Produkte gesamt", "Januar", "Umsatz", "value")]
+        #addresses = [("1994", "Ist", "Welt gesamt", "Produkte gesamt", "Januar", "Umsatz", "value")]
+        #addresses = [("1994", "Ist", "USA", "Produkte gesamt", "Januar", "Umsatz", "value")]
         count = 0.0
         value = 0.0
         start = time.time()
@@ -136,8 +137,8 @@ class Test(TestCase):
                 count += value
         duration = time.time() - start
         print(f"read {1000}x aggregated cell returning value := {value}, ")
-        print(f"\toverall {count} aggregations in {duration:.4} sec, ")
-        print(f"\t{int(1000/duration):,} ops/sec, {int(count/duration):,} agg/sec")
+        print(f"\toverall {cube.cell_requests:,} aggregations in {duration:.4} sec, ")
+        print(f"\t{int(1000/duration):,} ops/sec, {int(cube.cell_requests/duration):,} agg/sec")
 
         # 6. Create a sample slice
         cube.caching = True

@@ -43,7 +43,7 @@ class Cube:
             self._measures[measure] = idx
         self._default_measure = measures[0]
 
-        self._aggregations = 0
+        self._cell_requests = 0
         self._rules = Rules(self)
         self._caching = True
         self._cache = {}
@@ -53,6 +53,16 @@ class Cube:
     def name(self) -> str:
         """Returns the name of the cube."""
         return self._name
+
+    @property
+    def cell_requests(self) -> int:
+        """Returns the number"""
+        return self._cell_requests
+
+    def reset_cell_requests(self):
+        """Identifies if caching is activated for the current cube.
+        By default, caching is activated for all cubes."""
+        self._cell_requests = 0
 
     @property
     def caching(self) -> bool:
@@ -249,12 +259,15 @@ class Cube:
         if super_level == 0:  # base-level cells
             # todo: add Rules lookup
             if type(idx_measures) is int:
+                self._cell_requests += 1
                 return self._fact_table.get(idx_address, idx_measures)
             else:
+                self._cell_requests += len(idx_measures)
                 return [self._fact_table.get(idx_address, m) for m in idx_measures]
 
         else:  # aggregated cells
             if self._caching and bolt in self._cache:
+                self._cell_requests += 1
                 return self._cache[bolt]
 
             if self._rules:
@@ -275,10 +288,7 @@ class Cube:
                     if type(value) is float:
                         # This type check allows to store any datatype in the cube and ignore empty cells.
                         total += value
-                    else:
-                        total = total
-                        #raise Exception("Das hab ich nicht erwartet...")
-                    self._aggregations += 1
+                    self._cell_requests += 1
                 if self._caching:
                     self._cache[bolt] = total  # save value to cache
                 return total
@@ -292,12 +302,10 @@ class Cube:
                         if type(value) is float:
                             # This type check allows to store any datatype in the cube and ignore empty cells.
                             totals[idx] += self._fact_table.get_value_by_row(row, idx_m)
-                        self._aggregations += 1
+                        self._cell_requests += 1
                 if self._caching:
                     self._cache[bolt] = totals  # save value to cache
                 return totals
-
-
 
     def __set(self, bolt, value):
         """Writes a value to the cube for the given bolt (address and measures)."""
