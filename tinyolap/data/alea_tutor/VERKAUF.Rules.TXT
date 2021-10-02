@@ -1,22 +1,5 @@
-﻿//******************************************************
-// Sample rule definitions for new rules engine
-//******************************************************
+﻿# ******************************************************
+#  Sample rule definitions for new rules engine
+# ******************************************************
 
 [Preis] = [Umsatz] \ [Menge];
-
-[DB2] = W:[Umsatz] - [variable Kosten];
-
-[Bewertung] = If([DB1] > 500, "gut", "schlecht");
-
-[Umsatz Inflation] = [Umsatz] * CUBE("KPI", Jahre!, Monate!, "Inflation");
-
-//******************************************************
-// Rules with errors
-//******************************************************
-
-
-//[DB1 = 234;								// Missing Bracket
-//[This member does not exist] = 123;		// Member does not exist
-//[AllOne] = NOTDEFINED([Umsatz];			// Unknown function + missing bracket
-//{[Umsatz], [Januar]} = 3243				// Missing finaly semicolon (does this be noticed) ?
-//{[Umsatz], [Februar]} = 123;			    // Missing finaly semicolon (does this be noticed) ?

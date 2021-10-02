@@ -1,21 +1,8 @@
 N	Menge
 N	Umsatz
+N	Preis
 N	variable Kosten
 C	DB1
 	Umsatz	1
 	variable Kosten	-1
-N	DB2
-N	Preis
-N	DB2 (B-Rule)
-N	DB2 (B-Rule) Trigger
-N	AllOne
-N	Durchschnittspreis (C-Rule)
-N	DB1 in % (A-Rule)
-N	Halber Umsatz (B-Rule)
-N	[One (B-Rule, no accelerator)]
-N	[Two (B-Rule, accelerator)]
-N	Bewertung
-N	Manager
-N	zu 1994 Umsatz
-N	Umsatz Inflation
 
