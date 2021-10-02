@@ -1,6 +1,6 @@
 import enum
 import weakref
-
+from cube import Cube
 
 class Slice:
     """Represents a slice from a cube. Slices can be seen as a report in Excel with filters on top,
@@ -64,7 +64,7 @@ class Slice:
             self.names = str(self.colors.white) + str(self.colors.bg_red)
             self.members = str(self.colors.blue) + str(self.colors.bold)
 
-    def __init__(self, cube, definition, suppress_zero_columns=False, suppress_zero_rows=False):
+    def __init__(self, cube: Cube, definition, suppress_zero_columns=False, suppress_zero_rows=False):
         # self.header_def = {}
         # self.col_def = {}
         # self.rows_def = {}
@@ -76,7 +76,7 @@ class Slice:
         self.zero_cols = []
         self.dimensions = {}
         self.measures = []
-        self.cube = weakref.ref(cube) if cube else None
+        self.cube = cube  #weakref.ref(cube) if cube else None
         self.definition = definition
         self.suppress_zero_columns = suppress_zero_columns
         self.suppress_zero_rows = suppress_zero_rows
@@ -152,7 +152,7 @@ class Slice:
                             address[dim_ordinal] = col_member[1]
 
                     # now we have a valid address to be evaluated
-                    value = self.cube.get(tuple(address), measure)
+                    value = self.cube.get(tuple(address) + (measure,))
                     grid.append([col, row, value, col_members, row_members,address, measure])
 
                     col += 1
@@ -168,7 +168,7 @@ class Slice:
     def __validate(self):
         """Validates the definition and adds missing information"""
 
-        self.dimensions = {dim._name: False for dim in self.cube.dimensions}
+        self.dimensions = {dim.name: False for dim in self.cube.dimensions}
 
         # 1. add title and description is missing
         if "title" not in self.definition:
@@ -282,7 +282,7 @@ class Slice:
                         self.definition[axis][position]["measure"] = [measure]
                     if type(measure) is list:
                         for m in measure:
-                            if m not in self.cube.measures:
+                            if m not in self.cube._measures:
                                 raise ValueError(
                                     f"Slice axis '{axis}' contains an unknown measure '{m}' in "
                                     f"definition '{member_def}'.")
@@ -321,7 +321,7 @@ class Slice:
             # expand (multiply) all definition of the axis
             if axis_index == 0:
                 # only valid for header
-                print(f"{axis_name}:")
+                #print(f"{axis_name}:")
                 members = [x[0] for x in self.axis[axis_index]]
                 # print(members)
                 self.axis[axis_index] = members

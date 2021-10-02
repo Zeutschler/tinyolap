@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sized
 from exceptions import *
 from dimension import Dimension
-from formulas import Formulas
+from rules import Rules
 
 
 class Cube:
@@ -33,7 +33,7 @@ class Cube:
         for idx, measure in enumerate(measures):
             self.measures[measure] = idx
         self._aggregations = 0
-        self.formulas = Formulas(self)
+        self.formulas = Rules(self)
         self._backend = None
         self._backend_table = None
         self._caching = True

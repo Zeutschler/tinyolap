@@ -121,7 +121,7 @@ class Dimension:
 
     def get_members(self):
         """Returns all members of the dimension."""
-        return self.member_idx_lookup.keys()
+        return list(self.member_idx_lookup.keys())
 
     def get_members_by_level(self, level: int):
         """Returns all members of a specific level."""
@@ -260,9 +260,17 @@ class Dimension:
     def __update_member_hierachies(self):
         for idx in self.member_idx_lookup.values():
             if self.members[idx][self.LEVEL] > 0:
-                base_children = []
                 # update base level children
                 self.members[idx][self.BASE_CHILDREN] = self.__get_base_members(idx)
+            else:
+                self.members[idx][self.ALL_PARENTS] = self.__get_all_parents(idx)
+
+    def __get_all_parents(self, idx) -> list[int]:
+        all_parents= []
+        for parent in self.members[idx][self.PARENTS]:
+            all_parents.append(parent)
+            all_parents = all_parents + self.__get_all_parents(parent)
+        return all_parents
 
     def __get_base_members(self, idx) -> list[int]:
         if self.members[idx][self.LEVEL] == 0:
@@ -354,7 +362,7 @@ class Dimension:
         """Returns all children of a member."""
         if member not in self.member_idx_lookup:
             raise ValueError(f"A member named '{member}' is not defined in dimension'{self.name}'")
-        return self.members[self.member_idx_lookup[member]][self.CHILDREN]
+        return [self.members[idx][self.NAME] for idx in self.members[self.member_idx_lookup[member]][self.CHILDREN]]
 
     def member_get_level(self, member: str):
         """Returns the level of a member within the member hierarchy.

@@ -3,6 +3,11 @@ class TinyOlapException(Exception):
     pass
 
 
+class InvalidOperationException (TinyOlapException):
+    """Raised when the invalid operation on a database object is executed."""
+    pass
+
+
 class CubeCreationException(TinyOlapException):
     """Raised when the creation of a cube."""
     pass

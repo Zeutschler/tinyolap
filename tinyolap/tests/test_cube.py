@@ -26,7 +26,6 @@ class TestCube(TestCase):
         if Path(file).exists():
             os.remove(file)
 
-
     def test_create(self):
 
         db = Database(self.database_name, in_memory=True)
@@ -60,16 +59,18 @@ class TestCube(TestCase):
         cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products], measures)
         cube.add_formula("[Profit] = [Sales] - [Cost]")
 
+        # disable caching
+        cube.caching = False
+
         # write, read, delete cell values by indexing
         cube["2020", "Jan", "North", "A", "Sales"] = 123.0
         value = cube["2020", "Jan", "North", "A", "Sales"]
         del cube["2020", "Jan", "North", "A", "Sales"]
 
         # write/read a value to/from cube
-        address = ("2020", "Jan", "North", "A")
-        measure = "Sales"
-        cube.set(address, measure, 1.0)
-        value = cube.get(address, measure)
+        address = ("2020", "Jan", "North", "A", "Sales")
+        cube.set(address, 1.0)
+        value = cube.get(address)
         print(f"{address} := {value}")
 
         # Performance: read from cube base cells
@@ -77,39 +78,37 @@ class TestCube(TestCase):
         start = time.time()
         loops = 100_000
         for r in range(0, loops):
-            total += cube.get(address, measure)
+            total += cube.get(address)
         duration = time.time() - start
         print(f"read {loops} base records in {duration:.3}sec, total = {total}")
 
         # write 2nd value to cube
-        address = ("2020", "Feb", "North", "A")
-        cube.set(address, measure, 1.0)
+        address = ("2020", "Feb", "North", "A", "Sales")
+        cube.set(address, 1.0)
 
         # read from aggregated cells
-        address = ("2020", "Q1", "Total", "Total")
-        measure = "Sales"
-        value = cube.get(address, measure)
+        address = ("2020", "Q1", "Total", "Total")  # , "Sales") >>> dropped to force use of default member
+        value = cube.get(address)
 
         # Performance: read from aggregated cells
         total = 0.0
         start = time.time()
         loops = 100_000
         for r in range(0, loops):
-            total += cube.get(address, measure)
+            total += cube.get(address)
         duration = time.time() - start
         print(f"read {loops} aggregated records in {duration:.3}sec, total = {total}")
 
         # read from formula cells
-        address = ("2020", "Q1", "Total", "Total")
-        measure = "Profit"
-        value = cube.get(address, measure)
+        address = ("2020", "Q1", "Total", "Total", "Profit")
+        value = cube.get(address)
 
         # Performance: read from formula cells
         total = 0.0
         start = time.time()
         loops = 100_000
         for r in range(0, loops):
-            total += cube.get(address, measure)
+            total += cube.get(address)
         duration = time.time() - start
         print(f"read {loops} formula records in {duration:.3}sec, total = {total}")
 
@@ -119,14 +118,12 @@ class TestCube(TestCase):
             db.delete()
 
     def test_big_cube(self):
-
-
-        min_dims = 2
-        max_dims = 32
+        min_dims = 3
+        max_dims = 12
         measures = [f"measure_{i}" for i in range(0, 10)]
-        base_members = [f"member_{i}" for i in range(0, 10)]
+        base_members = [f"member_{i}" for i in range(0, 100)]
         max_loop_base_level = 1000
-        max_loop_aggregation = 100
+        max_loop_aggregation = 1000
 
         for dims in range(min_dims, max_dims):
             db = Database("test", in_memory=True)
@@ -145,61 +142,46 @@ class TestCube(TestCase):
                 members.append(base_members)
             cube = db.add_cube("cube", dimensions, measures)
 
-            # fill entire cube = (10 ^ (dims + 1) cells
-            z = 0
-            addresses = self.shuffle_addresses(members, max_loop_base_level)  # list(itertools.product(*members))
+            print(f"Cube with {dims} dimensions sized {', '.join(str(len(d)) for  d in dimensions)} and {len(measures)} measures: ")
+
+            z = max_loop_base_level
+            value = 0
+            addresses = self.shuffle_addresses(members, measures, max_loop_base_level)
+
             start = time.time()
             for address in addresses:
-                for measure in measures:
-                    cube.set(address, measure, 1.0)
-                    z += 1
-                    if z == max_loop_base_level:
-                        break
-                if z == max_loop_base_level:
-                    break
-
+                cube.set(address, 1.0)
             duration = time.time() - start
-            print(f"{dims} dimensions: {z:,.0f}x write operations in {duration:.3}sec, "
+            print(f"\t{z:,.0f}x write operations by 'set(...)' in {duration:.3}sec, "
                   f"{z / float(duration):,.0f} op/sec")
 
-            z = 0
             start = time.time()
             for address in addresses:
-                for measure in measures:
-                    value = cube.get(address, measure)
-                    z += 1
-                    if z == max_loop_base_level:
-                        break
-                if z == max_loop_base_level:
-                    break
+                value = cube.get(address)
             duration = time.time() - start
-            print(f"{dims} dimensions: {z:,.0f}x read base operations in {duration:.3}sec, "
+            print(f"\t{z:,.0f}x read base-level cells in {duration:.3}sec, "
                   f"value = {value}, {z / float(duration):,.0f} ops/sec")
 
-            z = 0
             cube.caching = False
             start = time.time()
-            total_address = tuple(["Total"] * dims)
+            total_address = ["Total"] * dims
+            total_address.append(measures[0])
+            total_address = tuple(total_address)
             for i in range(max_loop_aggregation):
-                for measure in measures:
-                    value = cube.get(total_address, measure)
-                    z += 1
-                    if z == max_loop_aggregation:
-                        break
-                if z == max_loop_aggregation:
-                    break
+                value = cube.get(total_address)
             duration = time.time() - start
-            print(f"{dims} dimensions: {z:,.0f}x read 'total' no cache operations in {duration:.3}sec, "
-                  f"value = {value}, {z / duration:,.0f} ops/sec, "
-                  f"{(z * value) / duration:,.0f} aggregations/sec")
+            print(f"\t{max_loop_aggregation:,.0f}x read aggregated cell (no cache operations) in {duration:.3}sec, "
+                  f"value = {value}, {max_loop_aggregation / duration:,.0f} ops/sec, "
+                  f"{(max_loop_aggregation * value) / duration:,.0f} aggregations/sec")
             cube.caching = True
 
-    def shuffle_addresses(self, members, count):
+    def shuffle_addresses(self, members, measures, count):
         records = []
         for i in range(0, count):
             record = []
             for member in members:
                 record.append(member[randrange(len(member))])
+            record.append(measures[randrange(len(measures))])
             records.append(record)
 
         return tuple(records)

@@ -1,0 +1,5 @@
+N	Ist
+N	Plan
+C	Abweichung
+	Ist	1
+	Plan	-1

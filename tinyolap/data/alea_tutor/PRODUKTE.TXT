@@ -1,0 +1,137 @@
+C	Produkte gesamt
+	Monitore gesamt	1
+	Server gesamt	1
+	Desktops gesamt	1
+	Laptops gesamt	1
+C	Monitore gesamt
+	ProView VGA 12	1
+	ProView VGA 14	1
+	ProView VGA 15	1
+	ProView SVGA 14	1
+	ProView SVGA 15	1
+	Proview SVGA 17+	1
+	Ultraview SVGA 19+	1
+N	ProView VGA 12
+N	ProView VGA 14
+N	ProView VGA 15
+N	ProView SVGA 14
+N	ProView SVGA 15
+N	Proview SVGA 17+
+N	Ultraview SVGA 19+
+C	Server gesamt
+	ProServ 1000 486/33	1
+	ProServ 2000 486/66	1
+	ProServ 1000 P90	1
+	ProServ 2000 P120	1
+	ProServ 2500 P166	1
+	ProServ 5000 P6-166	1
+	ProServ 6000 P6-200	1
+N	ProServ 1000 486/33
+N	ProServ 2000 486/66
+N	ProServ 1000 P90
+N	ProServ 2000 P120
+N	ProServ 2500 P166
+N	ProServ 5000 P6-166
+N	ProServ 6000 P6-200
+C	Desktops gesamt
+	Desktops gesamt (ohne CD)	1
+	Desktops gesamt (mit CD)	1
+C	Desktops gesamt (ohne CD)
+	Deskmate 386/25	1
+	Deskmate 386/33	1
+	Deskmate 486/33	1
+	Deskmate 486/50	1
+	Deskmate 486/66	1
+	Deskmate P75	1
+	Deskmate P90	1
+	Deskmate P100	1
+	Deskmate P120	1
+	Deskmate P133	1
+	Deskmate P166	1
+N	Deskmate 386/25
+N	Deskmate 386/33
+N	Deskmate 486/33
+N	Deskmate 486/50
+N	Deskmate 486/66
+N	Deskmate P75
+N	Deskmate P90
+N	Deskmate P100
+N	Deskmate P120
+N	Deskmate P133
+N	Deskmate P166
+C	Desktops gesamt (mit CD)
+	Deskmate CD 486/66	1
+	Deskmate CD P75	1
+	Deskmate CD P90	1
+	Deskmate CD P100	1
+	Deskmate CD P120	1
+	Deskmate CD P133	1
+	Deskmate CD P166	1
+N	Deskmate CD 486/66
+N	Deskmate CD P75
+N	Deskmate CD P90
+N	Deskmate CD P100
+N	Deskmate CD P120
+N	Deskmate CD P133
+N	Deskmate CD P166
+C	Laptops gesamt
+	Ultranotebooks gesamt	1
+	Litenotebooks gesamt	1
+C	Ultranotebooks gesamt
+	Ultranote 386/25sx BW	1
+	Ultranote 386/33sx BW	1
+	Ultranote 386/33sx Color	1
+	Ultranote 486/33sx BW	1
+	Ultranote 486/50dx BW	1
+	Ultranote 486/50dx Color	1
+	Ultranote 486/66dx BW	1
+	Ultranote 486/66dx Color	1
+	Ultranote 486/75 BW	1
+	Ultranote 486/75 DSTN	1
+	Ultranote 486/75 TFT	1
+	Ultranote P66 DSTN	1
+	Ultranote P75 DSTN	1
+	Ultranote P75 TFT	1
+	Ultranote P100 DSTN	1
+	Ultranote P100 TFT	1
+	Ultranote CD P100 DSTN	1
+	Ultranote CD P100 TFT 10.4	1
+	Ultranote CD P100 TFT 11.4	1
+	Ultranote P120 DSTN 10.4	1
+	Ultranote P120 TFT 11.4	1
+	Ultranote CD P120 DSTN 10.4	1
+	Ultranote CD P120 TFT 11.4	1
+	Ultranote CD P133 TFT 11.4	1
+	Ultranote CD P133 TFT 12.1	1
+N	Ultranote 386/25sx BW
+N	Ultranote 386/33sx BW
+N	Ultranote 386/33sx Color
+N	Ultranote 486/33sx BW
+N	Ultranote 486/50dx BW
+N	Ultranote 486/50dx Color
+N	Ultranote 486/66dx BW
+N	Ultranote 486/66dx Color
+N	Ultranote 486/75 BW
+N	Ultranote 486/75 DSTN
+N	Ultranote 486/75 TFT
+N	Ultranote P66 DSTN
+N	Ultranote P75 DSTN
+N	Ultranote P75 TFT
+N	Ultranote P100 DSTN
+N	Ultranote P100 TFT
+N	Ultranote CD P100 DSTN
+N	Ultranote CD P100 TFT 10.4
+N	Ultranote CD P100 TFT 11.4
+N	Ultranote P120 DSTN 10.4
+N	Ultranote P120 TFT 11.4
+N	Ultranote CD P120 DSTN 10.4
+N	Ultranote CD P120 TFT 11.4
+N	Ultranote CD P133 TFT 11.4
+N	Ultranote CD P133 TFT 12.1
+C	Litenotebooks gesamt
+	Litenote P100 DSTN 11.4	1
+	Litenote P120 TFT 12.1	1
+	Litenote P133 TFT 12.1	1
+N	Litenote P100 DSTN 11.4
+N	Litenote P120 TFT 12.1
+N	Litenote P133 TFT 12.1

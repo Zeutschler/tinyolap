@@ -1,0 +1,36 @@
+﻿//******************************************************
+// TUTOR rules definitions
+//******************************************************
+
+[Durchschnittspreis (C-Rule)] =	[Umsatz] / [Menge];
+
+[DB2] = [Umsatz] - [variable Kosten];
+
+B: [DB2 (B-Rule)] = [Umsatz] - [variable Kosten];
+
+B: [Halber Umsatz (B-Rule)]	= [Umsatz] * 0.5;
+	
+// Accelerator for previous rule: [Umsatz] >> [Halber Umsatz (B-Rule)];
+
+B: [One (B-Rule, no accelerator)] = 1;
+
+// Base Rule with accelerator
+B: [Two (B-Rule, accelerator)] = 1;
+
+//	[Umsatz] >> [Two (B-Rule, accelerator)];
+
+
+A: [Bewertung (A-Rule)] = If([DB1] > 50, "gut", "schlecht");
+
+//******************************************************
+// Inactive Rules
+//******************************************************
+
+//[zu 1994 Umsatz] = [Umsatz] \ {[1994], [Ist], [Welt Gesamt], [Produkte Gesamt], [Jahr Gesamt], [Umsatz]} * 100;
+//[zu 1994 Umsatz] = {[1994], [Ist], [Welt Gesamt], [Produkte Gesamt], [Jahr Gesamt], [Umsatz]};
+
+// Zugriff auf Attribute noch nicht implementiert
+//[Manager] =  [Laptops gesamt].Manager & @Produkte.Manager;
+
+//Intercube rules noch nicht implementiert.
+//[Umsatz Inflation] = [Umsatz] * {[KPI]: @Jahre, @Monate, [Inflation]}

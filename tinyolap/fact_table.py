@@ -66,23 +66,25 @@ class FactTable:
 
     def query(self, query):
         first = 1
-        result = set([])  # an empty set
-        # get first relevant index
+        sets = []  # an empty set
+        result = set([])
+        # get first relevant set
         for i in range(0, len(query)):
             if query[i] != 0:  # "*" means all rows for that dimension, no processing required
                 if self.index.exists(i, query[i]):
-                    result = self.index.get_rows(i, query[i])
+                    sets.append(self.index.get_rows(i, query[i]))
                     first = i + 1
-                    break
-        if not result:
-            raise ValueError(f"Invalid query {query}. At least one dimension needs to be specified.")
-
-        # intersect with all other (relevant) dimensions
-        for i in range(first, len(query)):
-            if query[i] != 0:  # "*" means all rows for that dimension, no processing required
-                if self.index.exists(i, query[i]):
-                    result = result.intersection(self.index.get_rows(i, query[i]))
                 else:
                     # if the key is not available in the index then no records exist
                     return set([])  # an empty set
+        if not sets:
+            # todo: This is not an error! return all rows instead
+            raise ValueError(f"Invalid query {query}. At least one dimension needs to be specified.")
+
+        # execute intersection of sets
+        # order matters! order the sets by ascending number of items
+        seq = sorted(((len(s), i) for i, s in enumerate(sets)))
+        result = sets[seq[0][1]]
+        for i in range(1, len(seq)):
+            result = result.intersection(sets[seq[i][1]])
         return result
