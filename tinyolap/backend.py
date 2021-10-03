@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 from timeit import default_timer as timer
 from collections.abc import Iterable
-from tinyolap.exceptions import *
+from tinyolap.custom_exceptions import *
 
 # noinspection SqlNoDataSourceInspection
 class Backend:

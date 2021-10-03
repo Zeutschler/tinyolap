@@ -4,7 +4,8 @@ from typing import Tuple, Dict
 from collections.abc import Iterable
 
 import utils
-from tinyolap.exceptions import *
+from case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.custom_exceptions import *
 from cube import Cube
 from dimension import Dimension
 from backend import Backend
@@ -20,11 +21,13 @@ class Database:
     def __init__(self, name: str = None, in_memory: bool = False):
         if name != utils.to_valid_key(name):
             raise InvalidKeyException(f"'{name}' is not a valid database name. "
-                                      f"Lower case alphanumeric characters and underscore supported only, "
+                                      f"alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
 
-        self.dimensions: Dict[str, Dimension] = {}
-        self.cubes: Dict[str, Cube] = {}
+        # self.dimensions: Dict[str, Dimension] = {}
+        # self.cubes: Dict[str, Cube] = {}
+        self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
+        self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
         self.name: str = name
         self._in_memory = in_memory
         self._backend = Backend(name, self._in_memory)
@@ -73,7 +76,7 @@ class Database:
         :raises InvalidDimensionNameException: If the dimension name is invalid.
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
-        if name != utils.to_valid_key(name):
+        if not utils.is_valid_db_object_name(name):
             raise InvalidKeyException(f"'{name}' is not a valid dimension name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -120,7 +123,7 @@ class Database:
     # region Cube related methods
     def add_cube(self, name: str, dimensions: list, measures=None):
         # validate cube name
-        if not utils.is_valid_db_table_name(name):
+        if not utils.is_valid_db_object_name(name):
             raise CubeCreationException(f"Invalid cube name '{len(dimensions)}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
         # validate dimensions

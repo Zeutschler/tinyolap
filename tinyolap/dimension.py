@@ -2,7 +2,9 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 import collections.abc
-from exceptions import *
+
+from case_insensitive_dict import CaseInsensitiveDict
+from custom_exceptions import *
 import utils
 
 
@@ -52,9 +54,9 @@ class Dimension:
         NOT INTENDED FOR DIRECT USE! Cubes and dimensions always need to be managed by a Database.
         Use method 'Database.add_cube(...)' to create objects type Cube.
 
+        :param dim_creation_key:
         :param name:
-        :param dimensions:
-        :param measures:
+        :param description:
         """
         assert (dim_creation_key == Dimension.__magic_key), \
             "Objects of type Dimension can only be created through the method 'Database.add_dimension()'."
@@ -62,7 +64,8 @@ class Dimension:
         self.name: str = name.strip()
         self.description: str = description
         self.members: dict[int, dict] = {}
-        self.member_idx_lookup: dict[str, int] = {}
+        # self.member_idx_lookup: dict[str, int] = {}
+        self.member_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
         self.attributes = {}
         self.subsets = {}
         self.member_counter = 0

@@ -123,7 +123,7 @@ class Test(TestCase):
         # 5. read aggregated cell
         cube.caching = False
         addresses = [("Alle Jahre", "Abweichung", "Welt gesamt", "Produkte gesamt", "Jahr gesamt", "DB1", "value"),
-                     ("1994", "Ist", "Welt gesamt", "Produkte gesamt", "Jahr gesamt", "Umsatz", "value"),
+                     ("1994", "Ist", "Welt Gesamt", "Produkte gesamt", "Jahr gesamt", "Umsatz", "value"),
                      ("1994", "Ist", "Welt gesamt", "Produkte gesamt", "Januar", "Umsatz", "value"),
                      ("1994", "Ist", "USA", "Produkte gesamt", "Januar", "Umsatz", "value")]
 

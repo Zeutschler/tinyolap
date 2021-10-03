@@ -1,7 +1,7 @@
 import collections
 from collections.abc import Iterable, Sized
 
-from tinyolap.exceptions import *
+from tinyolap.custom_exceptions import *
 from tinyolap.fact_table import FactTable
 from tinyolap.rules import Rules
 from tinyolap.dimension import Dimension

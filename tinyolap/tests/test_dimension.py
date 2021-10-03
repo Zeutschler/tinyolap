@@ -1,7 +1,7 @@
 from unittest import TestCase
 from tinyolap.dimension import Dimension
 from tinyolap.database import Database
-from tinyolap.exceptions import *
+from tinyolap.custom_exceptions import *
 
 class TestDimension(TestCase):
     """Consistency Test for Dimension."""
