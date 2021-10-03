@@ -9,6 +9,7 @@ class Key(unittest.TestCase):
         self.lower = self.Key('a')
         self.upper = self.Key('A')
 
+
     def test_eq(self):
         self.assertEqual(self.lower, self.upper)
 
