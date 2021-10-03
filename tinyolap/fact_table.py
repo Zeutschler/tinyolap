@@ -69,10 +69,11 @@ class FactTable:
         sets = []  # an empty set
         result = set([])
         # get first relevant set
+        get_rows = self.index.get_rows
         for i in range(0, len(query)):
             if query[i] != 0:  # "*" means all rows for that dimension, no processing required
                 if self.index.exists(i, query[i]):
-                    sets.append(self.index.get_rows(i, query[i]))
+                    sets.append(get_rows(i, query[i]))
                     first = i + 1
                 else:
                     # if the key is not available in the index then no records exist

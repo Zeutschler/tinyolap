@@ -277,20 +277,24 @@ class Cube:
                         self._cache[bolt] = result
                     return result
 
+            # get records row ids for current cell address
             rows = self._fact_table.query(idx_address)
 
+            # aggregate records
+            f_get_value = self._fact_table.get_value_by_row  # make the call local
             if type(idx_measures) is int:
                 if not rows:
                     return 0.0
                 total = 0.0
                 for row in rows:
-                    value = self._fact_table.get_value_by_row(row, idx_measures)
+                    value = f_get_value(row, idx_measures)
                     if type(value) is float:
-                        # This type check allows to store any datatype in the cube and ignore empty cells.
                         total += value
-                    self._cell_requests += 1
+
+                self._cell_requests += len(rows)
                 if self._caching:
                     self._cache[bolt] = total  # save value to cache
+
                 return total
             else:
                 if not rows:
@@ -298,11 +302,11 @@ class Cube:
                 totals = [] * len(idx_measures)
                 for idx, idx_m in idx_measures:
                     for row in rows:
-                        value = self._fact_table.get_value_by_row(row, idx_m)
+                        value = f_get_value(row, idx_m)
                         if type(value) is float:
                             # This type check allows to store any datatype in the cube and ignore empty cells.
-                            totals[idx] += self._fact_table.get_value_by_row(row, idx_m)
-                        self._cell_requests += 1
+                            totals[idx] += value
+                self._cell_requests += len(rows) * len(idx_measures)
                 if self._caching:
                     self._cache[bolt] = totals  # save value to cache
                 return totals
