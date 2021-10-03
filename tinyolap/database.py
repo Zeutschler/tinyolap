@@ -10,15 +10,31 @@ from cube import Cube
 from dimension import Dimension
 from backend import Backend
 
-
 class Database:
     MIN_DIMS = 1
-    MAX_DIMS = 32  # Value can be changed. Please keep in mind, that SQLite by default supports
+    MAX_DIMS = 32  # This value can be changed. For the given purpose (planning), 32 is already too much.
     # max. 2000 columns and that dimensions and measure share the same space.
     # Note: 32 dimensions is already huge for model-driven OLAP databases.
     MAX_MEASURES = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS)
 
     def __init__(self, name: str = None, in_memory: bool = False):
+        """
+        Creates a new database or, if a database file with the same name already exists, opens an existing database.
+
+        The opening of an existing database will restore the state of the database either before the
+        last call of the ``.close()`` method or before the Database object was released the last time.
+
+        If a database file exists for the given database name and parameter `ìn-memory``wil be set to ``True`,
+        then the existing database file will not be opened, changed or overwritten.
+
+        :param name: Name of the database. Only alphanumeric characters and underscore are supported for database names
+        (no whitespaces or special characters).
+
+        :param in_memory: Identifies if the database should run in memory only (no persistence) or should persist
+        all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
+        given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
+        use the ``save()``method of the database object.
+        """
         if name != utils.to_valid_key(name):
             raise InvalidKeyException(f"'{name}' is not a valid database name. "
                                       f"alphanumeric characters and underscore supported only, "
@@ -33,19 +49,45 @@ class Database:
         self._backend = Backend(name, self._in_memory)
         self._database_file = self._backend.file_path
         self.__load()
+        self._caching = True
         self.file_path = self._backend.file_path
+
+    # region Properties
+    @property
+    def in_memory(self) -> bool:
+        """Identifies if the database is in-memory mode. Please note that the in-memory
+        property can not be changed after the initialization of a database object."""
+        return self._caching
+
+    @property
+    def caching(self) -> bool:
+        """Identifies if caching is activated for the database.
+        By default, caching is activated for all cubes.
+        Individual cubes might have a different caching setting."""
+        return self._caching
+
+    @caching.setter
+    def caching(self, value: bool):
+        """Identifies if caching is activated for the database.
+        By default, caching is activated for all cubes.
+        Changing this value will overwrite all individual cube settings."""
+        self._caching = value
+        for cube in self.cubes:
+            cube.caching = value
+
+    # endregion
 
     # region Database related methods
     def close(self):
         """Closes the database."""
         self._backend.close()
 
-    def delete(self, including_log_file=True):
-        """Deletes the database file, if it exists and the database is closed. Only of relevant if database
-        is not in in-memory mode, if ``in_memory`` argument of database.__init__(...) was either skipped
-        or set to ``False``.
-        :param including_log_file: If set to ``True``, also the database log file will be deleted, if such exits.
-            Default value is ``True``. Log files are also not available in in_memory mode.
+    def delete(self, delete_log_file_too=True):
+        """Deletes the database file, if such exists and the database is already closed.
+        The ``delete()`` command will be ignored if a database is in in-memory mode.
+        :param delete_log_file_too: If set to ``True``, also the database log file will be deleted, if such exits.
+            Default value is ``True``. Log files are not available if ``in_memory`` has been set to ``True`` on
+            database initialization.
         """
         if self._in_memory:
             return
@@ -61,7 +103,7 @@ class Database:
         except OSError as err:
             raise DatabaseFileException(f"Failed to delete database file. {str(err)}")
 
-        if including_log_file:
+        if delete_log_file_too:
             if not self._backend.delete_log_file():
                 raise DatabaseFileException(f"Failed to delete database log file.")
 
@@ -102,7 +144,7 @@ class Database:
         if name not in self.dimensions:
             raise KeyNotFoundException(f"A dimension named '{name}' does not exist.")
 
-        uses =[cube.name  for cube in self.cubes.values() if len([name in [dim.name for dim in cube.dimensions]])]
+        uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube.dimensions]])]
         if uses:
             raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                           f"and therefore can not be removed. Remove cubes first.")
@@ -124,8 +166,11 @@ class Database:
     def add_cube(self, name: str, dimensions: list, measures=None):
         # validate cube name
         if not utils.is_valid_db_object_name(name):
-            raise CubeCreationException(f"Invalid cube name '{len(dimensions)}'. Cube names must contain "
+            raise CubeCreationException(f"Invalid cube name '{name}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
+        if name in self.cubes:
+            raise DuplicateKeyException(f"A cube named '{name}' already exists.")
+
         # validate dimensions
         if not dimensions:
             raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
@@ -163,8 +208,10 @@ class Database:
                     if not utils.is_valid_member_name(m):
                         raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
                                                     f"Please refer the documentation for further details.")
-        # create the cube
+        # create and return the cube
         cube = Cube.create(self._backend, name, dims, measures)
+        cube.caching = self.caching
+        self.cubes[name] = cube
         return cube
 
     def set(self, cube: str, address: Tuple[str], measure: str, value: float):
@@ -190,11 +237,17 @@ class Database:
             json_string = dim[1]
             dimension.from_json(json_string)
 
-    def __remove_members(self, dimension, members):
+    def _remove_members(self, dimension, members):
         """Remove data for obsolete (deleted) members over all cubes.
         Formulas containing that member will get invalidated."""
-        for cube in self.cubes:
-            cube.__remove_members(dimension, members)
-        # todo: Invalidate rules containing obsolete members.
-        pass
+
+        # broadcast to all cubes...
+        for cube in self.cubes.values():
+            cube._remove_members(dimension, members)
+
+    def _flush_cache(self):
+        """Flushes all caches of all cubes"""
+        for cube in self.cubes.values():
+            cube._cache = {}
+
     # endregion

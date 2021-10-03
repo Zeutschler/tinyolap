@@ -3,43 +3,45 @@ from tinyolap.database import Database
 from pathlib import Path
 import time
 
-class Test(TestCase):
+
+class TestDatabasePersistence(TestCase):
 
     def setUp(self) -> None:
-        self.db = Database("dim_test")
-        self.db_im = Database("dim_test_im", in_memory=True)
-        self.db_name = "dimtest"
+        self.db_name = "test_database_persistence"
+        self.db = Database(self.db_name, in_memory=False)
 
     def tearDown(self) -> None:
         self.db.close()
         self.db.delete()
 
-    def test_database(self):
-        # self.fail()
-        pass
+    def test_Database_create(self):
 
-    def test_Database_create_and_delete(self):
+        dim_name1 = "foo"
+        members1 = ["a", "b", "c"]
+        dim_name2 = "bar"
+        members2 = ["a", "b", "c"]
+        cube = "cube"
 
-        dim_name = "years"
-        member_name = ["1999", "2000", "2001"]
-        remove_member_name = "2000"
-
-        # create and close database
+        # create database
         db = Database(self.db_name)
-        dim = db.add_dimension(dim_name)
-        dim.edit()
-        dim.add_member(member_name)
-        dim.commit()
+        dim1 = db.add_dimension(dim_name1).edit()
+        dim1.add_member(members1)
+        dim1.commit()
+        dim2 = db.add_dimension(dim_name2).edit()
+        dim2.add_member(members2)
+        dim2.commit()
+        # close database
         file_path = db.file_path
         db.close()
-
         # check if file exists
         self.assertEqual(Path(file_path).exists(), True, "Database file exists.")
 
-        # reopen the database
+        # (re)open the database
         db = Database(self.db_name)
-        self.assertEqual(True, db.dimension_exists(dim_name), f"Dimension '{dim_name}' exists.")
-        self.assertEqual(True, db.dimensions[dim_name].member_exists(member_name[0]),
+        self.assertEqual(True, db.dimension_exists(dim_name1), f"Dimension '{dim_name1}' exists.")
+        self.assertEqual(True, db.dimension_exists(dim_name2), f"Dimension '{dim_name2}' exists.")
+        self.assertEqual(True, db.dimension_count, f"Dimension '{dim_name2}' exists.")
+        self.assertEqual(True, db.dimensions[dim_name].member_exists(members[0]),
                          f"Dimension '{dim_name}' contains member '{member_name[0]}'.")
 
         # remove members
@@ -52,7 +54,7 @@ class Test(TestCase):
         self.assertEqual(True, db.dimensions[dim_name].member_exists(member_name[0]),
                          f"Dimension '{dim_name}' contains member '{member_name[0]}'.")
         self.assertNotEqual(True, db.dimensions[dim_name].member_exists(remove_member_name),
-                         f"Dimension '{dim_name}' does not contain member '{remove_member_name}'.")
+                            f"Dimension '{dim_name}' does not contain member '{remove_member_name}'.")
 
         # remove dimension
         db.dimension_remove(dim_name)

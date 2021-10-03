@@ -32,9 +32,9 @@ class Cube:
         self._name = name
         self._dim_count = len(dimensions)
         self.dimensions = dimensions
-        self._fact_table = FactTable(self._dim_count, self)
-        self._alias = {}
-        self._has_alias: bool = False
+        self._facts = FactTable(self._dim_count, self)
+        # self._alias = {}
+        # self._has_alias: bool = False
 
         if not measures:
             measures = ["value"]  # create a default measure if none is defined
@@ -132,11 +132,20 @@ class Cube:
         return self.dimensions[index]
 
     def get_dimension_ordinal(self, name: str):
-        """Returns the dimension defined for the given dimension index."""
+        """Returns the ordinal position of a dimension with the cube definition.
+        :return The ordinal position of the dimension, if the dimension is contained ones in the cube.
+                A list of ordinal positions if the dimension is contained multiple times in the cube.
+        """
+        ordinals = []
         for idx, dim_name in enumerate([dim.name for dim in self.dimensions]):
             if name == dim_name:
-                return idx
-        return -1
+                ordinals.append(idx)
+        if not ordinals:
+            return -1
+        if len(ordinals) == 1:
+            return ordinals[0]
+        return ordinals
+
 
     def get_dimension(self, name: str):
         """Returns the dimension defined for the given dimension index."""
@@ -260,10 +269,10 @@ class Cube:
             # todo: add Rules lookup
             if type(idx_measures) is int:
                 self._cell_requests += 1
-                return self._fact_table.get(idx_address, idx_measures)
+                return self._facts.get(idx_address, idx_measures)
             else:
                 self._cell_requests += len(idx_measures)
-                return [self._fact_table.get(idx_address, m) for m in idx_measures]
+                return [self._facts.get(idx_address, m) for m in idx_measures]
 
         else:  # aggregated cells
             if self._caching and bolt in self._cache:
@@ -278,10 +287,10 @@ class Cube:
                     return result
 
             # get records row ids for current cell address
-            rows = self._fact_table.query(idx_address)
+            rows = self._facts.query(idx_address)
 
             # aggregate records
-            f_get_value = self._fact_table.get_value_by_row  # make the call local
+            f_get_value = self._facts.get_value_by_row  # make the call local
             if type(idx_measures) is int:
                 if not rows:
                     return 0.0
@@ -320,15 +329,15 @@ class Cube:
 
         if super_level == 0:  # for base-level cells...
             if type(idx_measures) is int:
-                result = self._fact_table.set(idx_address, idx_measures, value)
+                result = self._facts.set(idx_address, idx_measures, value)
             elif isinstance(idx_measures, collections.abc.Sequence):
                 if isinstance(value, collections.abc.Sequence):
                     if len(idx_measures) != len(value):
                         raise InvalidKeyException(f"Arguments for write back not aligned. The numbers of measures "
                                                   f"and the numbers of values handed in need to be identical.")
-                    result = all([self._fact_table.set(idx_address, m, v) for m, v in zip(idx_measures, value)])
+                    result = all([self._facts.set(idx_address, m, v) for m, v in zip(idx_measures, value)])
                 else:
-                    result = all([self._fact_table.set(idx_address, m, value) for m in idx_measures])
+                    result = all([self._facts.set(idx_address, m, value) for m in idx_measures])
 
             #  ...check for base-level (push) rules to be executed
             if self._rules:
@@ -346,10 +355,10 @@ class Cube:
         # as this function is called through a weak reference.
         for d, idx_member in enumerate(address):
             for idx_parent in self.dimensions[d].members[address[d]][self.dimensions[d].ALL_PARENTS]:
-                if idx_parent in fact_table_index.index[d]:
-                    fact_table_index.index[d][idx_parent].add(row)
+                if idx_parent in fact_table_index._index[d]:
+                    fact_table_index._index[d][idx_parent].add(row)
                 else:
-                    fact_table_index.index[d][idx_parent] = {row}
+                    fact_table_index._index[d][idx_parent] = {row}
 
     def __validate_address(self, address: tuple, measure):
         """Validates a given address and measures and return the according indexes."""
@@ -378,5 +387,19 @@ class Cube:
             else:
                 raise ValueError(f"'{address[d]}' is not a member of dimension '{self.dimensions[d]._name}'.")
         return tuple(idx_address), super_level, idx_measure
+
+    def _remove_members(self, dimension, members):
+        """Removes members from indexes and data table"""
+        ordinal = self.get_dimension_ordinal(dimension.name)
+        if ordinal == -1:  # dimension is not contained in this cube
+            return
+
+        if type(ordinal) is int:
+            ordinal = [ordinal]
+
+        # clear fact table
+        for o in ordinal:
+            self._facts.remove_members(o, members)
+
 
     # endregion
