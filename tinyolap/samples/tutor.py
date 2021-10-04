@@ -3,10 +3,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+   Dimensions contain a flat or hierarchical list of :ref:`members <members>`.
+   Dimensions are used to define the axis of a multi-dimensional :ref:`cube <cubes>`.
+"""
+
 import os
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 
+class Tutor:
+    """lorem ipsum"""
+    pass
 
 def load():
     """
@@ -29,7 +37,7 @@ def load():
 
     # 0. setup some meta data needed to setup a tinyolap data model and
     # to import data
-    db_name = "tutor"
+    db_name = "tutor_files"
     cube_name = "verkauf"
     measures = ("value", "count")
     dimension_names = ["jahre", "datenart", "regionen", "produkte", "monate", "wertart"]
@@ -44,7 +52,7 @@ def load():
     # MONATE.TXT, WERTART.TXT
     dimensions = []
     for dim in dimension_names:
-        file_name = os.path.join(root_path, "samples", "tutor", dim.upper() + ".TXT")
+        file_name = os.path.join(root_path, "samples", "tutor_files", dim.upper() + ".TXT")
         # add a new dimension to the database
         dim = db.add_dimension(dim)
         # open the dimension for editing (adding or removing members)
@@ -88,7 +96,7 @@ def load():
     cube = db.add_cube(cube_name, dimensions, measures)
 
     # 4. Now it's time to import the data into the cube
-    file_name = os.path.join(root_path, "samples", "tutor", cube_name.upper() + ".TXT")
+    file_name = os.path.join(root_path, "samples", "tutor_files", cube_name.upper() + ".TXT")
     empty_rows = 0
     with open(file_name, encoding='latin-1') as file:
         while line := [t.strip() for t in file.readline().rstrip().split("\t")]:
@@ -116,7 +124,7 @@ def play(database: Database = load(), console_output: bool = True):
     so it may take a seconds or two before you see a report.
 
     :param console_output: Set to ``False``to suppress console output.
-    :param database: The tutor database generate with the ``load()`` function.
+    :param database: The tutor_files database generate with the ``load()`` function.
     """
     # 1. get the cube
     cube = database.cubes["verkauf"]
