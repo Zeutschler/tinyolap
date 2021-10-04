@@ -291,6 +291,7 @@ class Cube:
 
             # aggregate records
             f_get_value = self._facts.get_value_by_row  # make the call local
+            # addresses = self._facts.addresses
             if type(idx_measures) is int:
                 if not rows:
                     return 0.0
@@ -345,7 +346,7 @@ class Cube:
                 if success:
                     return success
 
-            return result
+            return True
         else:
             raise InvalidOperationException(f"Write back to aggregated cells in not (yet) supported.")
 

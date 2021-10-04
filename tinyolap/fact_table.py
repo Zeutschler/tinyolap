@@ -133,8 +133,9 @@ class FactTable:
             # todo: This is not an error! return all rows instead
             raise ValueError(f"Invalid query {query}. At least one dimension needs to be specified.")
 
-        # execute intersection of sets
-        # order matters! order the sets by ascending number of items
+        # Execute intersection of sets
+        # Order matters most!!! order the sets by ascending number of items, this greatly
+        # improves the performance of intersection operations.
         seq = sorted(((len(s), i) for i, s in enumerate(sets)))
         result = sets[seq[0][1]]
         for i in range(1, len(seq)):
