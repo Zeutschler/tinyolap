@@ -106,7 +106,7 @@ def load():
     return db
 
 
-def play(database: Database = load()):
+def play(database: Database = load(), console_output: bool = True):
     """ Demonstrates the usage TinyOlap and the Tutor database.
     It create and print some simple reports to the console.
 
@@ -115,6 +115,7 @@ def play(database: Database = load()):
     for you. Please be aware that ±9MB of text files need to be processed,
     so it may take a seconds or two before you see a report.
 
+    :param console_output: Set to ``False``to suppress console output.
     :param database: The tutor database generate with the ``load()`` function.
     """
     # 1. get the cube
@@ -131,7 +132,8 @@ def play(database: Database = load()):
     # The first cell request is a 'base level cell', it returns a
     # single value that is actually stored in the database.
     value = cube["1993", "Ist", "USA", "ProView VGA 12", "Januar", "Umsatz"]
-    print(f"verkauf:[('1993, 'Ist', 'USA', 'ProView VGA 12', 'Januar', 'Umsatz')] := {value}")
+    if console_output:
+        print(f"verkauf:[('1993, 'Ist', 'USA', 'ProView VGA 12', 'Januar', 'Umsatz')] := {value}")
 
     # The next 3 cell requests are addressing 'aggregated cells'.
     # They aggregate multiple 'base level cells', the first request
@@ -162,7 +164,9 @@ def play(database: Database = load()):
                                     {"dimension": "wertart", "member": "Umsatz"}],
                          "columns": [{"dimension": "jahre"}],
                          "rows":    [{"dimension": "monate"}]}
-    print(Slice(cube, report_definition))
+    report = Slice(cube, report_definition)
+    if console_output:
+        print(report)
 
     # You can even skip certain dimensions of the cube.
     # For these, the default member will be selected and
@@ -170,7 +174,9 @@ def play(database: Database = load()):
     # In addition, dimensions in rows and columns can be nested.
     report_definition = {"columns": [{"dimension": "wertart"}],
                          "rows":    [{"dimension": "jahre"}, {"dimension": "monate"}]}
-    print(Slice(cube, report_definition))
+    report = Slice(cube, report_definition)
+    if console_output:
+        print(report)
 
 
 def main():
