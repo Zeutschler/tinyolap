@@ -60,7 +60,7 @@ class Test(TestCase):
         # 1. read dimension
         start = time.time()
         for dim in dims:
-            file_name = os.path.join(root_path, "data", "alea_tutor", dim.upper() + ".TXT")
+            file_name = os.path.join(root_path, "samples", "tutor", dim.upper() + ".TXT")
             dim = db.add_dimension(dim)
             dim.edit()
             empty_rows = 0
@@ -101,7 +101,7 @@ class Test(TestCase):
 
         # 4. import data (first into an array)
         start = time.time()
-        file_name = os.path.join(root_path, "data", "alea_tutor", cube_name.upper() + ".TXT")
+        file_name = os.path.join(root_path, "samples", "tutor", cube_name.upper() + ".TXT")
         codec = 'latin-1'
         empty_rows = 0
         z = 0

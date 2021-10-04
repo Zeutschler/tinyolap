@@ -158,6 +158,7 @@ Table of Contents
    usage
    model_driven
    best_practise
+   samples
    databases
    cubes
    dimensions
