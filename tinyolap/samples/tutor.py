@@ -3,11 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""
-   Dimensions contain a flat or hierarchical list of :ref:`members <members>`.
-   Dimensions are used to define the axis of a multi-dimensional :ref:`cube <cubes>`.
-"""
-
 import os
 from tinyolap.database import Database
 from tinyolap.slice import Slice
@@ -37,7 +32,7 @@ def load():
 
     # 0. setup some meta data needed to setup a tinyolap data model and
     # to import data
-    db_name = "tutor_files"
+    db_name = "tutor"
     cube_name = "verkauf"
     measures = ("value", "count")
     dimension_names = ["jahre", "datenart", "regionen", "produkte", "monate", "wertart"]
@@ -124,7 +119,7 @@ def play(database: Database = load(), console_output: bool = True):
     so it may take a seconds or two before you see a report.
 
     :param console_output: Set to ``False``to suppress console output.
-    :param database: The tutor_files database generate with the ``load()`` function.
+    :param database: The Tutor database generate with the ``load()`` function.
     """
     # 1. get the cube
     cube = database.cubes["verkauf"]
