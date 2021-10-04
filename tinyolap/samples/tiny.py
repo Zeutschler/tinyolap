@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import itertools
-import os
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 from random import uniform, randrange
@@ -68,7 +67,7 @@ def load():
     dim_products.edit()
     dim_products.add_member("Total", ["cars", "trucks", "motorcycles"])
     dim_products.add_member("cars", ["coupe", "sedan", "sports", "van"])
-    dim_products.add_member("core business", ["sports", "motorcycles"])
+    dim_products.add_member("best sellers", ["sports", "motorcycles"])
     dim_products.commit()
 
     # Measures
@@ -143,7 +142,7 @@ def play(database: Database = load(), console_output: bool = True):
     # of the dimension will be selected and used.
     report_definition = {"header": [{"dimension": "years", "member": "2021"},
                                     {"dimension": "regions", "member": "Total"}],
-                         "columns": [{"dimension": "months"}],
+                         "columns": [{"dimension": "months", "member": ["Jan", "Feb", "Mar", "Q1", "Q2", "Year"]}],
                          "rows": [{"dimension": "products"}]}
     report = Slice(cube, report_definition)
     if console_output:
@@ -153,7 +152,9 @@ def play(database: Database = load(), console_output: bool = True):
     # For these, the default member will be selected and
     # they will be automatically added to the header.
     # In addition, dimensions in rows and columns can be nested.
-    report_definition = {"columns": [{"dimension": "months"}],
+    # And you can set a report title.
+    report_definition = {"title": "What a fancy report...",
+                         "columns": [{"dimension": "months", "member": ["Q1", "Q2", "Q3", "Q4", "Year"]}],
                          "rows": [{"dimension": "years"}, {"dimension": "regions"}]}
     report = Slice(cube, report_definition)
     if console_output:
@@ -175,7 +176,7 @@ def play(database: Database = load(), console_output: bool = True):
 
     # Lets print the same report again
     if console_output:
-        report = Slice(cube, report_definition)
+        report.refresh()
         print(report)
 
 

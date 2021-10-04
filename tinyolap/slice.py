@@ -391,6 +391,11 @@ class Slice:
         # print row headers and values
 
         cell_width = 12
+        row_header_width = 12
+
+        row_dims = len(self.grid[0][4])
+        col_dims = len(self.grid[0][3])
+
         text = "\n"
 
         # title
@@ -409,11 +414,9 @@ class Slice:
                 text += f"{member[2]} := {member[1]}\n"
 
         # col headers
-        row_dims = len(self.grid[0][4])
-        col_dims = len(self.grid[0][3])
         for c in range(col_dims):
             for r in range(row_dims):
-                text += " ".ljust(10)
+                text += " ".ljust(row_header_width)
             for i in range(self.grid_cols_count):
                 text += self.grid[i][3][c].center(cell_width)
             text += "\n"
@@ -427,7 +430,7 @@ class Slice:
                 if row > 0:
                     text += "\n"
                 for member in cell[4]:
-                    text += member.ljust(10)
+                    text += member.ljust(row_header_width)
             text += value
 
         return text
