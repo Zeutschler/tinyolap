@@ -390,6 +390,7 @@ class Slice:
         # print col headers
         # print row headers and values
 
+        cell_width = 12
         text = "\n"
 
         # title
@@ -414,14 +415,14 @@ class Slice:
             for r in range(row_dims):
                 text += " ".ljust(10)
             for i in range(self.grid_cols_count):
-                text += self.grid[i][3][c].center(8)
+                text += self.grid[i][3][c].center(cell_width)
             text += "\n"
 
         # row headers & cells
         for cell in self.grid:
             col = cell[0]
             row = cell[1]
-            value = f"{cell[2]:.2f}".rjust(8)
+            value = f"{cell[2]:.2f}".rjust(cell_width)
             if col == 0:
                 if row > 0:
                     text += "\n"
