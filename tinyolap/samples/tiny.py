@@ -114,12 +114,19 @@ def play(database: Database = load(), console_output: bool = True):
     if console_output:
         print(f'sales({["2021", "Jan", "North", "motorcycles", "Sales"]}) := {value}')
 
+    # You can also go through the database object, if this is more convenient for you
+    database["sales", "2021", "Jan", "North", "motorcycles", "Sales"] = 123.0
+    value = database["sales", "2021", "Jan", "North", "motorcycles", "Sales"]
+
     # You can also delete cell values, either by setting them to
     # ``None`` or by explicitly deleting them.
     cube["2022", "Jan", "North", "trucks", "Sales"] = 123.0
     # The following two statements are identical
     cube["2022", "Jan", "North", "trucks", "Sales"] = None
     del cube["2022", "Jan", "North", "trucks", "Sales"]
+
+
+
 
     # Another approach to read and write values is to use the the
     # ``set()`` and ``get()`` methods. The advantage of these

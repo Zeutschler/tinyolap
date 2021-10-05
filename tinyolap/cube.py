@@ -1,6 +1,8 @@
 import collections
 from collections.abc import Iterable, Sized
 
+from case_insensitive_dict import CaseInsensitiveDict
+from cursor import Cursor
 from tinyolap.custom_exceptions import *
 from tinyolap.fact_table import FactTable
 from tinyolap.rules import Rules
@@ -31,17 +33,20 @@ class Cube:
 
         self._name = name
         self._dim_count = len(dimensions)
-        self.dimensions = dimensions
+        self._dimensions = tuple(dimensions)
         self._facts = FactTable(self._dim_count, self)
         # self._alias = {}
         # self._has_alias: bool = False
 
+        # create a default-measure if none is defined
         if not measures:
-            measures = ["value"]  # create a default measure if none is defined
+            measures = ["value"]
         self._measures = {}
         for idx, measure in enumerate(measures):
             self._measures[measure] = idx
         self._default_measure = measures[0]
+
+        # initialize a default-measure if none is defined
 
         self._cell_requests = 0
         self._rules = Rules(self)
@@ -129,7 +134,7 @@ class Cube:
         """Returns a dimension from a cubes list of dimensions at the given index."""
         if (index < 0) or (index > self._dim_count):
             raise ValueError(f"Requested dimension index '{index}' is out of range [{0}, {self._dim_count}].")
-        return self.dimensions[index]
+        return self._dimensions[index]
 
     def get_dimension_ordinal(self, name: str):
         """Returns the ordinal position of a dimension with the cube definition.
@@ -137,7 +142,7 @@ class Cube:
                 A list of ordinal positions if the dimension is contained multiple times in the cube.
         """
         ordinals = []
-        for idx, dim_name in enumerate([dim.name for dim in self.dimensions]):
+        for idx, dim_name in enumerate([dim.name for dim in self._dimensions]):
             if name == dim_name:
                 ordinals.append(idx)
         if not ordinals:
@@ -149,7 +154,7 @@ class Cube:
 
     def get_dimension(self, name: str):
         """Returns the dimension defined for the given dimension index."""
-        result = [dim for dim in self.dimensions if dim.name == name]
+        result = [dim for dim in self._dimensions if dim.name == name]
         if not result:
             raise ValueError(f"Requested dimension '{name}' is not a dimension of cube {self.name}.")
         return result[0]
@@ -159,43 +164,15 @@ class Cube:
     # region Cell access via indexing
     def __getitem__(self, item):
         bolt = self.__to_bolt(item)
-        return self.__get(bolt)
-
-    def __getitem_old__(self, item):
-        if isinstance(item, Sized):
-            if len(item) < self._dim_count:
-                raise InvalidKeyException(f"Invalid cube cell index, at least {self._dim_count} index items "
-                                          f"expected, but only {len(item)} found.")
-            address = tuple(item[:self._dim_count])
-            measures = tuple(item[self._dim_count:])
-        elif type(item) is str:
-            address = tuple(item)
-            measures = ()
-        else:
-            raise InvalidKeyException(f"Invalid cube cell index '{str(item)}.")
-        return self.get(address, measures)
+        return self._get(bolt)
 
     def __setitem__(self, item, value):
         bolt = self.__to_bolt(item)
-        self.__set(bolt, value)
-
-    def __setitem_old__(self, item, value):
-        if isinstance(item, Sized):
-            if len(item) < self._dim_count:
-                raise InvalidKeyException(f"Invalid cube cell index, at least {self._dim_count} index items "
-                                          f"expected, but only {len(item)} found.")
-            address = tuple(item[:self._dim_count])
-            measures = tuple(item[self._dim_count:])
-        elif type(item) is str:
-            address = tuple(item)
-            measures = ()
-        else:
-            raise InvalidKeyException(f"Invalid cube cell index '{str(item)}.")
-        self.set(address, measures, value)
+        self._set(bolt, value)
 
     def __delitem__(self, item):
         bolt = self.__to_bolt(item)
-        self.__set(bolt, None)
+        self._set(bolt, None)
 
     # endregion
 
@@ -217,18 +194,18 @@ class Cube:
         dim_count = self._dim_count
         measures_count = len(keys) - dim_count
         if measures_count < 0:
-            raise InvalidKeyException(f"Invalid address. At least {self._dim_count} members expected "
+            raise InvalidCellAddressException(f"Invalid address. At least {self._dim_count} members expected "
                                       f"for cube '{self._name}, but only {len(keys)} where passed in.")
         # Validate members
         idx_address = [None] * dim_count
         super_level = 0
         for i, member in enumerate(keys[: dim_count]):
-            if member in self.dimensions[i].member_idx_lookup:
-                idx_address[i] = self.dimensions[i].member_idx_lookup[member]
-                super_level += self.dimensions[i].members[idx_address[i]][self.dimensions[i].LEVEL]
+            if member in self._dimensions[i].member_idx_lookup:
+                idx_address[i] = self._dimensions[i].member_idx_lookup[member]
+                super_level += self._dimensions[i].members[idx_address[i]][self._dimensions[i].LEVEL]
             else:
-                raise ValueError(f"Invalid address. '{member}' is not a member of the {i}. "
-                                 f"dimension '{self.dimensions[i].name}' in cube {self._name}.")
+                raise InvalidCellAddressException(f"Invalid address. '{member}' is not a member of the {i}. "
+                                 f"dimension '{self._dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
         # validate measures (if defined)
@@ -238,7 +215,7 @@ class Cube:
             idx_measures = []
             for measure in keys[self._dim_count:]:
                 if measure not in self._measures:
-                    raise ValueError(f"'{measure}' is not a measure of cube '{self.name}'.")
+                    raise InvalidCellAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
                 idx_measures.append(self._measures[measure])
             if measures_count == 1:
                 idx_measures = idx_measures[0]
@@ -253,14 +230,14 @@ class Cube:
         :raises InvalidKeyException:
         """
         bolt = self.__to_bolt(address)
-        return self.__get(bolt)
+        return self._get(bolt)
 
     def set(self, address: tuple, value):
         """Writes a value to the cube for the given bolt (address and measures)."""
         bolt = self.__to_bolt(address)
-        return self.__set(bolt, value)
+        return self._set(bolt, value)
 
-    def __get(self, bolt):
+    def _get(self, bolt):
         """Returns a value from the cube for a given address and measure.
         If no records exist for the given address, then 0.0 will be returned."""
 
@@ -321,7 +298,7 @@ class Cube:
                     self._cache[bolt] = totals  # save value to cache
                 return totals
 
-    def __set(self, bolt, value):
+    def _set(self, bolt, value):
         """Writes a value to the cube for the given bolt (address and measures)."""
         if self._caching and self._cache:
             self._cache = {}  # clear the cache
@@ -355,13 +332,13 @@ class Cube:
         # please note that a '__' name prefix is not possible
         # as this function is called through a weak reference.
         for d, idx_member in enumerate(address):
-            for idx_parent in self.dimensions[d].members[address[d]][self.dimensions[d].ALL_PARENTS]:
+            for idx_parent in self._dimensions[d].members[address[d]][self._dimensions[d].ALL_PARENTS]:
                 if idx_parent in fact_table_index._index[d]:
                     fact_table_index._index[d][idx_parent].add(row)
                 else:
                     fact_table_index._index[d][idx_parent] = {row}
 
-    def __validate_address(self, address: tuple, measure):
+    def _validate_address(self, address: tuple, measure):
         """Validates a given address and measures and return the according indexes."""
         if type(measure) is str:
             if measure not in self._measures:
@@ -382,11 +359,11 @@ class Cube:
         idx_address = list(range(0, self._dim_count))
         super_level = 0
         for d in range(0, self._dim_count):
-            if address[d] in self.dimensions[d].member_idx_lookup:
-                idx_address[d] = self.dimensions[d].member_idx_lookup[address[d]]
-                super_level += self.dimensions[d].members[idx_address[d]][self.dimensions[d].LEVEL]
+            if address[d] in self._dimensions[d].member_idx_lookup:
+                idx_address[d] = self._dimensions[d].member_idx_lookup[address[d]]
+                super_level += self._dimensions[d].members[idx_address[d]][self._dimensions[d].LEVEL]
             else:
-                raise ValueError(f"'{address[d]}' is not a member of dimension '{self.dimensions[d]._name}'.")
+                raise ValueError(f"'{address[d]}' is not a member of dimension '{self._dimensions[d]._name}'.")
         return tuple(idx_address), super_level, idx_measure
 
     def _remove_members(self, dimension, members):
@@ -401,6 +378,10 @@ class Cube:
         # clear fact table
         for o in ordinal:
             self._facts.remove_members(o, members)
-
-
     # endregion
+
+    def create_cursor(self, *args) -> Cursor:
+        """Create a Cursor for the Cube."""
+        bolt = self.__to_bolt(args)
+        dim_names = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(self._dimensions)])
+        return Cursor.create(self, dim_names, args, bolt)

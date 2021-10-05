@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 
-from tinyolap.old.database import Database
+from database import Database
 from errorhandling import Errors
 
 

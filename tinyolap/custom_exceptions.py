@@ -3,6 +3,11 @@ class TinyOlapException(Exception):
     pass
 
 
+class InvalidCellAddressException (TinyOlapException):
+    """Raised when an invalid cube cell address is detected."""
+    pass
+
+
 class InvalidOperationException (TinyOlapException):
     """Raised when the invalid operation on a database object is executed."""
     pass

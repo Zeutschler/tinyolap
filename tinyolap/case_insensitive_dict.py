@@ -12,10 +12,11 @@ class CaseInsensitiveDict(dict):
 
     def __init__(self, data=None):
         super(CaseInsensitiveDict, self).__init__()
-        if data is None:
+        if not data :
             data = {}
-        for key, val in data.items():
-            self[key] = val
+        else:
+            for key, val in data:
+                self[key] = val
 
     def __contains__(self, key):
         key = self.Key(key)

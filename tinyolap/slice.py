@@ -85,10 +85,44 @@ class Slice:
         self.__prepare()
         self.refresh()
 
+    def _experimental_refresh_grid(self, parallel_execution=True):
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+        from time import time
+
+        results = list()
+        addresses = [tuple(arg[5]) + (arg[6],) for arg in self.grid]
+        start = time()
+        if parallel_execution:
+            # duration, results = report._experimental_refresh_grid(False)
+            # duration, results = report._experimental_refresh_grid(False)
+            # print(f"Non-parallel execution (for arg in grid  loop) of slice refresh in {duration:.4} sec.")
+            # duration, results = report._experimental_refresh_grid(True)
+            # print(f"Parallel execution (using ProcessPoolExecutor) of slice refresh in {duration:.4} sec.")
+
+            # finding: NOT suitable for stateful processing. ERROR on weakref serialization via pickle
+            #          This tries to replicate the entire database in multiple other process rooms. HORROR!
+            # with ProcessPoolExecutor() as executor:
+
+            # finding: NOT faster then non-parallel execution
+            with ThreadPoolExecutor() as executor:
+                for result in executor.map(self._experimental_refresh_grid_cell, addresses):
+                    # put results into correct output list:
+                    results.append(result)
+        else:
+            for address in addresses:
+                results.append(self._experimental_refresh_grid_cell(address))
+        return time() - start,  results
+
+    def _experimental_refresh_grid_cell(self, address):
+        # arg := [col, row, value, col_members, row_members, address, measure]
+        value = self.cube.get(address)
+        return value
+
+
     def refresh(self):
         """Refreshes the data defined by the slice. Only required when data has changed since the creation
         of the Slice or since the last to 'refresh()'."""
-        dim_count = len(self.cube.dimensions)
+        dim_count = len(self.cube._dimensions)
         address = [""] * dim_count
         measure = ""
         grid = []
@@ -102,61 +136,36 @@ class Slice:
                 address[dim_ordinal] = member[1]
 
         # iterate over columns and rows
-        if False:
+        row = 0
+        col_members = []
+        row_members = []
+        for row_member_set in self.axis[2]:
+            row_members = []
+            for row_member in row_member_set:
+                dim_ordinal = row_member[0]
+                row_members.append(row_member[1])
+                if dim_ordinal == -1:
+                    measure = row_member[1]
+                else:
+                    address[dim_ordinal] = row_member[1]
+
             col = 0
             for col_member_set in self.axis[1]:
+                col_members = []
                 for col_member in col_member_set:
                     dim_ordinal = col_member[0]
+                    col_members.append(col_member[1])
                     if dim_ordinal == -1:
                         measure = col_member[1]
                     else:
                         address[dim_ordinal] = col_member[1]
-            row = 0
-            for row_member_set in self.axis[2]:
-                for row_member in row_member_set:
-                    dim_ordinal = row_member[0]
-                    if dim_ordinal == -1:
-                        measure = row_member[1]
-                    else:
-                        address[dim_ordinal] = row_member[1]
 
                 # now we have a valid address to be evaluated
-                value = self.cube.get(address, measure)
-                grid.append([col, row, value, address, measure])
+                value = self.cube.get(tuple(address) + (measure,))
+                grid.append([col, row, value, col_members, row_members, tuple(address), measure])
 
-                row += 1
-            col += 1
-        else:
-            row = 0
-            col_members = []
-            row_members = []
-            for row_member_set in self.axis[2]:
-                row_members = []
-                for row_member in row_member_set:
-                    dim_ordinal = row_member[0]
-                    row_members.append(row_member[1])
-                    if dim_ordinal == -1:
-                        measure = row_member[1]
-                    else:
-                        address[dim_ordinal] = row_member[1]
-
-                col = 0
-                for col_member_set in self.axis[1]:
-                    col_members = []
-                    for col_member in col_member_set:
-                        dim_ordinal = col_member[0]
-                        col_members.append(col_member[1])
-                        if dim_ordinal == -1:
-                            measure = col_member[1]
-                        else:
-                            address[dim_ordinal] = col_member[1]
-
-                    # now we have a valid address to be evaluated
-                    value = self.cube.get(tuple(address) + (measure,))
-                    grid.append([col, row, value, col_members, row_members,address, measure])
-
-                    col += 1
-                row += 1
+                col += 1
+            row += 1
 
         self.grid = grid
         self.grid_cols_count = len(self.axis[1])
@@ -168,7 +177,7 @@ class Slice:
     def __validate(self):
         """Validates the definition and adds missing information"""
 
-        self.dimensions = {dim.name: False for dim in self.cube.dimensions}
+        self.dimensions = {dim.name: False for dim in self.cube._dimensions}
 
         # 1. add title and description is missing
         if "title" not in self.definition:

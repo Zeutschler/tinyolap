@@ -109,6 +109,21 @@ class Database:
 
     # endregion
 
+    # region Cell access via indexing
+    def __getitem__(self, item):
+        cube = self.cubes[item[0]]
+        return cube.get(item[1:])
+
+    def __setitem__(self, item, value):
+        cube = self.cubes[item[0]]
+        cube.set(item[1:], value)
+
+    def __delitem__(self, item):
+        cube = self.cubes[item[0]]
+        cube.set(item[1:], None)
+
+    # endregion
+
     # region Dimension related methods
     def add_dimension(self, name: str, description: str = None) -> Dimension:
         """Adds a new dimension to the database.
@@ -144,7 +159,7 @@ class Database:
         if name not in self.dimensions:
             raise KeyNotFoundException(f"A dimension named '{name}' does not exist.")
 
-        uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube.dimensions]])]
+        uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
             raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                           f"and therefore can not be removed. Remove cubes first.")
