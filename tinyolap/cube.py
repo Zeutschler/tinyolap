@@ -34,6 +34,7 @@ class Cube:
         self._name = name
         self._dim_count = len(dimensions)
         self._dimensions = tuple(dimensions)
+        self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(dimensions)])
         self._facts = FactTable(self._dim_count, self)
         # self._alias = {}
         # self._has_alias: bool = False
@@ -161,7 +162,7 @@ class Cube:
 
     # endregion
 
-    # region Cell access via indexing
+    # region Cell access via indexing/slicing
     def __getitem__(self, item):
         bolt = self.__to_bolt(item)
         return self._get(bolt)

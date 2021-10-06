@@ -25,8 +25,29 @@ class TestCursor(TestCase):
         a.value = 2.0
         b.value = 123.0
 
-        c = a.alter(("months", "Feb"))
-        value_c = c
+        c = a.alter("Feb")  # c now point the same cell address for "Feb" as b. They do the same thing.
+        self.assertEqual(b, c)
+
+        # IMPORTANT: 'c' still points to the "Feb" cell address.
+        # Using slicers is just temporary shift of the cell address.
+        c["Mar"] = 333.0
+        c["months:Mar"] = 333.0  # save method to not stumble over duplicate member names in different dimensions
+        c["1:Mar"] = 333.0       # an even saver method, 0 ... [dims-1] use this if cubes contain 1 dimension multiple times.
+        value = c["Mar"]
+        self.assertEqual(c, b)   # still, c will return 123.0
+
+        # Member object
+        april = c.create_member("Apr")
+        c[april] = 42
+        c[april.move_first()] = 42  # move first should return a member for 'Jan'
+        self.assertEqual("months", april.dimension.name)   # still, c will return 123.0
+        self.assertEqual("Apr", april)   # still, c will return 123.0
+        self.assertEqual("Apr", april.name)   # still, c will return 123.0
+        self.assertEqual("months:Apr", april.full_name)   # still, c will return 123.0
+
+
+        c.value = 987.0  # sets a new value to "Feb", so b will show the same result,
+        self.assertEqual(c, b)
 
 
     def test_value(self):
