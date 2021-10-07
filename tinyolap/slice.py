@@ -434,7 +434,13 @@ class Slice:
         for cell in self.grid:
             col = cell[0]
             row = cell[1]
-            value = f"{cell[2]:.2f}".rjust(cell_width)
+            if type(cell[2]) is float:
+                value = f"{cell[2]:.2f}".rjust(cell_width)
+            elif cell[2] is None:
+                value = f"-".rjust(cell_width)
+            else:
+                value = f"{str(cell[2])}".rjust(cell_width)
+
             if col == 0:
                 if row > 0:
                     text += "\n"

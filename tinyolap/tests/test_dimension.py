@@ -3,6 +3,7 @@ from tinyolap.dimension import Dimension
 from tinyolap.database import Database
 from tinyolap.custom_exceptions import *
 
+
 class TestDimension(TestCase):
     """Consistency Test for Dimension."""
     pass
@@ -46,8 +47,6 @@ class TestDimension(TestCase):
         # todo: Implement test
         self.assertTrue(False, msg="test not implemented")
 
-
-
     def test_flat_dimension(self):
         members = [f"member_{i:03d}" for i in range(100)]
         parents = []
@@ -55,21 +54,21 @@ class TestDimension(TestCase):
         dim = self.db.add_dimension("flat_dimension").edit()
         for member in members:
             dim.add_member(member)
-        self.execute_dimension_test(dim, members, parents, root_members)
         dim.commit()
+        self.execute_dimension_test(dim, members, parents, root_members)
 
     def test_hierarchical_dimension(self):
         members = [f"member_{i:03d}" for i in range(100)]
         parents = [f"parent_{i:03d}" for i in range(10)]
         root_members = ["total"]
-        dim = self.db.add_dimension("SomeDimension")
+        dim = self.db.add_dimension("SomeDimension").edit()
         for index, member in enumerate(members):
             parent = f"parent_{(index % 10):03d}"
             dim.add_member(member, parent, f"Description for {member}")
         for parent in parents:
             dim.add_member(parent, root_members[0], f"Description for {parent}")
         parents = parents + root_members
-
+        dim.commit()
         self.execute_dimension_test(dim, members, parents, root_members)
 
     def execute_dimension_test(self, dim, members, parents, root_members):

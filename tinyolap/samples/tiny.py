@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import itertools
+import math
+
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 from random import uniform, randrange
@@ -82,16 +84,11 @@ def load():
 
 
 def play(database: Database = load(), console_output: bool = True):
-    """ Demonstrates the usage TinyOlap and the Tutor database.
-    It create and print some simple reports to the console.
-
-    Either hand in an existing instance of the Tutor database generate
-    by the ``load()`` function, or let the ``play()`` function do this
-    for you. Please be aware that ±9MB of text files need to be processed,
-    so it may take a seconds or two before you see a report.
+    """ Demonstrates the usage TinyOlap and the Tiny database.
+    It creates and print some simple reports to the console.
 
     :param console_output: Set to ``False``to suppress console output.
-    :param database: The Tutor database generate with the ``load()`` function.
+    :param database: The Tiny database generate by the ``load()`` function.
     """
     # 1. get the cube
     cube = database.cubes["sales"]
@@ -179,7 +176,7 @@ def play(database: Database = load(), console_output: bool = True):
                                         ("Sales", "Cost")
                                        )
     for address in addresses:
-        cube.set(address, float(randrange(50, 1000)))
+        cube.set(address, float(randrange(5, 100)))
 
     # Lets print the same report again
     if console_output:
@@ -187,8 +184,111 @@ def play(database: Database = load(), console_output: bool = True):
         print(report)
 
 
+def play_advanced_business_logic(database: Database = load(), console_output: bool = False):
+    """ Demonstrates the implementation of advanced business logic in TinyOlap.
+    :param console_output: Set to ``False``to suppress console output.
+    :param database: The Tiny database generate by the ``load()`` function.
+    """
+    cube = database.cubes["sales"]
+
+    # 1. Lets fill the entire cube with random numbers.
+    #   For the Tiny database this will creates 3 * 12 * 4 * 6 * 2 = 1,728 unique addressable cube cells.
+    #   including all aggregations, we'll get 4 * 17 * 5 * 9 * 2 = 6,120 unique addressable cube cells.
+    addresses = itertools.product(("2021", "2022", "2023"),
+                                  ("Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+                                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+                                  ("North", "South", "West", "East"),
+                                  ("trucks", "motorcycles", "coupe", "sedan", "sports", "van"),
+                                  ("Sales", "Cost"))
+    for address in addresses:
+        cube.set(address, float(randrange(5, 100)))
+
+    # *************************************************************************
+    # 2. Lets create a Cursor and see how it basically works
+    c = cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
+
+    # Cursors behave (more or less) like float values,
+    # ...but on direct assignment you need to be a bit careful:
+    a = c.value    # as 'a = c' would only copy the reference to the Cursor object,
+                   # so we need to explicitly ask for .value
+    a = float(c)   # ...would be an alternative approach to ask for the numeric value of 'c'
+    a = c.numeric_value   # ...or this, in order to be sure to strictly get the numerical value.
+                          # 'c.value' will return whatever is in the database. 'c.numeric_value' converts it to float.
+
+    # Once you start to do math, you are fine and can do almost anything e.g.:
+    a = c * 2.0
+    a = math.sin(c)
+    a = math.sqrt(a + c ** 2)  # ...or whatever you want to do
+
+    # Write back to the database is also straight forward. Just
+    c.value = round(abs(math.sin(c)), 3) * 100.0
+
+    # *************************************************************************
+    # 3. Lets assume you want another cursor, closely related to the one we have already created.
+    # "we want the 'Feb' value. You can either create another cursor as show above...
+    d = cube.create_cursor("2022", "Feb", "North", "trucks", "Sales")
+    # ...or you can just 'shift' your cursor TEMPORARILY to another cell address, by defining what should change.
+    # This will NOT change the cursor from 'Jan' to 'Feb', it will just return the value for 'Feb' and will then
+    # forget about that.
+    d = c["Feb"]
+    # Another advantage as this approach using indexing/slicing is the fact that you can
+    # directly write back to the database using the same syntax.
+    c["Feb"] = d * 2.0
+
+    # RECOMMENDATION: Even if you want to access 'Jan'(what is defined by the cursor itself),
+    #                 it is good practice to ALWAYS use slicers, even is you don need to.
+    #                 This greatly improves the readability and consistency of your code.
+    # Both of the follwong staments are identical:
+    q1 = c + c["Feb"] + c["Mar"]         # Who knows what 'c' is about?
+    q1 = c["Jan"] + c["Feb"] + c["Mar"]  # THIS IS GOOD PRACTISE !!!
+
+    # Let's see what else we can do...
+    if c["Q1"] != c["Jan"] + c["Feb"] + c["Mar"]:
+        print("This should never be printed, as Q1 is the parent member for Jan, Feb and Mar.")
+
+    # You can also shift multiple dimensions.
+    # The order of dimensions doesn't matter, they get automatically sorted.
+    delta_prev_year = c["Q1"] - c["Q1", "2021"]
+    delta_prev_year_in_percent = round(delta_prev_year / c["Q1", "2021"] * 100.0, 2)
+
+    # Or you can build whatever ratios you want...
+    sport_cars_in_percent = c["sports"] / c["Total"] * 100.0
+    # ALARM !!!! WARNING !!!! ERROR !!!!
+    # Here we might run into a problem: while 'sports' is a unique member key over all dimensions
+    # of the cube, the member 'Total' is not. 'Total' is defined for two dimensions, for 'products'
+    # and 'regions' dimension.
+    # WARNING: You have no guarantee and control on what dimension the cursor will actually modify.
+
+    # But the solution to this problem is very easy, you just need to explicitly hand in the dimension name...
+    #   cursor[dimension_name:member_name]
+    # BRAVO !!! Now your save, at least almost...
+    sport_cars_in_percent = c["sports"] / c["products:Total"] * 100.0
+
+    # *************************************************************************
+    # 4. Let's get down to business.
+    # When you'll build a lot of business logic, often with dedicated functions
+    # or classes (e.g. for calculation an amortization or a forecast using ML,
+    # or to read/write data from a web service, a database or an ERP system),
+    # THEN the above 'manual' approach of doing calculations might get complex.
+    #
+    # The best way is to further encapsulate and reuse your business logic.
+    # One solution is to define lambda functions like this...
+
+    sport_cars_in_percent = lambda x: x["products:sports"] / x["products:Total"] * 100.0
+    # Now you can reuse this function for whatever cursor you like:
+    kpi = sport_cars_in_percent(c)
+
+
+
+
+
+
+
+
+
 def main():
     play()
+    play_advanced_business_logic()
 
 
 if __name__ == "__main__":

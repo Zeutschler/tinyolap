@@ -1,10 +1,21 @@
 import os
 from typing import Dict
+import functools
 
 from database import Database
 from errorhandling import Errors
 
 
+# def singleton(cls):
+#     """Make a class a Singleton class (only one instance)"""
+#     @functools.wraps(cls)
+#     def wrapper_singleton(*args, **kwargs):
+#         if not wrapper_singleton.instance:
+#             wrapper_singleton.instance = cls(*args, **kwargs)
+#         return wrapper_singleton.instance
+#     wrapper_singleton.instance = None
+#     return wrapper_singleton
+# @singleton
 class Server:
     """
     Represents a TinyOlap server instance serving one or more databases.
@@ -49,7 +60,7 @@ class Server:
         self.databases[database.name] = database
         return True
 
-    def create_database(self, name):
+    def create_database(self, name: str, in_memory: bool =True):
         """
         Creates a new database in the default database folder.
 
@@ -58,11 +69,13 @@ class Server:
         name : str
             The name of the database. Special characters are not supported for databse names.
         """
-        database = Database(self, name)
-        if database.create(name):
+        if not name in self.databases:
+            database = Database(name, in_memory)
             self.databases[database.name] = database
             return database
-        return False
+        else:
+            raise KeyError(f"Database '{name}' already exists.")
+
 
     def delete_database(self):
         """Deletes a database from the filesystem. Handle with care."""
@@ -89,3 +102,13 @@ class Server:
             if file.lower().endswith(Server.DB_FILE_EXT):
                 files.append(os.path.join(database_directory, file))
         return files
+
+    # region functions
+    def _register(self, func, database: str, cube: str, pattern: list[str]):
+        if database not in self.databases:
+            raise KeyError(f"Database '{database}' not found.")
+        if cube not in self.databases[database].cubes:
+            raise KeyError(f"Cube '{cube}' of database '{database}' not found.")
+        self.databases[database].cubes[cube]._register(func, pattern)
+
+    # endregion

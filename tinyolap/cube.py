@@ -5,8 +5,8 @@ from case_insensitive_dict import CaseInsensitiveDict
 from cursor import Cursor
 from tinyolap.custom_exceptions import *
 from tinyolap.fact_table import FactTable
-from tinyolap.rules import Rules
 from tinyolap.dimension import Dimension
+from tinyolap.functions import Functions
 
 class Cube:
     """Represents a multi-dimensional table."""
@@ -34,8 +34,10 @@ class Cube:
         self._name = name
         self._dim_count = len(dimensions)
         self._dimensions = tuple(dimensions)
+        self._dim_names = []
         self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(dimensions)])
         self._facts = FactTable(self._dim_count, self)
+        self._functions = Functions()
         # self._alias = {}
         # self._has_alias: bool = False
 
@@ -50,9 +52,14 @@ class Cube:
         # initialize a default-measure if none is defined
 
         self._cell_requests = 0
-        self._rules = Rules(self)
         self._caching = True
         self._cache = {}
+
+    def __str__(self):
+        return f"cube '{self.name}'"
+
+    def __repr__(self):
+        return f"cube '{self.name}'"
 
     # region Properties
     @property
@@ -113,16 +120,6 @@ class Cube:
     def measures(self) -> list[str]:
         """Returns the list of measures of a cube."""
         return [str(self._measures.keys())]
-
-    # endregion
-
-    # region Cube Formulas and Constraints
-    def add_formula(self, formula: str) -> (bool, str):
-        """Adds a new mathematical formula for measure calculations to the Cube. The methods returns a boolean value
-        and string message. If the formula was successfully added to the Cube, then the values <True> and <None>
-        will be return, on failure the value <False> and an error message will be returned.
-        """
-        return self._rules.add(formula)
 
     # endregion
 
@@ -241,10 +238,18 @@ class Cube:
     def _get(self, bolt):
         """Returns a value from the cube for a given address and measure.
         If no records exist for the given address, then 0.0 will be returned."""
-
         (super_level, idx_address, idx_measures) = bolt
+
+        if self._functions.any:
+            found, func = self._functions.match(idx_address)
+            if found:
+                cursor = self._create_cursor_from_bolt(None, (super_level, idx_address, idx_measures))
+                try:
+                    return func(cursor)
+                except Exception as e:
+                    raise CubeFormulaException(f"Function {func.__name__} failed. {str(e)}")
+
         if super_level == 0:  # base-level cells
-            # todo: add Rules lookup
             if type(idx_measures) is int:
                 self._cell_requests += 1
                 return self._facts.get(idx_address, idx_measures)
@@ -256,13 +261,6 @@ class Cube:
             if self._caching and bolt in self._cache:
                 self._cell_requests += 1
                 return self._cache[bolt]
-
-            if self._rules:
-                success, result = self._rules.on_get(super_level, idx_address, idx_measures)
-                if success:
-                    if self._caching:
-                        self._cache[bolt] = result
-                    return result
 
             # get records row ids for current cell address
             rows = self._facts.query(idx_address)
@@ -319,10 +317,11 @@ class Cube:
                     result = all([self._facts.set(idx_address, m, value) for m in idx_measures])
 
             #  ...check for base-level (push) rules to be executed
-            if self._rules:
-                success = self._rules.on_set(super_level, idx_address, idx_measures, value)
-                if success:
-                    return success
+            # todo: Add push rules
+            # if self._rules:
+            #     success = self._rules.on_set(super_level, idx_address, idx_measures, value)
+            #     if success:
+            #         return success
 
             return True
         else:
@@ -383,6 +382,37 @@ class Cube:
 
     def create_cursor(self, *args) -> Cursor:
         """Create a Cursor for the Cube."""
-        bolt = self.__to_bolt(args)
-        dim_names = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(self._dimensions)])
-        return Cursor.create(self, dim_names, args, bolt)
+        return Cursor.create(self, self._dim_lookup, args, self.__to_bolt(args))
+
+    def _create_cursor_from_bolt(self, address, bolt) -> Cursor:
+        """Create a Cursor for the Cube directly from an existing bolt."""
+        return Cursor.create(self, self._dim_lookup, address, bolt)
+
+    def _get_default_cell_address(self):
+        address = []
+        for dim in self._dimensions:
+            keys = list(dim.member_idx_lookup.keys())
+            address.append(keys[0])
+        return tuple(address)
+
+    # region Functions
+    def _register(self, func, pattern: list[str]):
+        address = self._get_default_cell_address()
+        c = self._create_cursor_from_bolt(address, self.__to_bolt(address))
+        idx_pattern = []
+        for p in pattern:
+            idx_dim, idx_member, member_level = c._get_member(p)
+            # idx_pattern = [(0, 3)]
+            idx_pattern.append((idx_dim, idx_member))
+        self._functions.register(func, pattern, idx_pattern)
+
+    # # region Cube Formulas and Constraints
+    # def add_formula(self, formula: str) -> (bool, str):
+    #     """Adds a new mathematical formula for measure calculations to the Cube. The methods returns a boolean value
+    #     and string message. If the formula was successfully added to the Cube, then the values <True> and <None>
+    #     will be return, on failure the value <False> and an error message will be returned.
+    #     """
+    #     return self._rules.add(formula)
+
+
+    # endregion

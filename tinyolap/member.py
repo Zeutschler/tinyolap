@@ -6,6 +6,8 @@ class Member:
     Represents a Member from a Dimension. Useful for building business logic
     and navigating though data space.
     """
+    _LEVEL = 6
+    _NAME = 1
 
     def __init__(self, dimension, member_name, cube=None,
                  idx_dim: int = -1, idx_member: int = -1, member_level: int = -1):
@@ -16,10 +18,10 @@ class Member:
         self._name = member_name
         self._cube = cube
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self._name
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._name
 
     # region Properties
@@ -28,6 +30,7 @@ class Member:
         """Return the name of the member."""
         return self._name
 
+    @property
     def full_name(self) -> str:
         """Return the full qualified name of the member, incl. dimension"""
         return self._dimension.name + ":" + self._name
@@ -55,8 +58,20 @@ class Member:
     # endregion
 
     # region Navigation functions
-    def move_first(self) -> Member:
-        return NotImplemented
+    def __get_member(self, idx_member):
+        member_level = self._dimension.members[idx_member][self._LEVEL]
+        member_name = self._dimension.members[idx_member][self._NAME]
+        return Member(self._dimension, member_name,self._cube, self._idx_dim, idx_member, member_level)
+
+    def __update_member(self, idx_member):
+        self._idx_member = idx_member
+        self.member_level = self._dimension.members[idx_member][self._LEVEL]
+        self.member_name = self._dimension.members[idx_member][self._NAME]
+
+    def move_first(self) -> bool:
+        idx_member = list(self._dimension.members)[0]
+        self.__update_member(idx_member)
+        return True
 
     def move_next(self) -> Member:
         return NotImplemented

@@ -3,7 +3,7 @@ import unittest
 from unittest import TestCase
 
 import tiny
-from cursor import Cursor
+from tinyolap.cursor import Cursor
 from tinyolap.custom_exceptions import InvalidCellAddressException
 
 
@@ -39,16 +39,18 @@ class TestCursor(TestCase):
         # Member object
         april = c.create_member("Apr")
         c[april] = 42
-        c[april.move_first()] = 42  # move first should return a member for 'Jan'
+        c["2023", april] = 333.0
+        april.move_first()  # move_first returns 'Jan', as 'Jan' is the first member in the dim.
+        c[april] = 42
         self.assertEqual("months", april.dimension.name)   # still, c will return 123.0
-        self.assertEqual("Apr", april)   # still, c will return 123.0
+        self.assertEqual("Apr", str(april))   # still, c will return 123.0
         self.assertEqual("Apr", april.name)   # still, c will return 123.0
         self.assertEqual("months:Apr", april.full_name)   # still, c will return 123.0
-
+        self.assertEqual(42.0, c[april])
+        self.assertEqual(42.0, c["Jan"])
 
         c.value = 987.0  # sets a new value to "Feb", so b will show the same result,
         self.assertEqual(c, b)
-
 
     def test_value(self):
         c = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")

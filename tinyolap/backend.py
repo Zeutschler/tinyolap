@@ -25,7 +25,7 @@ class Backend:
         self.cursor: sqlite3.Cursor = None
         self._in_memory: bool = in_memory
         self.database_name: str = database_name
-
+        self.is_open = False
         if self._in_memory:
             self.file_name, self.file_folder, self.file_path = "", "", ""
             self.log_file = ""
@@ -88,6 +88,7 @@ class Backend:
             database_already_existed = Path(self.file_path).exists()
             self.conn = sqlite3.connect(self.file_path)
             self.cursor = self.conn.cursor()
+            self.is_open = True
             if database_already_existed:
                 self.logger.info(f"Open database file '{file_path}'.")
                 return self.__validate_db()
@@ -115,6 +116,8 @@ class Backend:
         if self.conn:
             self.commit()
             self.conn.close()
+        self.is_open = False
+        return True
 
     def commit(self, optimize=False):
         if self._in_memory:

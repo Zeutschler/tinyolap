@@ -15,8 +15,13 @@ class CaseInsensitiveDict(dict):
         if not data :
             data = {}
         else:
-            for key, val in data:
-                self[key] = val
+            if isinstance(data, dict):
+                for key, val in data.items():
+                    self[key] = val
+            else:
+                for key, val in data:
+                    self[key] = val
+
 
     def __contains__(self, key):
         key = self.Key(key)

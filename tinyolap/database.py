@@ -93,7 +93,7 @@ class Database:
             return
 
         try:
-            if not self._backend.conn:
+            if not self._backend.is_open:
                 if Path(self.file_path).exists():
                     os.remove(self.file_path)
                 if Path(self.file_path + ".log").exists():

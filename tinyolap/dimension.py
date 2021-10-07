@@ -35,6 +35,39 @@ class Dimension:
     Within a single database, dimensions need to be unique by there name.
     """
 
+    class MemberIndexManager:
+        """
+        Manages the available member index numbers.
+        """
+        def __init__(self, current: list[int] = None):
+            self.free: set[int] = set()
+            self.next_new = 1
+            if current:
+                all_members = set(range(max(current) + 1))
+                used_members = set(current)
+                self.free: all_members - used_members
+                self.next_new = max(current) + 1
+
+        def clear(self):
+            self.free: set[int] = set()
+            self.next_new = 1
+
+        def pop(self) -> int:
+            if self.free:
+                return self.free.pop()
+            index = self.next_new
+            self.next_new += 1
+            return index
+
+        def push(self, index):
+            if type(index) is int:
+                self.free.add(index)
+            elif isinstance(index, collections.abc.Sequence):
+                self.free.update(index)
+            else:
+                raise ValueError()
+
+
     __magic_key = object()
 
     @classmethod
@@ -69,6 +102,7 @@ class Dimension:
         self.name: str = name.strip()
         self.description: str = description
         self.members: dict[int, dict] = {}
+        self._member_idx_manager = Dimension.MemberIndexManager()
         # self.member_idx_lookup: dict[str, int] = {}
         self.member_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
         self.attributes = {}
@@ -95,6 +129,7 @@ class Dimension:
         """Deletes all members from the dimension."""
         self.member_idx_lookup = {}
         self.members = {}
+        self._member_idx_manager.clear()
         self.member_counter = 0
         return self
 
@@ -127,34 +162,37 @@ class Dimension:
         self.edit_mode = False
         return self
 
-
-    def get_members(self):
+    def get_members(self) -> list[str]:
         """Returns all members of the dimension."""
         return list(self.member_idx_lookup.keys())
 
-    def get_members_by_level(self, level: int):
+    def get_members_idx(self) -> list[int]:
+        """Returns the index of all members of the dimension."""
+        return list(self.member_idx_lookup.values())
+
+    def get_members_by_level(self, level: int) -> list[str]:
         """Returns all members of a specific level."""
         return [self.members[idx_member][self.NAME]
                 for idx_member in self.members
                 if self.members[idx_member][self.LEVEL] == level]
 
-    def get_top_level(self):
+    def get_top_level(self) -> int:
         """Returns the highest member level over all members of the dimension."""
         return max([self.members[idx_member][self.LEVEL] for idx_member in self.members])
 
-    def get_leave_members(self):
+    def get_leave_members(self) -> list[str]:
         """Returns all leave members (members without children) of the dimension."""
         return [self.members[idx_member][self.NAME]
                 for idx_member in self.members
                 if self.members[idx_member][self.LEVEL] == 0]
 
-    def get_aggregated_members(self):
+    def get_aggregated_members(self) -> list[str]:
         """Returns all aggregated members (members with children) of the dimension."""
         return [self.members[idx_member][self.NAME]
                 for idx_member in self.members
                 if self.members[idx_member][self.LEVEL] > 0]
 
-    def get_root_members(self):
+    def get_root_members(self) -> list[str]:
         """Returns all root members (members with a parent) of the dimension."""
         return [self.members[idx_member][self.NAME]
                 for idx_member in self.members
@@ -211,7 +249,9 @@ class Dimension:
                 self.__add_parent(member, parent)
         else:
             self.member_counter += 1
-            member_idx = self.member_counter
+            # todo: Maintain more intelligent list of member index. Use the counter will fail
+            # member_idx = self.member_counter
+            member_idx = self._member_idx_manager.pop()
             self.member_idx_lookup[member] = member_idx
             self.members[member_idx] = {self.IDX: member_idx,
                                         self.NAME: member,
@@ -344,10 +384,12 @@ class Dimension:
                     self.members[all_idx][self.BASE_CHILDREN].remove(member_idx)
 
         # finally remove the members
-        member_idx = [self.member_idx_lookup[m] for m in member_list]
+        member_idx_to_remove = [self.member_idx_lookup[m] for m in member_list]
+        self._member_idx_manager.push(member_idx_to_remove)
+
         for m in member_list:
             del self.member_idx_lookup[m]
-        for idx in member_idx:
+        for idx in member_idx_to_remove:
             if idx in self.members:
                 del self.members[idx]
 

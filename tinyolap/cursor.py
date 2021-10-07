@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from collections import Iterable
 from typing import SupportsFloat
 # noinspection PyProtectedMember
 
@@ -88,22 +90,22 @@ class Cursor(SupportsFloat):
         To modify the cell address of a Cursor, you can call the ``.alter(...)`` method."""
 
         modifiers = []
-        if type(item) is str:  # not isinstance(item, Iterable):
+        if type(item) is str or not isinstance(item, Iterable):
             item = (item,)
 
-        level = self._cube._dimensions[0].LEVEL
+        key_level = 6  # LEVEL
         super_level, idx_address, idx_measure = self._bolt
         idx_address = list(idx_address)
 
         for member in item:
             if type(member) is Member:
-                # The easy way! The Member object should be properly initialized already.
-                raise NotImplementedError("Working on that...")
+                super_level -= self._cube._dimensions[member._idx_dim].members[self._bolt[1][member._idx_dim]][key_level]
+                super_level += member._member_level
+                modifiers.append((member._idx_dim, member._idx_member))
 
             elif type(member) is str:
-                idx_dim, idx_member, member_level = self.__get_member(member)
-                # adjust the super_level
-                super_level -= self._cube._dimensions[idx_dim].members[self._bolt[1][idx_dim]][level]
+                idx_dim, idx_member, member_level = self._get_member(member)
+                super_level -= self._cube._dimensions[idx_dim].members[self._bolt[1][idx_dim]][key_level]
                 super_level += member_level
 
                 modifiers.append((idx_dim, idx_member))
@@ -116,7 +118,7 @@ class Cursor(SupportsFloat):
         bolt = (super_level, tuple(idx_address), idx_measure)
         return bolt
 
-    def __get_member(self, member_name: str):
+    def _get_member(self, member_name: str):
         # The hard way! We need to evaluate where the member is coming from
         # Convention: member names come in one of the following formats:
         #   c["Mar"] = 333.0
@@ -138,14 +140,14 @@ class Cursor(SupportsFloat):
                     idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressException(f"Invalid address '{dim_name}' is not a dimension "
+                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
                                                       f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member_name = member_name[pos + 1:].strip()
             if member_name not in dimensions[idx_dim].member_idx_lookup:
-                raise InvalidCellAddressException(f"'{member_name}'is not a member of "
+                raise InvalidCellAddressException(f"Invalid member key. '{member_name}'is not a member of "
                                                   f"dimension '{dim_name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
 
@@ -168,36 +170,36 @@ class Cursor(SupportsFloat):
     # endregion
 
     def alter(self, *args) -> Cursor:
-        # valid and set arguments
-        new_address = list(self._address)
+
+        modifiers = []
+
+        key_level = 6  # LEVEL
+        key_name = 1   # NAME
         super_level, idx_address, idx_measure = self._bolt
         idx_address = list(idx_address)
-        level = self._cube._dimensions[0].LEVEL
-        dimensions = self._cube._dimensions
-        for arg in args:
-            if not isinstance(arg, (list, tuple)):
-                raise InvalidKeyException(f"Tuple ([dimension:str], [member:str] expected but '{str(arg)}' found.")
-            dim_name = arg[0]
-            member_name = arg[1]
+        address = list(self._address)
 
-            if dim_name not in self._dim_names:
-                raise InvalidCellAddressException(f"'{dim_name}'is not a dimension of cube '{self._cube.name}.")
-            idx_dim = self._dim_names[dim_name]
-            if member_name not in dimensions[idx_dim].member_idx_lookup:
-                raise InvalidCellAddressException(f"'{member_name}' is not a member "
-                                                  f"of dimension {dim_name}' of cube '{self._cube.name}.")
+        for member in args:
+            if type(member) is Member:
+                # The easy way! The Member object should be properly initialized already.
+                raise NotImplementedError("Working on that...")
 
-            idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
+            elif type(member) is str:
+                idx_dim, idx_member, member_level = self._get_member(member)
+                address[idx_dim] = self._cube._dimensions[idx_dim].members[idx_member][key_name]
 
-            # adjust the old super level
-            super_level -= dimensions[idx_dim].members[idx_address[idx_dim]][level]
-            super_level += dimensions[idx_dim].members[idx_member][level]
+                # adjust the super_level
+                super_level -= self._cube._dimensions[idx_dim].members[self._bolt[1][idx_dim]][key_level]
+                super_level += member_level
 
-            idx_address[idx_dim] = idx_member
-            new_address[idx_dim] = member_name
+                modifiers.append((idx_dim, idx_member))
+            else:
+                raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'Member are supported.")
 
-        new_bolt = (super_level, tuple(idx_address), idx_measure)
-        return Cursor.create(self._cube, self._dim_names, new_address, new_bolt)
+        for modifier in modifiers:
+            idx_address[modifier[0]] = modifier[1]
+        bolt = (super_level, tuple(idx_address), idx_measure)
+        return Cursor.create(self._cube, self._dim_names, address, bolt)
 
     def create_member(self, member_name: str) -> Member:
         """
@@ -208,7 +210,7 @@ class Cursor(SupportsFloat):
             c["1:Mar"] = 333.0  # ordinal position of the dimension with the cube and member name
         :return: Member object.
         """
-        idx_dim, idx_member, member_level = self.__get_member(member_name)
+        idx_dim, idx_member, member_level = self._get_member(member_name)
         member = Member(self._cube._dimensions[idx_dim], member_name, self._cube, idx_dim, idx_member, member_level)
         return member
 
