@@ -57,7 +57,9 @@ class TestCube(TestCase):
 
         measures = ["Sales", "Cost", "Profit"]
         cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products], measures)
-        cube.add_formula("[Profit] = [Sales] - [Cost]")
+        # todo: Uppps, not yet supported for measures...
+        cube._register(lambda x: x["Sales"] - x["Cost"], "Profit")
+        cube._register(lambda x: x["jan"] - x["FEB"], "q1")
 
         # disable caching
         cube.caching = False

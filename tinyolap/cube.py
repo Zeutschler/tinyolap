@@ -396,7 +396,10 @@ class Cube:
         return tuple(address)
 
     # region Functions
-    def _register(self, func, pattern: list[str]):
+    def _register(self, func, pattern):
+        if type(pattern) is str:
+            pattern = list((pattern,))
+
         address = self._get_default_cell_address()
         c = self._create_cursor_from_bolt(address, self.__to_bolt(address))
         idx_pattern = []
