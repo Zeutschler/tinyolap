@@ -76,7 +76,7 @@ class TestCube(TestCase):
         if console_output:
             print(f"{address} := {value}")
 
-        max_loops = 100
+        max_loops = 1000
         # Performance: read from cube base cells
         total = 0.0
         start = time.time()
@@ -129,8 +129,8 @@ class TestCube(TestCase):
         max_dims = 8
         measures = [f"measure_{i}" for i in range(0, 10)]
         base_members = [f"member_{i}" for i in range(0, 100)]
-        max_loop_base_level = 1000
-        max_loop_aggregation = 100
+        max_loop_base_level = 10000
+        max_loop_aggregation = 1000
 
         for dims in range(min_dims, max_dims):
             db = Database("test", in_memory=True)

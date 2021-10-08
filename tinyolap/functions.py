@@ -37,7 +37,7 @@ class Functions:
         # check if first line is inserted
         return lines
 
-    def match(self, address) -> (bool, object):
+    def first_match(self, address) -> (bool, object):
         for idx, func_pattern in enumerate(self.pattern_idx):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
             for dim_pattern in func_pattern:   # e.g. (0,3) >> dim0 = member3
                 if address[dim_pattern[0]] != dim_pattern[1]:

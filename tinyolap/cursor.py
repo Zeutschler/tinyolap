@@ -29,6 +29,9 @@ class Cursor(SupportsFloat):
             cursor.move("dim1", move.NEXT)  # move.NEXT
     """
 
+    CONTINUE: str = "continue"
+
+
     # region Initialization
     @classmethod
     def create(cls, cube, dim_names, address, bolt):

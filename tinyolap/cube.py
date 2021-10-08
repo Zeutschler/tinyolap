@@ -8,6 +8,7 @@ from tinyolap.fact_table import FactTable
 from tinyolap.dimension import Dimension
 from tinyolap.functions import Functions
 
+
 class Cube:
     """Represents a multi-dimensional table."""
     __magic_key = object()
@@ -149,7 +150,6 @@ class Cube:
             return ordinals[0]
         return ordinals
 
-
     def get_dimension(self, name: str):
         """Returns the dimension defined for the given dimension index."""
         result = [dim for dim in self._dimensions if dim.name == name]
@@ -193,17 +193,18 @@ class Cube:
         measures_count = len(keys) - dim_count
         if measures_count < 0:
             raise InvalidCellAddressException(f"Invalid address. At least {self._dim_count} members expected "
-                                      f"for cube '{self._name}, but only {len(keys)} where passed in.")
+                                              f"for cube '{self._name}, but only {len(keys)} where passed in.")
         # Validate members
+        dimensions = self._dimensions
         idx_address = [None] * dim_count
         super_level = 0
         for i, member in enumerate(keys[: dim_count]):
-            if member in self._dimensions[i].member_idx_lookup:
-                idx_address[i] = self._dimensions[i].member_idx_lookup[member]
-                super_level += self._dimensions[i].members[idx_address[i]][self._dimensions[i].LEVEL]
+            if member in dimensions[i].member_idx_lookup:
+                idx_address[i] = dimensions[i].member_idx_lookup[member]
+                super_level += dimensions[i].members[idx_address[i]][6]
             else:
                 raise InvalidCellAddressException(f"Invalid address. '{member}' is not a member of the {i}. "
-                                 f"dimension '{self._dimensions[i].name}' in cube {self._name}.")
+                                                  f"dimension '{dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
         # validate measures (if defined)
@@ -241,11 +242,13 @@ class Cube:
         (super_level, idx_address, idx_measures) = bolt
 
         if self._functions.any:
-            found, func = self._functions.match(idx_address)
+            found, func = self._functions.first_match(idx_address)
             if found:
                 cursor = self._create_cursor_from_bolt(None, (super_level, idx_address, idx_measures))
                 try:
-                    return func(cursor)
+                    value = func(cursor)
+                    if value != Cursor.CONTINUE:
+                        return value
                 except Exception as e:
                     raise CubeFormulaException(f"Function {func.__name__} failed. {str(e)}")
 
@@ -266,16 +269,16 @@ class Cube:
             rows = self._facts.query(idx_address)
 
             # aggregate records
-            f_get_value = self._facts.get_value_by_row  # make the call local
-            # addresses = self._facts.addresses
             if type(idx_measures) is int:
                 if not rows:
                     return 0.0
+                facts = self._facts.facts
                 total = 0.0
                 for row in rows:
-                    value = f_get_value(row, idx_measures)
-                    if type(value) is float:
-                        total += value
+                    if idx_measures in facts[row]:
+                        value = facts[row][idx_measures]
+                        if type(value) is float:
+                            total += value
 
                 self._cell_requests += len(rows)
                 if self._caching:
@@ -285,13 +288,15 @@ class Cube:
             else:
                 if not rows:
                     return [0.0] * len(idx_measures)
+                facts = self._facts.facts
                 totals = [] * len(idx_measures)
                 for idx, idx_m in idx_measures:
                     for row in rows:
-                        value = f_get_value(row, idx_m)
-                        if type(value) is float:
-                            # This type check allows to store any datatype in the cube and ignore empty cells.
-                            totals[idx] += value
+                        if idx_m in facts[row]:
+                            value = facts[row][idx_m]
+                            if type(value) is float:
+                                totals[idx] += value
+
                 self._cell_requests += len(rows) * len(idx_measures)
                 if self._caching:
                     self._cache[bolt] = totals  # save value to cache
@@ -353,7 +358,6 @@ class Cube:
         else:
             idx_measure = self._measures[self._default_measure]
 
-
         if len(address) != self._dim_count:
             raise ValueError("Invalid number of dimensions in address.")
         idx_address = list(range(0, self._dim_count))
@@ -378,6 +382,7 @@ class Cube:
         # clear fact table
         for o in ordinal:
             self._facts.remove_members(o, members)
+
     # endregion
 
     def create_cursor(self, *args) -> Cursor:
@@ -416,6 +421,5 @@ class Cube:
     #     will be return, on failure the value <False> and an error message will be returned.
     #     """
     #     return self._rules.add(formula)
-
 
     # endregion

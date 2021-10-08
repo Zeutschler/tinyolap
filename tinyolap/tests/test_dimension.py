@@ -15,27 +15,34 @@ class TestDimension(TestCase):
         self.db.close()
         self.db.delete()
 
-    def test_dimension_naming_conventions(self):
-        valid_keys = ["we", "are", "all", "valid", "keys", "123"]
-        invalid_keys = ["WE", "_are", "  all", "in valid", "&", "/", "!","§","$", "%", "(", "and many others..."]
-        for k in valid_keys:
-            self.assertNotEqual(None, self.db.add_dimension(k))
-        for k in invalid_keys:
-            self.assertRaises(InvalidKeyException, self.db.add_dimension(k))
-
     def test_duplicate_dimension(self):
         dim = self.db.add_dimension("doublet")
-        self.assertRaises(DuplicateKeyException, self.db.add_dimension("doublet"))
+        with self.assertRaises(DuplicateKeyException):
+            self.db.add_dimension("doublet")
+        self.db.dimension_remove("doublet")
 
     def test_member_naming_conventions(self):
-        # todo: Implement test
-        self.assertTrue(False, msg="test not implemented")
+        dim = self.db.add_dimension("naming")
+
+        valid_names = ["we", "are", "all", "valid", "keys", "123","ððð➜₥ℌ℉≥∭♖☀︎☀⚽︎︎"]
+        invalid_names = ["no \t tabs", "no \n new lines", "no \r carriage return"]
+
+        dim.edit()
+        for name in valid_names:
+            dim.add_member(name)
+
+        for name in invalid_names:
+            with self.assertRaises(KeyError):
+                dim.add_member(name)
+        dim.commit()
+
+        for name in valid_names:
+            self.assertTrue(dim.member_exists(name))
+
+        dim.clear()
+        self.db.dimension_remove("naming")
 
     def test_circular_member_hierarchy(self):
-        # todo: Implement test
-        self.assertTrue(False, msg="test not implemented")
-
-    def test_too_deep_member_hierarchy(self):
         # todo: Implement test
         self.assertTrue(False, msg="test not implemented")
 
@@ -62,36 +69,42 @@ class TestDimension(TestCase):
         parents = [f"parent_{i:03d}" for i in range(10)]
         root_members = ["total"]
         dim = self.db.add_dimension("SomeDimension").edit()
+        for member in members:
+            dim.add_member(member=member, description=f"Description for {member}")
         for index, member in enumerate(members):
             parent = f"parent_{(index % 10):03d}"
-            dim.add_member(member, parent, f"Description for {member}")
+            dim.add_member(parent, member, description=f"Description for {parent}")
         for parent in parents:
-            dim.add_member(parent, root_members[0], f"Description for {parent}")
-        parents = parents + root_members
+            dim.add_member(root_members[0], parent, description=f"Description for {root_members[0]}")
+        parents = parents
         dim.commit()
         self.execute_dimension_test(dim, members, parents, root_members)
 
     def execute_dimension_test(self, dim, members, parents, root_members):
-        self.assertEqual(len(dim), len(members) + len(parents))
-        self.assertEqual(len(dim.get_members()), len(members) + len(parents))
+        all = set(members).union(set(parents).union(set(root_members)))
+        self.assertEqual(len(dim), len(all))
+        self.assertEqual(len(dim.get_members()), len(all))
         self.assertEqual(len(dim.get_leave_members()), len(members))
-        self.assertEqual(len(dim.get_aggregated_members()), len(parents))
+        self.assertEqual(len(dim.get_aggregated_members()), len(parents) + len(root_members))
         self.assertEqual(len(dim.get_root_members()), len(root_members))
         self.assertEqual(len(dim.get_members_by_level(0)), len(members))
+        self.assertEqual(len(dim.get_members_by_level(1)), len(parents))
+        self.assertEqual(len(dim.get_members_by_level(2)), len(root_members))
         for member in members:
             self.assertTrue(dim.member_exists(member))
-        for parent in parents:
-            self.assertTrue(dim.member_exists(parent))
+        for member in parents:
+            self.assertTrue(dim.member_exists(member))
+        for member in root_members:
+            self.assertTrue(dim.member_exists(member))
 
         self.assertFalse(dim.member_exists("Peter Parker"))
-        dim.member_rename(members[0], "Peter Parker")
+        dim.rename_member(members[0], "Peter Parker")
         self.assertFalse(dim.member_exists(members[0]))
         self.assertTrue(dim.member_exists("Peter Parker"))
         if parents:
-            dim.member_rename(parents[0], "Louise Lane")
+            dim.rename_member(parents[0], "Louise Lane")
             self.assertFalse(dim.member_exists(parents[0]))
             self.assertTrue(dim.member_exists("Louise Lane"))
-
         dim.clear()
         self.assertEqual(len(dim), 0)
 

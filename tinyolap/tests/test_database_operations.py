@@ -47,7 +47,7 @@ class TestDatabaseOperations(TestCase):
 
         # remove members
         dim1.edit()
-        dim1.member_remove("b")
+        dim1.remove_member("b")
         dim1.commit()
 
         members1.remove("b")
