@@ -105,8 +105,6 @@ class Dimension:
         self._member_idx_manager = Dimension.MemberIndexManager()
         # self.member_idx_lookup: dict[str, int] = {}
         self.member_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
-        self.attributes : CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
-        self.subsets : CaseInsensitiveDict[str, tuple[int]] = CaseInsensitiveDict()
         self.member_counter = 0
         self.highest_idx = 0
         self.backend = None
@@ -114,6 +112,11 @@ class Dimension:
         self.recovery_json = ""
         self.recovery_idx = set()
         self.database = None
+
+        self.attributes: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
+        self.attribute_query_caching: bool = True
+        self.attribute_cache: CaseInsensitiveDict[str, list[str]] = CaseInsensitiveDict()
+        self.subsets: CaseInsensitiveDict[str, tuple[int]] = CaseInsensitiveDict()
 
     def __str__(self):
         """Returns the string representation of the dimension."""
@@ -353,7 +356,7 @@ class Dimension:
     # endregion
 
     # region attributes
-    def set_attribute(self, member: str, attribute: str, value):
+    def set_attribute(self, attribute: str, member: str, value):
         """
         Sets an attribute for a specific member of the dimension.
         :param member: Name of the member to set the attribute for.
@@ -375,11 +378,16 @@ class Dimension:
         idx = self.member_idx_lookup[member]
         self.members[idx][self.ATTRIBUTES][attribute] = value
 
-    def get_attribute(self, member: str, attribute: str):
+        if self.attribute_query_caching:
+            key = attribute + ":" + str(value)
+            if key in self.attribute_cache:
+                del self.attribute_cache[key]
+
+    def get_attribute(self, attribute: str, member: str):
         """
         Returns the attribute value for a specific member of the dimension.
-        :param member: Name of the member to get the attribute for.
         :param attribute: Name of the attribute to be returned.
+        :param member: Name of the member to get the attribute for.
         :raises KeyError: Raised when either the member or the attribute name does not exist.
         :return: The value of the attribute, or ``None`` if the attribute is not defined for the specific member.
         """
@@ -394,11 +402,31 @@ class Dimension:
             return None
         return self.members[idx][self.ATTRIBUTES][attribute]
 
-    def del_attribute(self, member: str, attribute: str):
+    def get_attribute_type(self, attribute: str):
+        """
+        Returns the data type of an attribute.
+        :param attribute: Name of the attribute to be returned.
+        :raises KeyError: Raised when the attribute name does not exist.
+        :return: The type of the attribute.
+        """
+        if attribute not in self.attributes:
+            raise KeyError(f"Failed to set attribute value. "
+                           f"'{attribute}' is not an attribute of dimension {self.name}.")
+        return self.attributes[attribute]
+
+    def attribute_exists(self, attribute: str):
+        """
+        Checks if a specific attribute is defined for the dimension.
+        :param attribute: Name of the attribute to be checked.
+        :return: ``True``if the attribute exists. ``False`` otherwise.
+        """
+        return attribute in self.attributes
+
+    def del_attribute(self, attribute: str,  member: str):
         """
         Deletes an attribute value for a specific member of the dimension.
-        :param member: Name of the member to delete the attribute for.
         :param attribute: Name of the attribute to be deleted.
+        :param member: Name of the member to delete the attribute for.
         :raises KeyError: Raised when either the member or the attribute name does not exist.
         """
         if attribute not in self.attributes:
@@ -475,13 +503,22 @@ class Dimension:
         :param attribute_value: Value of the attribute to used for filtering.
         :return:
         """
+        if self.attribute_query_caching:
+            key = attribute_name + ":" + str(attribute_value)
+            if key in self.attribute_cache:
+                return self.attribute_cache[key]
+
         if attribute_name not in self.attributes:
             raise KeyError(f"Failed to return members by attribute. "
                            f"'{attribute_name}' is not an attribute of dimension {self.name}.")
         members = []
         for idx_member in self.members:
-            if attribute_name in self.members[idx_member][self.ATTRIBUTES] == attribute_value:
-                members.append(self.members[idx_member][self.NAME])
+            if attribute_name in self.members[idx_member][self.ATTRIBUTES]:
+                if self.members[idx_member][self.ATTRIBUTES][attribute_name] == attribute_value:
+                    members.append(self.members[idx_member][self.NAME])
+        if self.attribute_query_caching:
+            key = attribute_name + ":" + str(attribute_value)
+            self.attribute_cache[key] = members
         return members
 
     # endregion

@@ -34,3 +34,7 @@ class CaseInsensitiveDict(dict):
     def __getitem__(self, key):
         key = self.Key(key)
         return super(CaseInsensitiveDict, self).__getitem__(key)
+
+    def __delitem__(self, key):
+        key = self.Key(key)
+        return super(CaseInsensitiveDict, self).__delitem__(key)
