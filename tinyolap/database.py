@@ -1,6 +1,11 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) Thomas Zeutschler (Germany).
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import os
 from pathlib import Path
-from typing import Tuple, Dict
+from typing import Tuple
 from collections.abc import Iterable
 
 import utils
@@ -11,6 +16,10 @@ from dimension import Dimension
 from backend import Backend
 
 class Database:
+    """
+    Databases are the root objects that should be use to create **TinyOlap** data model or database.
+    The Database object provides methods to create :ref:`dimensions <dimensions>` and :ref:`cubes <cubes>`.
+    """
     MIN_DIMS = 1
     MAX_DIMS = 32  # This value can be changed. For the given purpose (planning), 32 is already too much.
     # max. 2000 columns and that dimensions and measure share the same space.
@@ -39,9 +48,6 @@ class Database:
             raise InvalidKeyException(f"'{name}' is not a valid database name. "
                                       f"alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
-
-        # self.dimensions: Dict[str, Dimension] = {}
-        # self.cubes: Dict[str, Cube] = {}
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
         self.name: str = name
@@ -55,22 +61,54 @@ class Database:
     # region Properties
     @property
     def in_memory(self) -> bool:
-        """Identifies if the database is in-memory mode. Please note that the in-memory
-        property can not be changed after the initialization of a database object."""
+        """
+        Identifies if the database is in-memory mode. Please note that the in-memory
+        property can not be changed after the initialization of a database object.
+
+        :return: Returns ``True`` if the database is in-memory mode, ``False`` otherwise.
+        """
         return self._caching
 
     @property
     def caching(self) -> bool:
-        """Identifies if caching is activated for the database.
-        By default, caching is activated for all cubes.
-        Individual cubes might have a different caching setting."""
+        """
+        Identifies if caching is activated for the database.
+        By default, caching is activated for all :ref:`cubes <cubes>`.
+        The caching setting for individual cubes can be overwritten.
+
+        .. note::
+            It is highly recommended, especially for larger data models containing
+            a lot of data maybe even essential, to always set caching to ``True```
+            what anyhow is the default value. Caching greatly improves the user
+            experience by caching values for **aggregated cells** from cubes.
+
+            Please be aware that the cache needs to be warmed up on first use.
+            For future versions of **TinyOlap** it is planned to also persist the
+            cube cache to enable faster initial cell access.
+
+        :return: Returns ``True`` if caching is activated for the database, ``False`` otherwise.
+        """
         return self._caching
 
     @caching.setter
     def caching(self, value: bool):
-        """Identifies if caching is activated for the database.
-        By default, caching is activated for all cubes.
-        Changing this value will overwrite all individual cube settings."""
+        """
+        Identifies if caching is activated for the database.
+        By default, caching is activated for all :ref:`cubes <cubes>`.
+        The caching setting for individual cubes can be overwritten.
+
+        .. note::
+            It is highly recommended, especially for larger data models containing
+            a lot of data maybe even essential, to always set caching to ``True```
+            what anyhow is the default value. Caching greatly improves the user
+            experience by caching values for **aggregated cells** from cubes.
+
+            Please be aware that the cache needs to be warmed up on first use.
+            For future versions of **TinyOlap** it is planned to also persist the
+            cube cache to enable faster initial cell access.
+
+        :param value: Set value to ``True`` to activate caching, ``False`` to deactivate caching.
+        """
         self._caching = value
         for cube in self.cubes:
             cube.caching = value
@@ -79,14 +117,22 @@ class Database:
 
     # region Database related methods
     def close(self):
-        """Closes the database."""
+        """
+        Closes the database. If in-memory mode is off ``in_memory == False`` ,
+        then all pending changes to the database file will be committed and
+        the connection to the underlying database will be be closed.
+
+        The ``close()`` command will be ignored if the database is in-memory mode, ``in_memory == True`` .
+        """
         self._backend.close()
 
     def delete(self, delete_log_file_too=True):
-        """Deletes the database file, if such exists and the database is already closed.
-        The ``delete()`` command will be ignored if a database is in in-memory mode.
-        :param delete_log_file_too: If set to ``True``, also the database log file will be deleted, if such exits.
-            Default value is ``True``. Log files are not available if ``in_memory`` has been set to ``True`` on
+        """
+        Deletes the database file, if such exists and the database is already closed.
+        The ``delete()`` command will be ignored if the database is in in-memory mode, ``in_memory == True`` .
+
+        :param delete_log_file_too: If set to ``True`` , also the database log file will be deleted, if such exits.
+            Default value is ``True`` . Log files are not available if ``in_memory`` has been set to ``True`` on
             database initialization.
         """
         if self._in_memory:
@@ -126,10 +172,11 @@ class Database:
 
     # region Dimension related methods
     def add_dimension(self, name: str, description: str = None) -> Dimension:
-        """Adds a new dimension to the database.
+        """Adds a new :ref:`dimension <dimensions>` to the database.
+
         :param name: Name of the dimension to be added.
-        :param description:
-        :return Dimension: The added dimension.
+        :param description: Description for the dimension.
+        :return Dimension: The newly added dimension.
         :raises InvalidDimensionNameException: If the dimension name is invalid.
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
@@ -139,7 +186,7 @@ class Database:
                                       f"no whitespaces, no special characters.")
         if name in self.dimensions:
             raise DuplicateKeyException(f"Failed to add dimension. A dimension named '{name}' already exists.")
-        dimension = Dimension.create(self._backend, name, description=description)
+        dimension = Dimension._create(self._backend, name, description=description)
         dimension.backend = self._backend
         dimension.database = self
         self._backend.dimension_update(dimension, dimension.to_json())
@@ -147,9 +194,9 @@ class Database:
         return dimension
 
     def dimension_remove(self, dimension):
-        """Removes a dimension from the database.
-        :param dimension:
-        :param name: The dimension or the name of the dimension to be removed.
+        """Removes a :ref:´dimension <dimensions>´ from the database.
+
+        :param dimension: Name of the dimension, or the :ref:`dimension <dimensions>´ object to be removed.
         :raises KeyNotFoundException: If the dimension not exists.
         """
         if type(dimension) is str:
@@ -170,15 +217,44 @@ class Database:
         del self.dimensions[name]
 
     def dimension_exists(self, name: str):
-        """Checks if dimension exists.
+        """Checks if a dimension exists.
+
         :param name: Name of the dimension to be checked.
-        :returns bool: True if the dimension exists, False otherwise."""
+        :returns bool: Returns ``True`` if the dimension exists, ``False`` otherwise."""
         return name in self.dimensions
 
     # endregion
 
     # region Cube related methods
     def add_cube(self, name: str, dimensions: list, measures=None):
+        """
+        Creates a new :ref:´cube<cubes>´ and adds it to the database.
+
+
+        :param name: Name of the cube to be created.
+        :param dimensions: A list of either names of existing dimensions of the database or
+        :ref:`dimension <dimensions>` objects contained in the database.
+        :param measures: (optional) a measure name or a list of measures names for the cube.
+        If argument 'measures' is not defined, that a dfault measure named 'value' will be created.
+        :return: The added cube object.
+        :raises CubeCreationException: Raised if the creation of the cubed failed due to one
+        of the following reasons:
+
+        * The cube name is not invalid. Cube have to consist of lower case alphanumeric characters
+            or underscore only, blanks or special characters are not allowed.
+
+        * The list of dimensions is empty, contains dimension names or objects not associated with
+          the cube, or the number of dimensions exceeds the upper limit of dimensions supported
+          for cube creation.
+
+          .. note::
+             The default upper limit for cube creation is 32 dimensions, but this limit can be
+             adjusted at any time by changing the value for ``MAX_DIMS`` in the source file
+             'database.py'.
+
+        :raises DuplicateKeyException: Raised if the cube already exists.")
+        """
+
         # validate cube name
         if not utils.is_valid_db_object_name(name):
             raise CubeCreationException(f"Invalid cube name '{name}'. Cube names must contain "
@@ -230,8 +306,22 @@ class Database:
         return cube
 
     def set(self, cube: str, address: Tuple[str], measure: str, value: float):
-        """Writes a value to the database for the given cube, address and measure."""
-        return self.cubes[cube].set(address, measure, value)
+        """
+        Writes a value to the database for the given cube, address and measure.
+        Write back is supported for base level cells only.
+
+        .. note:: Although TinyOlap is intended to be used for numerical data mainly,
+            any Python data type or object reference can be written to a database.
+            Persistence is only provided/guarantied for build-in base data types.
+            If you want to serialized/deserialized custom objects through cube cells,
+            then write/read json and do serialization and deserialization by yourself.
+
+        :param cube: Name of the cube to write to.
+        :param address: Address of the cube cell to write to.
+        :param measure: NAme of the measure to write to
+        :param value: The value to be written to the database.
+        """
+        self.cubes[cube].set(address, measure, value)
 
     def get(self, cube: str, address: Tuple[str], measure: str):
         """Returns a value from the database for a given cube, address and measure.

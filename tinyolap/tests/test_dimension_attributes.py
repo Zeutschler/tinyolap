@@ -12,7 +12,7 @@ class TestDimensionAttributes(TestCase):
     def setUp(self) -> None:
         self.db = Database("attribute_test", in_memory=True)
         self.dim = self.db.add_dimension("attributes").edit()
-        self.dim.add_member("Al", ["A", "B", "C"])
+        self.dim.add_member("All", ["A", "B", "C"])
         self.dim.commit()
 
     def tearDown(self) -> None:
@@ -37,15 +37,15 @@ class TestDimensionAttributes(TestCase):
         with self.assertRaises(InvalidKeyException):
             self.db.add_dimension("%&(&%§?````?)")
 
-        self.assertTrue(dim.attribute_exists("name"))
-        self.assertTrue(dim.attribute_exists("NaMe"))
-        self.assertTrue(dim.attribute_exists("desc"))
-        self.assertFalse(dim.attribute_exists("unavailable_attribute"))
+        self.assertTrue(dim.has_attribute("name"))
+        self.assertTrue(dim.has_attribute("NaMe"))
+        self.assertTrue(dim.has_attribute("desc"))
+        self.assertFalse(dim.has_attribute("unavailable_attribute"))
 
         dim.remove_attribute("desc")
-        self.assertFalse(dim.attribute_exists("desc"))
+        self.assertFalse(dim.has_attribute("desc"))
         dim.add_attribute("desc", str)
-        self.assertTrue(dim.attribute_exists("desc"))
+        self.assertTrue(dim.has_attribute("desc"))
 
         dim.set_attribute("name", "A", "John")
         dim.set_attribute("name", "B", "Paul")
@@ -54,7 +54,7 @@ class TestDimensionAttributes(TestCase):
         self.assertEqual("Peter", dim.get_attribute("name", "A"))
         self.assertEqual("Paul", dim.get_attribute("name", "B"))
 
-        dim.del_attribute("name", "B")
+        dim.del_attribute_value("name", "B")
         self.assertEqual(None, dim.get_attribute("name", "B"))
         dim.set_attribute("name", "B", "Paul")
         self.assertEqual("Paul", dim.get_attribute("name", "B"))

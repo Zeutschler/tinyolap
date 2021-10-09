@@ -22,7 +22,6 @@ class CaseInsensitiveDict(dict):
                 for key, val in data:
                     self[key] = val
 
-
     def __contains__(self, key):
         key = self.Key(key)
         return super(CaseInsensitiveDict, self).__contains__(key)

@@ -43,16 +43,18 @@ class TestDimension(TestCase):
         self.db.dimension_remove("naming")
 
     def test_circular_member_hierarchy(self):
-        # todo: Implement test
-        self.assertTrue(False, msg="test not implemented")
+        dim = self.db.add_dimension("non_circular").edit()
+        dim.add_member("All", ["A", "B", "C"])
+        dim.commit()
+        self.db.dimension_remove("non_circular")
 
-    def test_consistency_on_add_remove_add_member(self):
-        # todo: Implement test
-        self.assertTrue(False, msg="test not implemented")
-
-    def test_attribute_table(self):
-        # todo: Implement test
-        self.assertTrue(False, msg="test not implemented")
+        dim = self.db.add_dimension("circular").edit()
+        dim.add_member("All", ["A", "B", "C"])
+        dim.add_member("A", ["A1", "A2", "A3"])
+        with self.assertRaises(Exception):
+            dim.add_member("A1", ["All"])
+        dim.commit()
+        self.db.dimension_remove("circular")
 
     def test_flat_dimension(self):
         members = [f"member_{i:03d}" for i in range(100)]
@@ -85,11 +87,13 @@ class TestDimension(TestCase):
         self.assertEqual(len(dim), len(all))
         self.assertEqual(len(dim.get_members()), len(all))
         self.assertEqual(len(dim.get_leave_members()), len(members))
-        self.assertEqual(len(dim.get_aggregated_members()), len(parents) + len(root_members))
+        if dim.get_top_level() > 0:
+            self.assertEqual(len(dim.get_aggregated_members()), len(parents) + len(root_members))
         self.assertEqual(len(dim.get_root_members()), len(root_members))
         self.assertEqual(len(dim.get_members_by_level(0)), len(members))
         self.assertEqual(len(dim.get_members_by_level(1)), len(parents))
-        self.assertEqual(len(dim.get_members_by_level(2)), len(root_members))
+        if dim.get_top_level() > 1:
+            self.assertEqual(len(dim.get_members_by_level(2)), len(root_members))
         for member in members:
             self.assertTrue(dim.member_exists(member))
         for member in parents:
