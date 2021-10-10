@@ -2,7 +2,7 @@ import datetime
 from unittest import TestCase
 from tinyolap.dimension import Dimension
 from tinyolap.database import Database
-from tinyolap.custom_exceptions import *
+from tinyolap.custom_errors import *
 
 
 class TestDimensionSubsets(TestCase):

@@ -1,7 +1,7 @@
 from unittest import TestCase
 from tinyolap.dimension import Dimension
 from tinyolap.database import Database
-from tinyolap.custom_exceptions import *
+from tinyolap.custom_errors import *
 
 
 class TestDimension(TestCase):
@@ -17,7 +17,7 @@ class TestDimension(TestCase):
 
     def test_duplicate_dimension(self):
         dim = self.db.add_dimension("doublet")
-        with self.assertRaises(DuplicateKeyException):
+        with self.assertRaises(DuplicateKeyError):
             self.db.add_dimension("doublet")
         self.db.dimension_remove("doublet")
 

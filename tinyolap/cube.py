@@ -1,12 +1,14 @@
 import collections
 from collections.abc import Iterable, Sized
+from inspect import isfunction
 
+import tinyolap.rules
 from case_insensitive_dict import CaseInsensitiveDict
 from cursor import Cursor
-from tinyolap.custom_exceptions import *
+from tinyolap.custom_errors import *
 from tinyolap.fact_table import FactTable
 from tinyolap.dimension import Dimension
-from tinyolap.functions import Functions
+from tinyolap.rules import Rules, RuleScope
 
 
 class Cube:
@@ -38,9 +40,12 @@ class Cube:
         self._dim_names = []
         self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(dimensions)])
         self._facts = FactTable(self._dim_count, self)
-        self._functions = Functions()
-        # self._alias = {}
-        # self._has_alias: bool = False
+
+        self._rules_all_levels = Rules()
+        self._rules_base_level = Rules()
+        self._rules_aggr_level = Rules()
+        self._rules_roll_up = Rules()
+        self._rules_on_entry = Rules()
 
         # create a default-measure if none is defined
         if not measures:
@@ -61,6 +66,100 @@ class Cube:
 
     def __repr__(self):
         return f"cube '{self.name}'"
+
+    # region Rules
+    def remove_rule(self, pattern: list[str]) -> bool:
+        """
+        Removes (unregisters) a rule function from the cube.
+
+        :param pattern: The pattern of the rule to be removed.
+        :return: ``True``, if a function with the given pattern was found and removed, ``False`` otherwise.
+        """
+        return NotImplemented
+
+    def remove_all_rules(self):
+        """
+        Removes all rule functions from the cube.
+        """
+        return NotImplemented
+
+    def add_rule(self, function, pattern: list[str] = None, scope: RuleScope = None):
+        """
+        Registers a rule function for the cube. Rules function either need to be decorated with the ``@rules(...)``
+        decorator or the arguments ``pattern`` and ``scope`` of the ``add_rules(...)`` function must be specified.
+
+        :param function: The rules function to be called.
+        :param pattern: The cell address pattern that should trigger the rule.
+        :param scope: The scope of the rule.
+        """
+        if not isfunction(function):
+            raise RuleError(f"Argument 'function' does not seem to be a Python function, tpye id '{type(function)}'.")
+
+        # validate function and decorator parameters
+        function_name = str(function).split(" ")[1]
+        cube_name = self.name
+        if hasattr(function, "cube"):
+            cube_name = function.cube
+            if cube_name.lower() != self.name.lower():
+                raise RuleError(
+                    f"Failed to add rule function. Function '{function_name}' does not seem to be associated "
+                    f"with this cube '{self.name}', but with cube '{cube_name}'.")
+        if not pattern:
+            if hasattr(function, "pattern"):
+                pattern = function.pattern
+                if type(pattern) is str:
+                    pattern = [pattern, ]
+                if not type(pattern) is list:
+                    raise RuleError(f"Failed to add rule function. Argument 'pattern' is not of the expected "
+                                    f"type 'list(str)' but of type '{type(pattern)}'.")
+            else:
+                raise RuleError(f"Failed to add rule function. Argument 'pattern' missing for "
+                                f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+        if not scope:
+            if hasattr(function, "scope"):
+                scope = function.scope
+                if not type(scope) is RuleScope:
+                    raise RuleError(f"Failed to add rule function. Argument 'scope' is not of the expected "
+                                    f"type 'RuleScope' but of type '{type(scope)}'.")
+            else:
+                raise RuleError(f"Failed to add rule function. Argument 'scope' missing for "
+                                f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+
+        idx_pattern = self.__pattern_to_idx_pattern(pattern)
+
+        if scope == RuleScope.ALL_LEVELS:
+            self._rules_all_levels.register(function, function_name, pattern, idx_pattern, scope)
+        elif scope == RuleScope.AGGREGATION_LEVEL:
+            self._rules_aggr_level.register(function, function_name, pattern, idx_pattern, scope)
+        elif scope == RuleScope.BASE_LEVEL:
+            self._rules_base_level.register(function, function_name, pattern, idx_pattern, scope)
+        elif scope == RuleScope.ROLL_UP:
+            self._rules_roll_up.register(function, function_name, pattern, idx_pattern, scope)
+        elif scope == RuleScope.ON_ENTRY:
+            self._rules_on_entry.register(function, function_name, pattern, idx_pattern, scope)
+        else:
+            raise RuleError(f"Unexpected value '{str(scope)}' for argument 'scope'.")
+
+    def __pattern_to_idx_pattern(self, pattern):
+        """
+        Converts a pattern into it's index representation.
+
+        :param pattern: The pattern to be converted.
+        :return: The index pattern.
+        """
+        if type(pattern) is str:
+            pattern = list((pattern,))
+        # Sorry, miss-use of cursor. All the effort just to use the 'c._get_member(p)' function
+        address = self._get_default_cell_address()
+        c = self._create_cursor_from_bolt(address, self.__to_bolt(address))
+        # create something like this: idx_pattern = [(0, 3)]
+        idx_pattern = []
+        for p in pattern:
+            idx_dim, idx_member, member_level = c._get_member(p)
+            idx_pattern.append((idx_dim, idx_member))
+        return idx_pattern
+
+    # endregion
 
     # region Properties
     @property
@@ -113,8 +212,8 @@ class Cube:
         """Returns/sets the default measure of the cube.
         By default, this is always the first measure from the list of measures."""
         if value not in self._measures:
-            raise KeyNotFoundException(f"Failed to set default member. "
-                                       f"'{value}' is not a measure of cube '{self._name}'.")
+            raise KeyNotFoundError(f"Failed to set default member. "
+                                   f"'{value}' is not a measure of cube '{self._name}'.")
         self._default_measure = value
 
     @property
@@ -178,22 +277,22 @@ class Cube:
 
     # FOR FUTURE USE...
     # def get_value_by_bolt(self, bolt: tuple):
-    #     """Returns a value from the cube for a given address and measure.
-    #     If no records exist for the given address, then 0.0 will be returned."""
+    #     """Returns a value from the cube for a given idx_address and measure.
+    #     If no records exist for the given idx_address, then 0.0 will be returned."""
     #     return self.__get(bolt)
     # def get_bolt(self, *keys:str):
     #     return self.__to_bolt(keys)
 
     def __to_bolt(self, keys):
-        """Converts a given address, incl. member and (optional) measures, into a bolt.
+        """Converts a given idx_address, incl. member and (optional) measures, into a bolt.
         A bolt is a tuple of integer keys, used for internal access of cells.
         """
 
         dim_count = self._dim_count
         measures_count = len(keys) - dim_count
         if measures_count < 0:
-            raise InvalidCellAddressException(f"Invalid address. At least {self._dim_count} members expected "
-                                              f"for cube '{self._name}, but only {len(keys)} where passed in.")
+            raise InvalidCellAddressError(f"Invalid idx_address. At least {self._dim_count} members expected "
+                                          f"for cube '{self._name}, but only {len(keys)} where passed in.")
         # Validate members
         dimensions = self._dimensions
         idx_address = [None] * dim_count
@@ -203,8 +302,8 @@ class Cube:
                 idx_address[i] = dimensions[i].member_idx_lookup[member]
                 super_level += dimensions[i].members[idx_address[i]][6]
             else:
-                raise InvalidCellAddressException(f"Invalid address. '{member}' is not a member of the {i}. "
-                                                  f"dimension '{dimensions[i].name}' in cube {self._name}.")
+                raise InvalidCellAddressError(f"Invalid idx_address. '{member}' is not a member of the {i}. "
+                                              f"dimension '{dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
         # validate measures (if defined)
@@ -214,7 +313,7 @@ class Cube:
             idx_measures = []
             for measure in keys[self._dim_count:]:
                 if measure not in self._measures:
-                    raise InvalidCellAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
+                    raise InvalidCellAddressError(f"'{measure}' is not a measure of cube '{self.name}'.")
                 idx_measures.append(self._measures[measure])
             if measures_count == 1:
                 idx_measures = idx_measures[0]
@@ -224,25 +323,25 @@ class Cube:
         return super_level, idx_address, idx_measures  # that's the 'bolt'
 
     def get(self, address: tuple):
-        """Reads a value from the cube for a given address.
-        If no records exist for the given address, then 0.0 will be returned.
-        :raises InvalidKeyException:
+        """Reads a value from the cube for a given idx_address.
+        If no records exist for the given idx_address, then 0.0 will be returned.
+        :raises InvalidKeyError:
         """
         bolt = self.__to_bolt(address)
         return self._get(bolt)
 
     def set(self, address: tuple, value):
-        """Writes a value to the cube for the given bolt (address and measures)."""
+        """Writes a value to the cube for the given bolt (idx_address and measures)."""
         bolt = self.__to_bolt(address)
         return self._set(bolt, value)
 
     def _get(self, bolt):
-        """Returns a value from the cube for a given address and measure.
-        If no records exist for the given address, then 0.0 will be returned."""
+        """Returns a value from the cube for a given idx_address and measure.
+        If no records exist for the given idx_address, then 0.0 will be returned."""
         (super_level, idx_address, idx_measures) = bolt
 
-        if self._functions.any:
-            found, func = self._functions.first_match(idx_address)
+        if self._rules_all_levels.any:
+            found, func = self._rules_all_levels.first_match(idx_address)
             if found:
                 cursor = self._create_cursor_from_bolt(None, (super_level, idx_address, idx_measures))
                 try:
@@ -250,7 +349,7 @@ class Cube:
                     if value != Cursor.CONTINUE:
                         return value
                 except Exception as e:
-                    raise CubeFormulaException(f"Function {func.__name__} failed. {str(e)}")
+                    raise RuleError(f"Function {func.__name__} failed. {str(e)}")
 
         if super_level == 0:  # base-level cells
             if type(idx_measures) is int:
@@ -265,7 +364,7 @@ class Cube:
                 self._cell_requests += 1
                 return self._cache[bolt]
 
-            # get records row ids for current cell address
+            # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address)
 
             # aggregate records
@@ -303,7 +402,7 @@ class Cube:
                 return totals
 
     def _set(self, bolt, value):
-        """Writes a value to the cube for the given bolt (address and measures)."""
+        """Writes a value to the cube for the given bolt (idx_address and measures)."""
         if self._caching and self._cache:
             self._cache = {}  # clear the cache
 
@@ -315,22 +414,22 @@ class Cube:
             elif isinstance(idx_measures, collections.abc.Sequence):
                 if isinstance(value, collections.abc.Sequence):
                     if len(idx_measures) != len(value):
-                        raise InvalidKeyException(f"Arguments for write back not aligned. The numbers of measures "
-                                                  f"and the numbers of values handed in need to be identical.")
+                        raise InvalidKeyError(f"Arguments for write back not aligned. The numbers of measures "
+                                              f"and the numbers of values handed in need to be identical.")
                     result = all([self._facts.set(idx_address, m, v) for m, v in zip(idx_measures, value)])
                 else:
                     result = all([self._facts.set(idx_address, m, value) for m in idx_measures])
 
             #  ...check for base-level (push) rules to be executed
             # todo: Add push rules
-            # if self._rules:
-            #     success = self._rules.on_set(super_level, idx_address, idx_measures, value)
+            # if self._rules_all_levels:
+            #     success = self._rules_all_levels.on_set(super_level, idx_address, idx_measures, value)
             #     if success:
             #         return success
 
             return True
         else:
-            raise InvalidOperationException(f"Write back to aggregated cells in not (yet) supported.")
+            raise InvalidOperationError(f"Write back to aggregated cells in not (yet) supported.")
 
     def _update_aggregation_index(self, fact_table_index, address, row):
         """Updates all fact table index for all aggregations over all dimensions. FOR INTERNAL USE ONLY!"""
@@ -344,7 +443,7 @@ class Cube:
                     fact_table_index._index[d][idx_parent] = {row}
 
     def _validate_address(self, address: tuple, measure):
-        """Validates a given address and measures and return the according indexes."""
+        """Validates a given idx_address and measures and return the according indexes."""
         if type(measure) is str:
             if measure not in self._measures:
                 raise ValueError(f"'{measure}' is not a measure of cube '{self.name}'.")
@@ -353,13 +452,13 @@ class Cube:
             idx_measure = []
             for m in measure:
                 if m not in self._measures.keys():
-                    raise KeyNotFoundException(f"'{m}' is not a measure of cube '{self._name}'.")
+                    raise KeyNotFoundError(f"'{m}' is not a measure of cube '{self._name}'.")
                 idx_measure.append(self._measures[m])
         else:
             idx_measure = self._measures[self._default_measure]
 
         if len(address) != self._dim_count:
-            raise ValueError("Invalid number of dimensions in address.")
+            raise ValueError("Invalid number of dimensions in idx_address.")
         idx_address = list(range(0, self._dim_count))
         super_level = 0
         for d in range(0, self._dim_count):
@@ -399,27 +498,3 @@ class Cube:
             keys = list(dim.member_idx_lookup.keys())
             address.append(keys[0])
         return tuple(address)
-
-    # region Functions
-    def _register(self, func, pattern):
-        if type(pattern) is str:
-            pattern = list((pattern,))
-
-        address = self._get_default_cell_address()
-        c = self._create_cursor_from_bolt(address, self.__to_bolt(address))
-        idx_pattern = []
-        for p in pattern:
-            idx_dim, idx_member, member_level = c._get_member(p)
-            # idx_pattern = [(0, 3)]
-            idx_pattern.append((idx_dim, idx_member))
-        self._functions.register(func, pattern, idx_pattern)
-
-    # # region Cube Formulas and Constraints
-    # def add_formula(self, formula: str) -> (bool, str):
-    #     """Adds a new mathematical formula for measure calculations to the Cube. The methods returns a boolean value
-    #     and string message. If the formula was successfully added to the Cube, then the values <True> and <None>
-    #     will be return, on failure the value <False> and an error message will be returned.
-    #     """
-    #     return self._rules.add(formula)
-
-    # endregion

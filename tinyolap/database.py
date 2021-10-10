@@ -10,7 +10,7 @@ from collections.abc import Iterable
 
 import utils
 from case_insensitive_dict import CaseInsensitiveDict
-from tinyolap.custom_exceptions import *
+from tinyolap.custom_errors import *
 from cube import Cube
 from dimension import Dimension
 from backend import Backend
@@ -45,7 +45,7 @@ class Database:
         use the ``save()``method of the database object.
         """
         if name != utils.to_valid_key(name):
-            raise InvalidKeyException(f"'{name}' is not a valid database name. "
+            raise InvalidKeyError(f"'{name}' is not a valid database name. "
                                       f"alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
@@ -116,6 +116,13 @@ class Database:
     # endregion
 
     # region Database related methods
+    def open(self, file_name: str):
+        """
+        Opens a database from a file.
+        :param file_name: The database file path to be opened.
+        """
+        return NotImplemented
+
     def close(self):
         """
         Closes the database. If in-memory mode is off ``in_memory == False`` ,
@@ -145,13 +152,13 @@ class Database:
                 if Path(self.file_path + ".log").exists():
                     os.remove(self.file_path + ".log")
             else:
-                raise DatabaseFileException("Failed to delete database file. Database connection is still open.")
+                raise DatabaseFileError("Failed to delete database file. Database connection is still open.")
         except OSError as err:
-            raise DatabaseFileException(f"Failed to delete database file. {str(err)}")
+            raise DatabaseFileError(f"Failed to delete database file. {str(err)}")
 
         if delete_log_file_too:
             if not self._backend.delete_log_file():
-                raise DatabaseFileException(f"Failed to delete database log file.")
+                raise DatabaseFileError(f"Failed to delete database log file.")
 
     # endregion
 
@@ -181,11 +188,11 @@ class Database:
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
         if not utils.is_valid_db_object_name(name):
-            raise InvalidKeyException(f"'{name}' is not a valid dimension name. "
+            raise InvalidKeyError(f"'{name}' is not a valid dimension name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if name in self.dimensions:
-            raise DuplicateKeyException(f"Failed to add dimension. A dimension named '{name}' already exists.")
+            raise DuplicateKeyError(f"Failed to add dimension. A dimension named '{name}' already exists.")
         dimension = Dimension._create(self._backend, name, description=description)
         dimension.backend = self._backend
         dimension.database = self
@@ -197,18 +204,18 @@ class Database:
         """Removes a :ref:´dimension <dimensions>´ from the database.
 
         :param dimension: Name of the dimension, or the :ref:`dimension <dimensions>´ object to be removed.
-        :raises KeyNotFoundException: If the dimension not exists.
+        :raises KeyNotFoundError: If the dimension not exists.
         """
         if type(dimension) is str:
             name = dimension
         else:
             name = dimension._name
         if name not in self.dimensions:
-            raise KeyNotFoundException(f"A dimension named '{name}' does not exist.")
+            raise KeyNotFoundError(f"A dimension named '{name}' does not exist.")
 
         uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
-            raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
+            raise DimensionInUseError(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                           f"and therefore can not be removed. Remove cubes first.")
 
         # todo: Check if the dimension can be removed safely (not in use by any cubes)
@@ -237,7 +244,7 @@ class Database:
         :param measures: (optional) a measure name or a list of measures names for the cube.
         If argument 'measures' is not defined, that a dfault measure named 'value' will be created.
         :return: The added cube object.
-        :raises CubeCreationException: Raised if the creation of the cubed failed due to one
+        :raises CubeCreationError: Raised if the creation of the cubed failed due to one
         of the following reasons:
 
         * The cube name is not invalid. Cube have to consist of lower case alphanumeric characters
@@ -252,52 +259,52 @@ class Database:
              adjusted at any time by changing the value for ``MAX_DIMS`` in the source file
              'database.py'.
 
-        :raises DuplicateKeyException: Raised if the cube already exists.")
+        :raises DuplicateKeyError: Raised if the cube already exists.")
         """
 
         # validate cube name
         if not utils.is_valid_db_object_name(name):
-            raise CubeCreationException(f"Invalid cube name '{name}'. Cube names must contain "
+            raise CubeCreationError(f"Invalid cube name '{name}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
-            raise DuplicateKeyException(f"A cube named '{name}' already exists.")
+            raise DuplicateKeyError(f"A cube named '{name}' already exists.")
 
         # validate dimensions
         if not dimensions:
-            raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
+            raise CubeCreationError("List of dimensions to create cube is empty or undefined.")
         if len(dimensions) > self.MAX_DIMS:
-            raise CubeCreationException(f"Too many dimensions ({len(dimensions)}). "
+            raise CubeCreationError(f"Too many dimensions ({len(dimensions)}). "
                                         f"Maximum number dimensions per cube is {self.MAX_DIMS}.")
         dims = []
         for dimension in dimensions:
             if type(dimension) is str:
                 if dimension not in self.dimensions:
-                    raise CubeCreationException(f"A dimension named '{str(dimension)}' is not defined in "
+                    raise CubeCreationError(f"A dimension named '{str(dimension)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dims.append(self.dimensions[dimension])
             elif type(dimension) is Dimension:
                 if dimension.name not in self.dimensions:
-                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not defined in "
+                    raise CubeCreationError(f"Dimension '{str(dimension.name)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dim = self.dimensions[dimension.name]
                 if dim is not dimension:
-                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not the same dimension "
+                    raise CubeCreationError(f"Dimension '{str(dimension.name)}' is not the same dimension "
                                                 f"as the one defined in database '{self.name}'. You can only use "
                                                 f"dimensions from within a database to add cubes.")
 
                 dims.append(dimension)
             else:
-                raise CubeCreationException(f"Unsupported dimension type '{str(dimension)}'.")
+                raise CubeCreationError(f"Unsupported dimension type '{str(dimension)}'.")
         # validate measures
         if measures:
             if type(measures) is str:
                 if not utils.is_valid_member_name(measures):
-                    raise CubeCreationException(f"Measure name '{str(measures)}' is not a valid measure name. "
+                    raise CubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
                                                 f"Please refer the documentation for further details.")
             elif isinstance(measures, Iterable):
                 for m in measures:
                     if not utils.is_valid_member_name(m):
-                        raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
+                        raise CubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
                                                     f"Please refer the documentation for further details.")
         # create and return the cube
         cube = Cube.create(self._backend, name, dims, measures)
@@ -307,7 +314,7 @@ class Database:
 
     def set(self, cube: str, address: Tuple[str], measure: str, value: float):
         """
-        Writes a value to the database for the given cube, address and measure.
+        Writes a value to the database for the given cube, idx_address and measure.
         Write back is supported for base level cells only.
 
         .. note:: Although TinyOlap is intended to be used for numerical data mainly,
@@ -324,8 +331,8 @@ class Database:
         self.cubes[cube].set(address, measure, value)
 
     def get(self, cube: str, address: Tuple[str], measure: str):
-        """Returns a value from the database for a given cube, address and measure.
-                If no records exist for a given valid address, then 0.0 will be returned."""
+        """Returns a value from the database for a given cube, idx_address and measure.
+                If no records exist for a given valid idx_address, then 0.0 will be returned."""
         return self.cubes[cube].get(address, measure)
 
     # endregion

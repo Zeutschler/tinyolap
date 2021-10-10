@@ -89,7 +89,7 @@ def tiny_olap_demonstration():
     # Lets define a formula.
     cube.add_formula("[Profit] = [Sales] - [Cost]")
 
-    # 4. Write some values to your Cube. Simply by defining your address (as a tuple) and a measure.
+    # 4. Write some values to your Cube. Simply by defining your idx_address (as a tuple) and a measure.
     cube.set(("2020", "Q1", "North", "A"), "Sales", 1.0)
     cube.set(("2020", "Q1", "North", "A"), "Cost", 0.8)
     cube.set(("2020", "Q1", "North", "A"), "Profit", 0.2)
@@ -140,7 +140,7 @@ def tiny_olap_demonstration():
                     {"measure": ["Sales", "Cost", "Profit"]}],
         "rows": [{"dimension": "Products", "member:": ["Total", "A", "B", "C", "D"]}]
     }
-    grid = Slice(cube, definition).as_console_output(color_sheme=Slice.Color_Scheme_Default())
+    grid = Slice(cube, definition).as_console_output(color_shema=Slice.Color_Scheme_Default())
     print(grid)
     print(f"\nThis slice was updated and printed in {time.time()-start: .5f} sec. ")
 

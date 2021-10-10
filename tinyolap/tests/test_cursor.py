@@ -4,7 +4,7 @@ from unittest import TestCase
 
 import tiny
 from tinyolap.cursor import Cursor
-from tinyolap.custom_exceptions import InvalidCellAddressException
+from tinyolap.custom_errors import InvalidCellAddressError
 
 
 class TestCursor(TestCase):
@@ -17,7 +17,7 @@ class TestCursor(TestCase):
         c = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
         with self.assertRaises(Exception) as context:
             c = self.cube.create_cursor("2022", "Jan")
-        self.assertEqual(type(InvalidCellAddressException()), type(context.exception))
+        self.assertEqual(type(InvalidCellAddressError()), type(context.exception))
 
     def test_cursor_manipulation(self):
         a = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
@@ -25,11 +25,11 @@ class TestCursor(TestCase):
         a.value = 2.0
         b.value = 123.0
 
-        c = a.alter("Feb")  # c now point the same cell address for "Feb" as b. They do the same thing.
+        c = a.alter("Feb")  # c now point the same cell idx_address for "Feb" as b. They do the same thing.
         self.assertEqual(b, c)
 
-        # IMPORTANT: 'c' still points to the "Feb" cell address.
-        # Using slicers is just temporary shift of the cell address.
+        # IMPORTANT: 'c' still points to the "Feb" cell idx_address.
+        # Using slicers is just temporary shift of the cell idx_address.
         c["Mar"] = 333.0
         c["months:Mar"] = 333.0  # save method to not stumble over duplicate member names in different dimensions
         c["1:Mar"] = 333.0       # an even saver method, 0 ... [dims-1] use this if cubes contain 1 dimension multiple times.

@@ -6,7 +6,7 @@ class Slice:
     """Represents a slice from a cube. Slices can be seen as a report in Excel with filters on top,
      row- and column-headers and the requested data itself. See demo.py for sample usage."""
 
-    class Color_Scheme():
+    class Color_Schema():
 
         class Colors(enum.Enum):
             none = ''
@@ -51,11 +51,11 @@ class Slice:
             self.names = ""
             self.members = ""
 
-    class ColorScheme_None(Color_Scheme):
+    class ColorScheme_None(Color_Schema):
         def __init__(self):
             super().__init__()
 
-    class Color_Scheme_Default(Color_Scheme):
+    class Color_Scheme_Default(Color_Schema):
         def __init__(self):
             super().__init__()
             self.borders = self.colors.darkgrey
@@ -114,7 +114,7 @@ class Slice:
         return time() - start,  results
 
     def _experimental_refresh_grid_cell(self, address):
-        # arg := [col, row, value, col_members, row_members, address, measure]
+        # arg := [col, row, value, col_members, row_members, idx_address, measure]
         value = self.cube.get(address)
         return value
 
@@ -126,6 +126,7 @@ class Slice:
         address = [""] * dim_count
         measure = ""
         grid = []
+        formats = {}
 
         # set fixed header values
         for member in self.axis[0]:
@@ -160,9 +161,21 @@ class Slice:
                     else:
                         address[dim_ordinal] = col_member[1]
 
-                # now we have a valid address to be evaluated
+
+                # check formats
+                format = None
+                for idx, member in enumerate(tuple(address)):
+                    if member not in formats:
+                        member_format = self.cube.get_dimension_by_index(idx).member_get_format(member)
+                        if member_format:
+                            format = member_format
+                        formats[member] = member_format
+                    else:
+                        format = formats[member]
+
+                # now we have a valid idx_address to be evaluated
                 value = self.cube.get(tuple(address) + (measure,))
-                grid.append([col, row, value, col_members, row_members, tuple(address), measure])
+                grid.append([col, row, value, col_members, row_members, tuple(address), measure, format])
 
                 col += 1
             row += 1
@@ -330,7 +343,7 @@ class Slice:
             # expand (multiply) all definition of the axis
             if axis_index == 0:
                 # only valid for header
-                #print(f"{axis_name}:")
+                # print(f"{axis_name}:")
                 members = [x[0] for x in self.axis[axis_index]]
                 # print(members)
                 self.axis[axis_index] = members
@@ -390,11 +403,10 @@ class Slice:
         self.zero_cols = None
         self.zero_rows = None
 
-    def as_console_output(self, color_sheme: Color_Scheme = Color_Scheme) -> str:
+    def as_console_output(self, color_shema: Color_Schema = Color_Schema) -> str:
         """Renders an output suitable for printing to the console only. The output most probably contains
         control characters and color definitions and is therefore not suitable for other use cases."""
-        # todo: implement this
-        # title, decsription
+        # title, description
         # print headers
         # print col headers
         # print row headers and values
@@ -434,12 +446,17 @@ class Slice:
         for cell in self.grid:
             col = cell[0]
             row = cell[1]
-            if type(cell[2]) is float:
-                value = f"{cell[2]:.2f}".rjust(cell_width)
-            elif cell[2] is None:
+            value = cell[2]
+            format = cell[7]
+            if type(value) is float:
+                if format:
+                    value = format.format(value).rjust(cell_width)
+                else:
+                    value = f"{value:,.2f}".rjust(cell_width)
+            elif value is None:
                 value = f"-".rjust(cell_width)
             else:
-                value = f"{str(cell[2])}".rjust(cell_width)
+                value = f"{str(value)}".rjust(cell_width)
 
             if col == 0:
                 if row > 0:
@@ -457,7 +474,7 @@ class Slice:
         return str(self)
 
     def __str__(self):
-        return self.as_console_output(color_sheme=Slice.Color_Scheme_Default())
+        return self.as_console_output(color_shema=Slice.Color_Scheme_Default())
 
     def __repr__(self):
-        return self.as_console_output(color_sheme=Slice.Color_Scheme_Default())
+        return self.as_console_output(color_shema=Slice.Color_Scheme_Default())

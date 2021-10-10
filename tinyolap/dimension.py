@@ -9,7 +9,7 @@ from collections.abc import Iterable
 import collections.abc
 
 from case_insensitive_dict import CaseInsensitiveDict
-from custom_exceptions import *
+from custom_errors import *
 import utils
 
 
@@ -97,7 +97,8 @@ class Dimension:
     LEVEL = 6
     ATTRIBUTES = 7
     BASE_CHILDREN = 8
-    ALIAS = 9
+    ALIASES = 9
+    FORMAT = 10
 
     MEMBERS = 3
     IDX_MEMBERS = 4
@@ -120,6 +121,7 @@ class Dimension:
         self._member_idx_manager = Dimension.MemberIndexManager()
         # self.member_idx_lookup: dict[str, int] = {}
         self.member_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
+        self.alias_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
         self.member_counter = 0
         self.highest_idx = 0
         self.backend = None
@@ -156,6 +158,7 @@ class Dimension:
         self.member_idx_lookup = {}
         self.members = {}
         self._member_idx_manager.clear()
+        self.alias_idx_lookup.clear()
         self.member_counter = 0
         self.subsets = {}
         self._subset_idx_manager.clear()
@@ -169,7 +172,7 @@ class Dimension:
         :return: The dimension itself.
         """
         if self.edit_mode:
-            raise DimensionEditModeException("Failed to set edit mode. 'edit_begin()' was already called before.")
+            raise DimensionEditModeError("Failed to set edit mode. 'edit_begin()' was already called before.")
         self.edit_mode = True
         self.recovery_json = self.to_json()
         self.recovery_idx = set(self.member_idx_lookup.values())
@@ -205,7 +208,7 @@ class Dimension:
     # endregion
 
     # region add, remove, rename members
-    def add_member(self, member, children=None, description=None):
+    def add_member(self, member, children=None, description=None, format=None):
         """Adds one or multiple members and (optionally) associated child-members to the dimension.
 
         :param member: A single string or an iterable of strings containing the members to be added.
@@ -214,9 +217,11 @@ class Dimension:
         either containing strings (adds a single child) or itself an iterable of string (adds multiple children).
         :param description: A description for the member to be added. If parameter 'member' is an iterable,
         then description will be ignored. For that case, please set descriptions for each member individually.
+        :param format: A format string for output formatting, e.g. for numbers or percentages.
+        Formatting follows the standard Python formatting specification at <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
         """
         if not self.edit_mode:
-            raise DimensionEditModeException("Failed to add member. Dimension is not in edit mode.")
+            raise DimensionEditModeError("Failed to add member. Dimension is not in edit mode.")
 
         member_list = member
         children_list = children
@@ -235,19 +240,22 @@ class Dimension:
 
         for m, c in zip(member_list, children_list):
             # add the member
-            self.__member_add_parent_child(member=m, parent=None, description=(None if multi else description))
+            idx_member = self.__member_add_parent_child(member=m, parent=None,
+                                                        description=(None if multi else description))
+            if format:
+                self.members[idx_member][self.FORMAT] = format
 
             if c:
                 # add children
                 if isinstance(c, str):
                     c = [c]
                 elif not (isinstance(c, collections.abc.Sequence) and not isinstance(c, str)):
-                    raise DimensionEditModeException(
+                    raise DimensionEditModeError(
                         f"Failed to member '{m}' to dimension '{self.name}'. Unexpected type "
                         f"'{type(c)}' of parameter 'children' found.")
                 for child in c:
                     if not isinstance(child, str):
-                        raise DimensionEditModeException(
+                        raise DimensionEditModeError(
                             f"Failed to add child to member '{m}' of dimension '{self.name}. Unexpected type "
                             f"'{type(c)}' of parameter 'children' found.")
                     if not self.__valid_member_name(child):
@@ -290,7 +298,7 @@ class Dimension:
         # Ensure all members exist
         for member in member_list:
             if member not in self.member_idx_lookup:
-                raise DimensionEditModeException(f"Failed to remove member(s). "
+                raise DimensionEditModeError(f"Failed to remove member(s). "
                                                  f"At least 1 of {len(member_list)} member ('{member}') is not "
                                                  f"a member of dimension {self.name}")
 
@@ -336,6 +344,129 @@ class Dimension:
 
     # endregion
 
+    # region member aliases
+    def member_add_alias(self, member: str, alias: str):
+        """
+        Adds a member alias to the dimension. Aliases enable the access of members
+        by alternative names or keys (e.g. a technical key, or an abbreviation).
+
+        :param member: Name of the member to add an alias for.
+        :param alias: The alias to be set.
+        :raises KeyError: Raised if the member does not exist.
+        :raises DuplicateKeyError: Raised if the alias is already used by another member.
+        Individual aliases can only be assigned to one member.
+        """
+        if member not in self.member_idx_lookup:
+            raise KeyError(f"{member}' is not member a of dimension'{self.name}'")
+        idx_member = self.member_idx_lookup[member]
+        if alias in self.alias_idx_lookup:
+            raise DuplicateKeyError(f"Duplicate alias. The alias '{alias}' is already used "
+                           f"by member '{self.members[idx_member][self.NAME]}' of dimension'{self.name}'")
+        self.alias_idx_lookup[alias] = idx_member
+
+    def remove_alias(self, alias: str):
+        """
+        Removes a member alias from the dimension.
+
+        :param alias: The alias to be removed.
+        """
+        if alias not in self.alias_idx_lookup:
+            raise KeyError(f"{alias}' is not alias a of dimension'{self.name}'")
+        del self.alias_idx_lookup[alias]
+
+    def member_remove_all_aliases(self, member: str):
+        """
+        Removes all aliases of a member from the dimension.
+
+        :param member: Name of the member to remove the aliases for.
+        :raises KeyError: Raised if the member does not exist.
+        """
+        if member not in self.member_idx_lookup:
+            raise KeyError(f"{member}' is not member a of dimension'{self.name}'")
+        idx_member = self.member_idx_lookup[member]
+        aliases_to_be_deleted = set([key for key, idx in self.alias_idx_lookup.items() if idx == idx_member])
+        for alias in aliases_to_be_deleted:
+            del self.alias_idx_lookup[alias]
+
+    def member_has_alias(self, member: str) -> bool:
+        """
+        Checks if for a given member an alias is defined.
+
+        :param member: Name of the member to be checked.
+        :raises KeyError: Raised if the member does not exist.
+        """
+        if member not in self.member_idx_lookup:
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+        idx_member = self.member_idx_lookup[member]
+        return idx_member in set(self.alias_idx_lookup.values())
+
+    def member_aliases_count(self, member: str) -> int:
+        """
+        Returns the number of aliases defined for a given member.
+
+        :param member: Name of the member to be checked.
+        :raises KeyError: Raised if the member does not exist.
+        """
+        if member not in self.member_idx_lookup:
+            raise KeyError(f"Failed to return member alias count. '{member}' is not a member of dimension'{self.name}'")
+        idx_member = self.member_idx_lookup[member]
+        return len(set([idx for idx in set(self.alias_idx_lookup.values()) if idx == idx_member]))
+
+    def get_member_by_alias(self, alias: str) -> str:
+        """
+        Returns the name of a member associated with the given.
+
+        :param alias: Name of the alias to be checked.
+        :raises KeyError: Raised if the alias does not exist.
+        """
+        if alias not in self.alias_idx_lookup:
+            raise KeyError(f"Failed to get member by alias. '{alias}' is not a member alias of dimension'{self.name}'")
+        idx_member = self.alias_idx_lookup[alias]
+        return self.members[idx_member][self.NAME]
+
+    # endregion
+
+    # region member format (for output formatting)
+    def member_set_format(self, member: str, format_string: str):
+        """
+        Set a format string for output formatting, especially useful for number formatting.
+        Member formatting follows the standard Python formatting specification at
+        <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
+
+        :param member: Name of the member to set the format for.
+        :param format_string: The format string to be used. Member formatting follows the standard Python formatting
+        specification at <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
+        """
+        if member not in self.member_idx_lookup:
+            raise KeyError(f"Failed to set member format. '{member}' is not a member of dimension'{self.name}'")
+        idx_member = self.member_idx_lookup[member]
+        self.members[idx_member][self.FORMAT] = format_string
+
+    def member_get_format(self, member: str) -> str:
+        """
+        Returns the format string of a member.
+
+        :param member: Name of the member to return the format for.
+        :return: Returns the format string for the member, or ``None``if no format string is defined.
+        """
+        if member not in self.member_idx_lookup:
+            raise KeyError(f"Failed to return member format. '{member}' is not a member of dimension'{self.name}'")
+        idx_member = self.member_idx_lookup[member]
+        return self.members[idx_member][self.FORMAT]
+
+    def member_remove_format(self, member: str):
+        """
+        Removes the format string of a member.
+
+        :param member: Name of the member to remove the format for.
+        """
+        if member not in self.member_idx_lookup:
+            raise KeyError(f"Failed to remove member format. '{member}' is not a member of dimension'{self.name}'")
+        idx_member = self.member_idx_lookup[member]
+        self.members[idx_member][self.FORMAT] = None
+
+    # endregion
+
     # region member information functions
     def member_exists(self, member: str) -> bool:
         """
@@ -355,7 +486,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self.member_idx_lookup:
-            raise KeyError(f"{member}' is not member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
         return self.member_idx_lookup[member]
 
     def member_get_parents(self, member: str) -> list[str]:
@@ -366,7 +497,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self.member_idx_lookup:
-            raise KeyError(f"{member}' is not member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
         parents = []
         for idx in self.members[self.member_idx_lookup[member]][self.PARENTS]:
             parents.append(self.members[idx][self.NAME])
@@ -381,7 +512,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self.member_idx_lookup:
-            raise KeyError(f"{member}' is not member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
         children = []
         for idx in self.members[self.member_idx_lookup[member]][self.CHILDREN]:
             children.append(self.members[idx][self.NAME])
@@ -396,7 +527,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self.member_idx_lookup:
-            raise KeyError(f"{member}' is not member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
         return self.members[self.member_idx_lookup[member]][self.LEVEL]
 
     # endregion
@@ -578,15 +709,15 @@ class Dimension:
 
         :param attribute_name: Name of the attribute to be added.
         :param value_type: Type of value expected for the attribute. Default value is ``object`` to allow any data.
-        :raises InvalidKeyException: Raised when the name of the attribute is invalid.
-        :raises DuplicateKeyException: Raised when the name of the attribute already exists.
+        :raises InvalidKeyError: Raised when the name of the attribute is invalid.
+        :raises DuplicateKeyError: Raised when the name of the attribute already exists.
         """
         if not utils.is_valid_db_object_name(attribute_name):
-            raise InvalidKeyException(f"'{attribute_name}' is not a valid dimension attribute name. "
+            raise InvalidKeyError(f"'{attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if attribute_name in self.attributes:
-            raise DuplicateKeyException(f"Failed to add attribute to dimension. "
+            raise DuplicateKeyError(f"Failed to add attribute to dimension. "
                                         f"A dimension attribute named '{attribute_name}' already exists.")
         self.attributes[attribute_name] = value_type
 
@@ -596,11 +727,11 @@ class Dimension:
 
         :param attribute_name: The name of the attribute to be renamed.
         :param new_attribute_name: The new name of the attribute.
-        :raises InvalidKeyException: Raised when the new name of the attribute is invalid.
-        :raises DuplicateKeyException: Raised when the new name of the attribute already exists.
+        :raises InvalidKeyError: Raised when the new name of the attribute is invalid.
+        :raises DuplicateKeyError: Raised when the new name of the attribute already exists.
         """
         if not utils.is_valid_db_object_name(new_attribute_name):
-            raise InvalidKeyException(f"Failed to rename dimension attribute. "
+            raise InvalidKeyError(f"Failed to rename dimension attribute. "
                                       f"'{new_attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -666,17 +797,17 @@ class Dimension:
 
         :param subset_name: Name of the subset to be added.
         :param members: A list (iterable) containing the member to be added to the subset.
-        :raises InvalidKeyException: Raised when the name of the subset is invalid.
-        :raises DuplicateKeyException: Raised when the name of the subset already exists.
+        :raises InvalidKeyError: Raised when the name of the subset is invalid.
+        :raises DuplicateKeyError: Raised when the name of the subset already exists.
         :raises TypeError: Raised when members list is not of the expected type (list or tuple)
         :raises KeyError: Raised when a member from the members list is not contained in the dimension.
         """
         if not utils.is_valid_db_object_name(subset_name):
-            raise InvalidKeyException(f"'{subset_name}' is not a valid dimension subset name. "
+            raise InvalidKeyError(f"'{subset_name}' is not a valid dimension subset name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if subset_name in self.subsets:
-            raise DuplicateKeyException(f"Failed to add subset to dimension. "
+            raise DuplicateKeyError(f"Failed to add subset to dimension. "
                                         f"A dimension subset named '{subset_name}' already exists.")
 
         # validate members list
@@ -734,11 +865,11 @@ class Dimension:
 
         :param subset_name: Name of the subset to be added.
         :param new_subset_name: New name of the subset.
-        :raises InvalidKeyException: Raised when the new name for the subset is invalid.
+        :raises InvalidKeyError: Raised when the new name for the subset is invalid.
         :raises KeyError: Raised when the subset is not contained in the dimension.
         """
         if not utils.is_valid_db_object_name(new_subset_name):
-            raise InvalidKeyException(f"'{new_subset_name}' is not a valid dimension subset name. "
+            raise InvalidKeyError(f"'{new_subset_name}' is not a valid dimension subset name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if not subset_name in self.subsets:
@@ -809,7 +940,7 @@ class Dimension:
             **before** you create any cube. Handle with care.
 
         :param json_string: The json string containing the dimension definition.
-        :raises FatalException: Raised if an error occurred during the deserialization from json string.
+        :raises FatalError: Raised if an error occurred during the deserialization from json string.
         """
         if not self.edit_mode:
             self.edit()
@@ -838,7 +969,7 @@ class Dimension:
             self.subsets = new_subsets
             self.commit()
         except Exception as err:
-            raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")
+            raise FatalError(f"Failed to load json for dimension '{self.name}'. {str(err)}")
 
     # endregion
 
@@ -847,7 +978,7 @@ class Dimension:
     def __valid_member_name(name):
         return not (("\t" in name) or ("\n" in name) or ("\r" in name))
 
-    def __member_add_parent_child(self, member, parent, weight: float = 1.0, description: str = None):
+    def __member_add_parent_child(self, member, parent, weight: float = 1.0, description: str = None) -> int:
         if member in self.member_idx_lookup:
             member_idx = self.member_idx_lookup[member]
             if description:
@@ -866,11 +997,14 @@ class Dimension:
                                         self.CHILDREN: [],
                                         self.LEVEL: 0,
                                         self.ATTRIBUTES: {},
-                                        self.BASE_CHILDREN: []
+                                        self.BASE_CHILDREN: [],
+                                        self.ALIASES: [],
+                                        self.FORMAT: None,
                                         }
 
             if parent:
                 self.__add_parent(member, parent)
+        return member_idx
 
     def __add_parent(self, member: str, parent: str = None):
         member_idx = self.member_idx_lookup[member]
@@ -888,7 +1022,9 @@ class Dimension:
                                         self.CHILDREN: [member_idx],
                                         self.LEVEL: level + 1,
                                         self.ATTRIBUTES: {},
-                                        self.BASE_CHILDREN: []
+                                        self.BASE_CHILDREN: [],
+                                        self.ALIASES: [],
+                                        self.FORMAT: None,
                                         }
         else:
             parent_idx = self.member_idx_lookup[parent]
@@ -906,7 +1042,7 @@ class Dimension:
             self.members[member_idx][self.PARENTS].remove(parent_idx)
             self.members[parent_idx][self.CHILDREN].remove(member_idx)
 
-            raise DimensionEditModeException(f"Circular reference detected on adding parent <-> child relation "
+            raise DimensionEditModeError(f"Circular reference detected on adding parent <-> child relation "
                                              f"'{self.members[parent_idx][self.NAME]}' <-> "
                                              f"'{self.members[member_idx][self.NAME]}' "
                                              f"to dimension {self.name}. Both members were added, "
@@ -934,7 +1070,7 @@ class Dimension:
     def __check_circular_reference(self):
         for idx in self.member_idx_lookup.values():
             if self.__circular_reference_detection(idx, idx):
-                raise DimensionEditModeException(f"Failed to commit dimension. Circular reference detected "
+                raise DimensionEditModeError(f"Failed to commit dimension. Circular reference detected "
                                                  f"for member {self.members[idx][self.NAME]}.")
 
     def __circular_reference_detection(self, start: int, current: int, visited = None):

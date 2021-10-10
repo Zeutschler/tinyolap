@@ -2,8 +2,8 @@ import os
 from typing import Dict
 import functools
 
+from custom_errors import DuplicateKeyError
 from database import Database
-from errorhandling import Errors
 
 
 # def singleton(cls):
@@ -38,7 +38,7 @@ class Server:
         self.databases.clear()  # initiates the garbage collection
         files = self.get_existing_database_files()
         for file in files:
-            database = Database(self, file)
+            database = Database(file)
             self.databases[database.name] = database
 
 
@@ -51,12 +51,12 @@ class Server:
         database_file : str
             A full qualified path to database file.
         """
-        database = Database(self, database_file)
+        database = Database(database_file)
         if not database.open(database_file):
             return False
         if database.name in self.databases:
-            Errors.add(f"Method 'Server.open_database()' failed. A database  named '{database.name}' already exists.")
-            return False
+            raise DuplicateKeyError(f"Method 'open_database()' failed. "
+                                    f"A database named '{database.name}' already exists.")
         self.databases[database.name] = database
         return True
 

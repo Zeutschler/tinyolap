@@ -4,6 +4,6 @@
 Formulas and Calculations
 ===============
 
-.. autoclass:: tinyolap.formulas.Functions
+.. autoclass:: tinyolap.formulas.Rules
     :members:
     :noindex:

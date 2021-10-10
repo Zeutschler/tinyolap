@@ -4,7 +4,7 @@ from collections import Iterable
 from typing import SupportsFloat
 # noinspection PyProtectedMember
 
-from custom_exceptions import *
+from custom_errors import *
 from tinyolap.member import Member
 
 
@@ -25,12 +25,19 @@ class Cursor(SupportsFloat):
             # setup a new database
             cursor = cube.create_cursor()
             value = cursor.value
-            address = cursor.address  # returns a list e.g. ["member of dim1", "member of dim2" ...]
+            idx_address = cursor.idx_address  # returns a list e.g. ["member of dim1", "member of dim2" ...]
             cursor.move("dim1", move.NEXT)  # move.NEXT
     """
 
-    CONTINUE: str = "continue"
-
+    #: Indicates that either subsequent rules should continue and do the calculation
+    #: work or that the cell value, either from a base-level or an aggregated cell,
+    #: form the underlying cube should be used.
+    CONTINUE = object()
+    #: Indicates that rules function was not able return a proper result (why ever).
+    NONE = object()
+    #: Indicates that the rules functions run into an error. Such errors will be
+    #: pushed up to initially calling cell request.
+    ERROR = object()
 
     # region Initialization
     @classmethod
@@ -57,17 +64,17 @@ class Cursor(SupportsFloat):
     # region Properties
     @property
     def value(self):
-        """Reads the value of the current cursor address from the underlying cube."""
+        """Reads the value of the current cursor idx_address from the underlying cube."""
         return self._cube._get(self._bolt)
 
     @value.setter
     def value(self, value):
-        """Writes a value of the current cursor address to the underlying cube."""
+        """Writes a value of the current cursor idx_address to the underlying cube."""
         self._cube._set(self._bolt, value)
 
     @property
     def numeric_value(self) -> float:
-        """Reads the numeric value of the current cursor address from the underlying cube."""
+        """Reads the numeric value of the current cursor idx_address from the underlying cube."""
         value = self._cube._get(self._bolt)
         if isinstance(value, (int, float, complex)) and not isinstance(value, bool):
             return float(value)
@@ -88,9 +95,9 @@ class Cursor(SupportsFloat):
         self.__setitem__(item, None)
 
     def __item_to_bold(self, item):
-        """Setting a value through indexing/slicing will temporarily modify the cell address and return
-        the value from that cell address. This does NOT modify the cell address of a Cursor object.
-        To modify the cell address of a Cursor, you can call the ``.alter(...)`` method."""
+        """Setting a value through indexing/slicing will temporarily modify the cell idx_address and return
+        the value from that cell idx_address. This does NOT modify the cell idx_address of a Cursor object.
+        To modify the cell idx_address of a Cursor, you can call the ``.alter(...)`` method."""
 
         modifiers = []
         if type(item) is str or not isinstance(item, Iterable):
@@ -115,7 +122,7 @@ class Cursor(SupportsFloat):
             else:
                 raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'Member are supported.")
 
-        # Finally modify the address and set the value
+        # Finally modify the idx_address and set the value
         for modifier in modifiers:
             idx_address[modifier[0]] = modifier[1]
         bolt = (super_level, tuple(idx_address), idx_measure)
@@ -143,14 +150,14 @@ class Cursor(SupportsFloat):
                     idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                    raise InvalidCellAddressError(f"Invalid member key. '{dim_name}' is not a dimension "
                                                       f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member_name = member_name[pos + 1:].strip()
             if member_name not in dimensions[idx_dim].member_idx_lookup:
-                raise InvalidCellAddressException(f"Invalid member key. '{member_name}'is not a member of "
+                raise InvalidCellAddressError(f"Invalid member key. '{member_name}'is not a member of "
                                                   f"dimension '{dim_name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
 
@@ -167,8 +174,8 @@ class Cursor(SupportsFloat):
                 return idx_dim, idx_member, member_level
 
         if idx_dim == -1:
-            raise InvalidCellAddressException(f"'{member_name}'is not a member of "
-                                              f"any dimension in cube '{self._cube.name}.")
+            raise InvalidCellAddressError(f"'{member_name}' is not a member of "
+                                          f"any dimension in cube '{self._cube.name}.")
 
     # endregion
 

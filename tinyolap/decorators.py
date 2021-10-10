@@ -1,16 +1,21 @@
 import functools
+
+from tinyolap.rules import RuleScope
 from tinyolap.server import Server
 
 
-def register(database: str, cube: str, pattern: list[str] ):
-    def decorator_register(func):
+def rule(cube: str, pattern: list[str], scope: RuleScope = RuleScope.ALL_LEVELS):
+    def decorator_rule(func):
         @functools.wraps(func)
-        def wrapper_register(*args, **kwargs):
+        def wrapper_rule(*args, **kwargs):
             return func(*args, **kwargs)
-        wrapper_register.server = Server()
-        wrapper_register.server._register(func, database, cube, pattern)
-        return wrapper_register
-    return decorator_register
+        # wrapper_rule.server = Server()
+        # wrapper_rule.server._register(func, database, cube, pattern, scope)
+        wrapper_rule.cube = cube
+        wrapper_rule.pattern = pattern
+        wrapper_rule.scope = scope
+        return wrapper_rule
+    return decorator_rule
 
 
 class CountCalls:

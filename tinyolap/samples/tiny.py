@@ -5,7 +5,10 @@
 import itertools
 import math
 
+import tinyolap.cursor
+from decorators import rule
 from tinyolap.database import Database
+from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
 from random import uniform, randrange
 
@@ -72,15 +75,38 @@ def load():
     dim_products.add_member("best sellers", ["sports", "motorcycles"])
     dim_products.commit()
 
-    # Measures
-    measures = ["Sales", "Cost", "Profit"]
+    # Finally lets create a measures dimension for our profit schema.
+    dim_measures = db.add_dimension("measures")
+    dim_measures.edit()
+    dim_measures.add_member(["Sales", "Cost", "Profit", "Profit in %"])
+    dim_measures.commit()
+
+    # Add some nice number formatting for percentages
+    dim_measures.member_set_format("Profit in %", "{:.2%}")
 
     # Now we can create our 'sales'*' cube, which is then a 5-dimensional cube.
-    cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products], measures)
-    cube.add_formula("[Profit] = [Sales] - [Cost]")
+    cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products, dim_measures])
+
+    # now add some custom bisness logic
+    cube.add_rule(rule_profit)
+    cube.add_rule(rule_profit_in_percent)
 
     # That's it...
     return db
+
+
+@rule("sales", ["Profit"], tinyolap.rules.RuleScope.ALL_LEVELS)
+def rule_profit(c: tinyolap.cursor.Cursor):
+    return c["Sales"] - c["Cost"]
+
+
+@rule("sales", ["Profit in %"], tinyolap.rules.RuleScope.ALL_LEVELS)
+def rule_profit_in_percent(c: tinyolap.cursor.Cursor):
+    sales = c["Sales"]
+    profit = c["Profit"]
+    if sales:
+        return profit / sales
+    return None
 
 
 def play(database: Database = load(), console_output: bool = True):
@@ -122,9 +148,6 @@ def play(database: Database = load(), console_output: bool = True):
     cube["2022", "Jan", "North", "trucks", "Sales"] = None
     del cube["2022", "Jan", "North", "trucks", "Sales"]
 
-
-
-
     # Another approach to read and write values is to use the the
     # ``set()`` and ``get()`` methods. The advantage of these
     # methods is, that you can hand over one single tuple (preferred)
@@ -134,7 +157,6 @@ def play(database: Database = load(), console_output: bool = True):
     value = cube.get(address)
     if console_output:
         print(f"sales({address}) := {value}")
-
 
     # Finally, you can create simple reports for console output
     # using slices.
@@ -164,17 +186,25 @@ def play(database: Database = load(), console_output: bool = True):
     if console_output:
         print(report)
 
+    report_definition = {"title": "Another fancy report...",
+                         "columns": [{"dimension": "months",
+                                      "member": ["Jan", "Feb", "Mar", "Q1", "Q2", "Q3", "Q4", "Year"]}],
+                         "rows": [{"dimension": "measures"}]}
+    report = Slice(cube, report_definition)
+    if console_output:
+        print(report)
+
     # Lets fill the entire cube with random numbers.
     # WARNING. The next statement is dangerous in high dimensional space
-    # or with many members. For this tiny database it creates already
-    # 3 * 12 * 4 * 6 * 2 = 1,728 cells.
+    # and/or data models with many members.
+    # For this tiny database it creates already 3 * 12 * 4 * 6 * 2 = 3,456 cells.
     addresses = itertools.product(("2021", "2022", "2023"),
-                                       ("Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
-                                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
-                                        ("North", "South", "West", "East"),
-                                        ("trucks", "motorcycles", "coupe", "sedan", "sports", "van"),
-                                        ("Sales", "Cost")
-                                       )
+                                  ("Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+                                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+                                  ("North", "South", "West", "East"),
+                                  ("trucks", "motorcycles", "coupe", "sedan", "sports", "van"),
+                                  ("Sales", "Cost", "Profit", "Profit in %")
+                                  )
     for address in addresses:
         cube.set(address, float(randrange(5, 100)))
 
@@ -209,11 +239,11 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
 
     # Cursors behave (more or less) like float values,
     # ...but on direct assignment you need to be a bit careful:
-    a = c.value    # as 'a = c' would only copy the reference to the Cursor object,
-                   # so we need to explicitly ask for .value
-    a = float(c)   # ...would be an alternative approach to ask for the numeric value of 'c'
-    a = c.numeric_value   # ...or this, in order to be sure to strictly get the numerical value.
-                          # 'c.value' will return whatever is in the database. 'c.numeric_value' converts it to float.
+    a = c.value  # as 'a = c' would only copy the reference to the Cursor object,
+    # so we need to explicitly ask for .value
+    a = float(c)  # ...would be an alternative approach to ask for the numeric value of 'c'
+    a = c.numeric_value  # ...or this, in order to be sure to strictly get the numerical value.
+    # 'c.value' will return whatever is in the database. 'c.numeric_value' converts it to float.
 
     # Once you start to do math, you are fine and can do almost anything e.g.:
     a = c * 2.0
@@ -227,7 +257,7 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
     # 3. Lets assume you want another cursor, closely related to the one we have already created.
     # "we want the 'Feb' value. You can either create another cursor as show above...
     d = cube.create_cursor("2022", "Feb", "North", "trucks", "Sales")
-    # ...or you can just 'shift' your cursor TEMPORARILY to another cell address, by defining what should change.
+    # ...or you can just 'shift' your cursor TEMPORARILY to another cell idx_address, by defining what should change.
     # This will NOT change the cursor from 'Jan' to 'Feb', it will just return the value for 'Feb' and will then
     # forget about that.
     d = c["Feb"]
@@ -239,7 +269,7 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
     #                 it is good practice to ALWAYS use slicers, even is you don need to.
     #                 This greatly improves the readability and consistency of your code.
     # Both of the follwong staments are identical:
-    q1 = c + c["Feb"] + c["Mar"]         # Who knows what 'c' is about?
+    q1 = c + c["Feb"] + c["Mar"]  # Who knows what 'c' is about?
     q1 = c["Jan"] + c["Feb"] + c["Mar"]  # THIS IS GOOD PRACTISE !!!
 
     # Let's see what else we can do...
@@ -277,13 +307,6 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
     sport_cars_in_percent = lambda x: x["products:sports"] / x["products:Total"] * 100.0
     # Now you can reuse this function for whatever cursor you like:
     kpi = sport_cars_in_percent(c)
-
-
-
-
-
-
-
 
 
 def main():
