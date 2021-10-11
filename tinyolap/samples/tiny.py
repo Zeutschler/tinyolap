@@ -5,7 +5,7 @@
 import itertools
 import math
 
-import tinyolap.cursor
+import tinyolap.cell
 from decorators import rule
 from tinyolap.database import Database
 from tinyolap.rules import RuleScope
@@ -113,12 +113,12 @@ def load():
 
 
 @rule("sales", ["Profit"], tinyolap.rules.RuleScope.ALL_LEVELS)
-def rule_profit(c: tinyolap.cursor.Cursor):
+def rule_profit(c: tinyolap.cell.Cell):
     return c["Sales"] - c["Cost"]
 
 
 @rule("sales", ["Profit in %"], tinyolap.rules.RuleScope.ALL_LEVELS)
-def rule_profit_in_percent(c: tinyolap.cursor.Cursor):
+def rule_profit_in_percent(c: tinyolap.cell.Cell):
     sales = c["Sales"]
     profit = c["Profit"]
     if sales:
@@ -251,12 +251,12 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
         cube.set(address, float(randrange(5, 100)))
 
     # *************************************************************************
-    # 2. Lets create a Cursor and see how it basically works
-    c = cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
+    # 2. Lets create a Cell and see how it basically works
+    c = cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
 
     # Cursors behave (more or less) like float values,
     # ...but on direct assignment you need to be a bit careful:
-    a = c.value  # as 'a = c' would only copy the reference to the Cursor object,
+    a = c.value  # as 'a = c' would only copy the reference to the Cell object,
     # so we need to explicitly ask for .value
     a = float(c)  # ...would be an alternative approach to ask for the numeric value of 'c'
     a = c.numeric_value  # ...or this, in order to be sure to strictly get the numerical value.
@@ -273,7 +273,7 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
     # *************************************************************************
     # 3. Lets assume you want another cursor, closely related to the one we have already created.
     # "we want the 'Feb' value. You can either create another cursor as show above...
-    d = cube.create_cursor("2022", "Feb", "North", "trucks", "Sales")
+    d = cube.create_cell("2022", "Feb", "North", "trucks", "Sales")
     # ...or you can just 'shift' your cursor TEMPORARILY to another cell idx_address, by defining what should change.
     # This will NOT change the cursor from 'Jan' to 'Feb', it will just return the value for 'Feb' and will then
     # forget about that.

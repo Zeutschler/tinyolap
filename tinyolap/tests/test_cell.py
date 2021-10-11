@@ -3,25 +3,25 @@ import unittest
 from unittest import TestCase
 
 import tiny
-from tinyolap.cursor import Cursor
+from tinyolap.cell import Cell
 from tinyolap.custom_errors import InvalidCellAddressError
 
 
-class TestCursor(TestCase):
+class TestCell(TestCase):
 
     def setUp(self) -> None:
         self.db = tiny.load()
         self.cube = self.db.cubes["sales"]
 
     def test_initialization(self):
-        c = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
         with self.assertRaises(Exception) as context:
-            c = self.cube.create_cursor("2022", "Jan")
+            c = self.cube.create_cell("2022", "Jan")
         self.assertEqual(type(InvalidCellAddressError()), type(context.exception))
 
-    def test_cursor_manipulation(self):
-        a = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
-        b = self.cube.create_cursor("2022", "Feb", "North", "trucks", "Sales")
+    def test_cell_manipulation(self):
+        a = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
+        b = self.cube.create_cell("2022", "Feb", "North", "trucks", "Sales")
         a.value = 2.0
         b.value = 123.0
 
@@ -37,10 +37,10 @@ class TestCursor(TestCase):
         self.assertEqual(c, b)   # still, c will return 123.0
 
         # Member object
-        april = c.create_member("Apr")
+        april = c.member("Apr")
         c[april] = 42
         c["2023", april] = 333.0
-        april.move_first()  # move_first returns 'Jan', as 'Jan' is the first member in the dim.
+        april.first()  # first() returns 'Jan', as 'Jan' is the first member in the dim.
         c[april] = 42
         self.assertEqual("months", april.dimension.name)   # still, c will return 123.0
         self.assertEqual("Apr", str(april))   # still, c will return 123.0
@@ -53,7 +53,7 @@ class TestCursor(TestCase):
         self.assertEqual(c, b)
 
     def test_value(self):
-        c = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
         temp = c.value
         c.value = True
         self.assertEqual(True, c.value)
@@ -65,18 +65,18 @@ class TestCursor(TestCase):
         self.assertEqual(temp, c.value)
 
     def test_numeric_value(self):
-        c = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
         c.value = 13.0
         self.assertEqual(13.0, c)
 
     def test_overloaded_operators(self):
-        c_a = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
-        c_b = self.cube.create_cursor("2022", "Feb", "North", "trucks", "Sales")
+        c_a = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
+        c_b = self.cube.create_cell("2022", "Feb", "North", "trucks", "Sales")
         c_a.value = 2.0
         c_b.value = 3.0
         f = c_b.value
 
-        # float and cursor (et vice versa)
+        # float and cell (et vice versa)
         self.assertEqual(2.0, c_a)
         self.assertEqual(3.0, f)
         r = c_a + f
@@ -93,7 +93,7 @@ class TestCursor(TestCase):
         self.assertEqual(6.0, r)
         # todo: to be continued for all overloaded operators
 
-        # cursor and cursor
+        # cell and cell
         self.assertEqual(2.0, c_a)
         self.assertEqual(3.0, c_b)
         r = c_a + c_b
@@ -111,7 +111,7 @@ class TestCursor(TestCase):
         # todo: to be continued for all overloaded operators
 
     def test_math_operation(self):
-        c = self.cube.create_cursor("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
         c.value = 2.0
         f = 2.0
 

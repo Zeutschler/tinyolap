@@ -8,25 +8,26 @@ from custom_errors import *
 from tinyolap.member import Member
 
 
-class Cursor(SupportsFloat):
+class Cell(SupportsFloat):
     """
-    A Cursor is a pointer to a cell in a cube. Cursors can used for navigation through data space.
-    In addition they can be used in mathematical calculations as they (almost) behave as a 'float' value.
+    A Cell is an immutable pointer to a data cell in a cube. Although they are immutable, Cell objects can
+    be used to navigate through data space. In addition they can be directly used in mathematical calculations,
+    as they (almost) behave like a 'float' value.
 
     .. information::
-        Cursors are also used for the internal rules engine of TinyOlap. They are perfect for being
+        Cell objects are also used for the internal rules engine of TinyOlap. They are perfect for being
         handed in to function and methods, as shown in the code fragment below.
 
         .. code:: python
 
             from tinyolap.database import Database
-            from tinyolap.cursor import Cursor
+            from tinyolap.cell import Cell
 
             # setup a new database
-            cursor = cube.create_cursor()
-            value = cursor.value
-            idx_address = cursor.idx_address  # returns a list e.g. ["member of dim1", "member of dim2" ...]
-            cursor.move("dim1", move.NEXT)  # move.NEXT
+            cell = cube.create_cell()
+            value = cell.value
+            idx_address = cell.idx_address  # returns a list e.g. ["member of dim1", "member of dim2" ...]
+            cell.move("dim1", move.NEXT)  # move.NEXT
     """
 
     #: Indicates that either subsequent rules should continue and do the calculation
@@ -42,13 +43,13 @@ class Cursor(SupportsFloat):
     # region Initialization
     @classmethod
     def create(cls, cube, dim_names, address, bolt):
-        cursor = Cursor()
-        cursor._cube = cube
-        cursor._dim_names = dim_names
-        cursor._dim_count = len(dim_names)
-        cursor._address = address
-        cursor._bolt = bolt
-        return cursor
+        cell = Cell()
+        cell._cube = cube
+        cell._dim_names = dim_names
+        cell._dim_count = len(dim_names)
+        cell._address = address
+        cell._bolt = bolt
+        return cell
 
     def __init__(self):
         self._cube = None
@@ -66,17 +67,17 @@ class Cursor(SupportsFloat):
     # region Properties
     @property
     def value(self):
-        """Reads the value of the current cursor idx_address from the underlying cube."""
+        """Reads the value of the current cell idx_address from the underlying cube."""
         return self._cube._get(self._bolt)
 
     @value.setter
     def value(self, value):
-        """Writes a value of the current cursor idx_address to the underlying cube."""
+        """Writes a value of the current cell idx_address to the underlying cube."""
         self._cube._set(self._bolt, value)
 
     @property
     def numeric_value(self) -> float:
-        """Reads the numeric value of the current cursor idx_address from the underlying cube."""
+        """Reads the numeric value of the current cell idx_address from the underlying cube."""
         value = self._cube._get(self._bolt)
         if isinstance(value, (int, float, complex)) and not isinstance(value, bool):
             return float(value)
@@ -85,8 +86,75 @@ class Cursor(SupportsFloat):
 
     # endregion
 
-    # region Cursor manipulation
-    # region Cursor manipulation via indexing/slicing
+    # region methods
+    def alter(self, *args) -> Cell:
+        """
+        Creates a modified deep copy of a Cell object.
+
+        :param args: One or more modifiers (member names) for at least one dimension of the cube.
+        Member names can be in one of the following formats:
+           {member_name} e.g.: clone = c.alter("Mar", ...)
+           {dimension_name:member_name} e.g.: clone = c.alter("months:Mar", ...)
+           {dimension_index:member_name} e.g.: clone = c.alter("1:Mar", ...)
+        If multiple modifiers for a single dimension are defined, then the last of those will be used.
+        :return: A new Cell object.
+        """
+        modifiers = []
+
+        key_level = 6  # LEVEL
+        key_name = 1  # NAME
+        super_level, idx_address, idx_measure = self._bolt
+        idx_address = list(idx_address)
+        address = list(self._address)
+
+        for member in args:
+            if type(member) is Member:
+                # The easy way! The Member object should be properly initialized already.
+                raise NotImplementedError("Working on that...")
+
+            elif type(member) is str:
+                idx_dim, idx_member, member_level = self._get_member(member)
+                address[idx_dim] = self._cube._dimensions[idx_dim].members[idx_member][key_name]
+
+                # adjust the super_level
+                super_level -= self._cube._dimensions[idx_dim].members[self._bolt[1][idx_dim]][key_level]
+                super_level += member_level
+
+                modifiers.append((idx_dim, idx_member))
+            else:
+                raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'Member are supported.")
+
+        for modifier in modifiers:
+            idx_address[modifier[0]] = modifier[1]
+        bolt = (super_level, tuple(idx_address), idx_measure)
+        return Cell.create(self._cube, self._dim_names, address, bolt)
+
+    def member(self, dimension_and_or_member_name: str) -> Member:
+        """
+        Create a new Member object from the Cell's current context.
+        This can be either the current member of a specific dimension,
+        if called with a dimension name, e.g., ``c.member("months")`` .
+        Or it can be already a modified member of a dimension, if called
+        with a member name, e.g., ``c.member("months:Jul")`` .
+
+        :param dimension_and_or_member_name: Name of the dimension and or member to be returned.
+
+        .. code:: python
+
+            cell = cube.cell("2022", "Jan", "North", "Sales")
+            jan = c.member("months")
+            jul = c.member("months:Jul")
+            jul = c.member("1:Aug")  # 'months' is the second dimension of the cube, so zero-based index is 1.
+
+        :return: A new Member object.
+        """
+        idx_dim, idx_member, member_level = self._get_member(dimension_and_or_member_name)
+        member = Member(self._cube._dimensions[idx_dim], dimension_and_or_member_name, self._cube, idx_dim, idx_member, member_level)
+        return member
+    # endregion
+
+
+    # region Cell manipulation via indexing/slicing
     def __getitem__(self, item):
         return self._cube._get(self.__item_to_bold(item))
 
@@ -95,11 +163,13 @@ class Cursor(SupportsFloat):
 
     def __delitem__(self, item):
         self.__setitem__(item, None)
+    # endregion
 
+    # region Cell manipulation
     def __item_to_bold(self, item):
         """Setting a value through indexing/slicing will temporarily modify the cell idx_address and return
-        the value from that cell idx_address. This does NOT modify the cell idx_address of the Cursor object.
-        To modify the cell idx_address of a Cursor, you can call the ``.alter(...)`` method."""
+        the value from that cell idx_address. This does NOT modify the cell idx_address of the Cell object.
+        To modify the cell idx_address of a Cell, you can call the ``.alter(...)`` method."""
 
         modifiers = []
         if type(item) is str or not isinstance(item, Iterable):
@@ -111,7 +181,8 @@ class Cursor(SupportsFloat):
 
         for member in item:
             if type(member) is Member:
-                super_level -= self._cube._dimensions[member._idx_dim].members[self._bolt[1][member._idx_dim]][key_level]
+                super_level -= self._cube._dimensions[member._idx_dim].members[self._bolt[1][member._idx_dim]][
+                    key_level]
                 super_level += member._member_level
                 modifiers.append((member._idx_dim, member._idx_member))
 
@@ -139,6 +210,7 @@ class Cursor(SupportsFloat):
         level = self._cube._dimensions[0].LEVEL
         dimensions = self._cube._dimensions
         idx_dim = -1
+        idx_member = -1
         pos = member_name.find(":")
         if pos != -1:
             # lets extract the dimension name and check if it is valid, e.g., c["months:Mar"]
@@ -153,14 +225,14 @@ class Cursor(SupportsFloat):
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
                     raise InvalidCellAddressError(f"Invalid member key. '{dim_name}' is not a dimension "
-                                                      f"in cube '{self._cube.name}. Found in '{member_name}'.")
+                                                  f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member_name = member_name[pos + 1:].strip()
             if member_name not in dimensions[idx_dim].member_idx_lookup:
                 raise InvalidCellAddressError(f"Invalid member key. '{member_name}'is not a member of "
-                                                  f"dimension '{dim_name}' in cube '{self._cube.name}.")
+                                              f"dimension '{dim_name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
 
             member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]
@@ -176,77 +248,43 @@ class Cursor(SupportsFloat):
                 member_level = dimensions[idx_dim].members[idx_member][level]
                 return idx_dim, idx_member, member_level
 
-        # for idx, dim in enumerate(dimensions):
-        #     if member_name in dim.member_idx_lookup:
-        #         idx_dim = idx
-        #         idx_member = dim.member_idx_lookup[member_name]
-        #         # adjust the super_level
-        #         member_level = dimensions[idx_dim].members[idx_member][level]
-        #         return idx_dim, idx_member, member_level
+        # Still nothing found ? Then it might be just a dimension name or dimension ordinal
+        # to reference the current member of that dimension.
+        dim_name = member_name
+        # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
+        if type(dim_name) is int or dim_name.isdigit():
+            ordinal = int(dim_name)
+            if ordinal >= 0 and ordinal < len(self._dim_names):
+                # that's a valid dimension position number
+                idx_dim = ordinal
+            if idx_dim == -1:
+                if dim_name not in self._cube._dim_lookup:
+                    raise InvalidCellAddressError(f"Invalid member key. '{dim_name}' is not a dimension "
+                                                  f"in cube '{self._cube.name}. Found in '{member_name}'.")
+                idx_dim = self._cube._dim_lookup[dim_name]
 
+            idx_member = self._bolt[1][idx_dim]
+            member_level = dimensions[idx_dim].members[idx_member][level]
+            return idx_dim, idx_member, member_level
+
+        # You loose...
         if idx_dim == -1:
-            raise KeyError(f"'{member_name}' is not a member of "
-                           f"any dimension in cube '{self._cube.name}.")
+            raise KeyError(f"'{member_name}' is not a member of any dimension in "
+                           f"cube '{self._cube.name}', or a valid reference to any of it's dimensions.")
 
     # endregion
 
-    def alter(self, *args) -> Cursor:
-
-        modifiers = []
-
-        key_level = 6  # LEVEL
-        key_name = 1   # NAME
-        super_level, idx_address, idx_measure = self._bolt
-        idx_address = list(idx_address)
-        address = list(self._address)
-
-        for member in args:
-            if type(member) is Member:
-                # The easy way! The Member object should be properly initialized already.
-                raise NotImplementedError("Working on that...")
-
-            elif type(member) is str:
-                idx_dim, idx_member, member_level = self._get_member(member)
-                address[idx_dim] = self._cube._dimensions[idx_dim].members[idx_member][key_name]
-
-                # adjust the super_level
-                super_level -= self._cube._dimensions[idx_dim].members[self._bolt[1][idx_dim]][key_level]
-                super_level += member_level
-
-                modifiers.append((idx_dim, idx_member))
-            else:
-                raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'Member are supported.")
-
-        for modifier in modifiers:
-            idx_address[modifier[0]] = modifier[1]
-        bolt = (super_level, tuple(idx_address), idx_measure)
-        return Cursor.create(self._cube, self._dim_names, address, bolt)
-
-    def create_member(self, member_name: str) -> Member:
-        """
-        Create a new Member object from the Cursor's context.
-        :param member_name: Name of the member. Supported formats (samples):
-            c["Mar"] = 333.0  # member name only
-            c["months:Mar"] = 333.0  # dimension name and member name separated by ':'
-            c["1:Mar"] = 333.0  # ordinal position of the dimension with the cube and member name
-        :return: Member object.
-        """
-        idx_dim, idx_member, member_level = self._get_member(member_name)
-        member = Member(self._cube._dimensions[idx_dim], member_name, self._cube, idx_dim, idx_member, member_level)
-        return member
-
-    # region Operator Overloading and float behaviour
+    # region operator overloading and float behaviour
     def __float__(self) -> float:  # type conversion to float
         return self.numeric_value
 
     def __index__(self) -> int:  # type conversion to int
         return int(self.numeric_value)
 
-    # https://docs.python.org/3/reference/datamodel.html
-    def __neg__(self):  # + operator
+    def __neg__(self):  # - unary operator
         return - self.numeric_value
 
-    def __pos__(self):  # += operator
+    def __pos__(self):  # + unary operator
         return self.numeric_value
 
     def __add__(self, other):  # + operator
@@ -350,6 +388,7 @@ class Cursor(SupportsFloat):
 
     def __ror__(self, other):  # or (equal to) operator
         return other or self.numeric_value
+    # endregion
 
     # region conversion function
     def __abs__(self):
@@ -366,3 +405,4 @@ class Cursor(SupportsFloat):
 
     def __ceil__(self):
         return self.numeric_value.__ceil__()
+    # endregion

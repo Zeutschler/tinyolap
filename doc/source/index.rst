@@ -1,5 +1,5 @@
 .. attention::
-   TinyOlap is under active development. Code and API is subject of change.
+   TinyOlap is under active development and therefore subject of change.
 
 =================
 Developer's Guide
@@ -215,6 +215,9 @@ Table of Contents
    databases
    cubes
    dimensions
+   cells
+   members
+   areas
    rules
    server
    license

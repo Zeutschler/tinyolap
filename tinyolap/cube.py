@@ -4,7 +4,7 @@ from inspect import isroutine
 
 import tinyolap.rules
 from case_insensitive_dict import CaseInsensitiveDict
-from cursor import Cursor
+from cell import Cell
 from tinyolap.custom_errors import *
 from tinyolap.fact_table import FactTable
 from tinyolap.dimension import Dimension
@@ -158,7 +158,7 @@ class Cube:
             pattern = list((pattern,))
         # Sorry, miss-use of cursor. All the effort just to use the 'c._get_member(p)' function
         address = self._get_default_cell_address()
-        c = self._create_cursor_from_bolt(address, self.__to_bolt(address))
+        c = self._create_cell_from_bolt(address, self.__to_bolt(address))
         # create something like this: idx_pattern = [(0, 3)]
         idx_pattern = []
         for p in pattern:
@@ -350,10 +350,10 @@ class Cube:
         if self._rules_all_levels.any:
             found, func = self._rules_all_levels.first_match(idx_address)
             if found:
-                cursor = self._create_cursor_from_bolt(None, (super_level, idx_address, idx_measures))
+                cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                 try:
                     value = func(cursor)
-                    if value != Cursor.CONTINUE:
+                    if value != Cell.CONTINUE:
                         return value
                 except Exception as e:
                     raise RuleError(f"Function {func.__name__} failed. {str(e)}")
@@ -491,13 +491,13 @@ class Cube:
 
     # endregion
 
-    def create_cursor(self, *args) -> Cursor:
-        """Create a Cursor for the Cube."""
-        return Cursor.create(self, self._dim_lookup, args, self.__to_bolt(args))
+    def create_cell(self, *args) -> Cell:
+        """Create a Cell for the Cube."""
+        return Cell.create(self, self._dim_lookup, args, self.__to_bolt(args))
 
-    def _create_cursor_from_bolt(self, address, bolt) -> Cursor:
-        """Create a Cursor for the Cube directly from an existing bolt."""
-        return Cursor.create(self, self._dim_lookup, address, bolt)
+    def _create_cell_from_bolt(self, address, bolt) -> Cell:
+        """Create a Cell for the Cube directly from an existing bolt."""
+        return Cell.create(self, self._dim_lookup, address, bolt)
 
     def _get_default_cell_address(self):
         address = []

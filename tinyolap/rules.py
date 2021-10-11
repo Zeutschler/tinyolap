@@ -40,7 +40,7 @@ class Rules:
 
     .. information::
         Rules functions have to be implemented as a simple Python function with just one single parameter and
-        a return value. The single parameter should be called 'c' and will contain an TinyOlap Cursor, representing
+        a return value. The single parameter should be called 'c' and will contain an TinyOlap Cell, representing
         the current cell context the rule should be calculated for.
 
         What happens in a rule function, is up totally to the programmer. The value returned by rules function
