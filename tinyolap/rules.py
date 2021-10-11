@@ -20,6 +20,14 @@ class RuleScope(enum.Enum):
     #: This is useful for time consuming calculations which may be *too expensive* to run at query time.
     ON_ENTRY = 4
 
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __ne__(self, other):
+        return self.value != other.value
+
+    def __hash__(self):
+        return hash(self.value)
 
 class Rules:
     """Rules define custom calculation or business logic to be assigned to a cube.

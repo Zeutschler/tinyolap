@@ -23,9 +23,11 @@ def load():
     only Database object.
     """
 
+    # ************************
     # 1. create a new database
     db = Database("tiny", in_memory=True)
 
+    # ************************
     # 2. create some dimensions.
     # Please note, that dimension need to be set into *edit mode* by calling
     # the ``edit()`` method in order to change the dimension, add or remove
@@ -75,23 +77,38 @@ def load():
     dim_products.add_member("best sellers", ["sports", "motorcycles"])
     dim_products.commit()
 
-    # Finally lets create a measures dimension for our profit schema.
+    # Finally lets add a measures-dimension for our business logic,
+    # here a super simple 'profit & loss' schema.
     dim_measures = db.add_dimension("measures")
     dim_measures.edit()
     dim_measures.add_member(["Sales", "Cost", "Profit", "Profit in %"])
     dim_measures.commit()
 
-    # Add some nice number formatting for percentages
-    dim_measures.member_set_format("Profit in %", "{:.2%}")
+    # You can also add some nice number formatting to dimension measures
+    # e.g. for number and percentage formatting. Member formatting follows
+    # the standard Python formatting specification at
+    # <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
+    dim_measures.member_set_format("Profit in %", "{:.2%}")  # e.g. this would format 0.864 as '86.40%'-
 
-    # Now we can create our 'sales'*' cube, which is then a 5-dimensional cube.
+    # ************************
+    # 3. Now we can create our 'sales'*' cube, which is actually a 5-dimensional cube.
     cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products, dim_measures])
 
-    # now add some custom bisness logic
+    # ************************
+    # 4. And now we come to the most powerful capability of TinyOlap and this is **Rules**.
+    # Rules are simple Python methods or function and allow you to add custom business logic
+    # to you data model. Whatever that might be, from simple math calculations up to AI-powered
+    # automated forecasting - the sky is the limit.
+    # Here we define 2 very simple functions that calculate 'Profit' and 'Profit in %' form the
+    # measure dimension. The Python rules functions are defined directly below. Use the ``@rule``
+    # decorator you need to specify for what cube the rule should be used and what member (e.g. ['Profit']) or
+    # member combination (e.g. [..., 'Jan', 'Profit']) the rule should actually calculate.
+    # For further detailed on how to define and write rules, please refer the TinyOlap documentation.
+    # Rules are a big and complex topic!!! Once you've understood the concept, it get's very easy.
     cube.add_rule(rule_profit)
     cube.add_rule(rule_profit_in_percent)
 
-    # That's it...
+    # That's it! Your first TinyOlap database is ready to use...
     return db
 
 
@@ -305,7 +322,7 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
     # One solution is to define lambda functions like this...
 
     sport_cars_in_percent = lambda x: x["products:sports"] / x["products:Total"] * 100.0
-    # Now you can reuse this function for whatever cursor you like:
+    # Now you can reuse this function for whatever cursor you throw in:
     kpi = sport_cars_in_percent(c)
 
 

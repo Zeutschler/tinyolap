@@ -1,6 +1,6 @@
 import collections
 from collections.abc import Iterable, Sized
-from inspect import isfunction
+from inspect import isroutine
 
 import tinyolap.rules
 from case_insensitive_dict import CaseInsensitiveDict
@@ -92,11 +92,15 @@ class Cube:
         :param pattern: The cell address pattern that should trigger the rule.
         :param scope: The scope of the rule.
         """
-        if not isfunction(function):
-            raise RuleError(f"Argument 'function' does not seem to be a Python function, tpye id '{type(function)}'.")
+        offset = 0
+        if not isroutine(function):
+            if callable(function) and function.__name__ == "<lambda>":
+                offset = 1
+            else:
+                raise RuleError(f"Argument 'function' does not seem to be a Python function, tpye id '{type(function)}'.")
 
         # validate function and decorator parameters
-        function_name = str(function).split(" ")[1]
+        function_name = str(function).split(" ")[1 + offset]
         cube_name = self.name
         if hasattr(function, "cube"):
             cube_name = function.cube
@@ -124,6 +128,9 @@ class Cube:
             else:
                 raise RuleError(f"Failed to add rule function. Argument 'scope' missing for "
                                 f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+
+        if type(pattern) is str: # a lazy user forgot to put the apptern in brackets
+            pattern = [pattern, ]
 
         idx_pattern = self.__pattern_to_idx_pattern(pattern)
 

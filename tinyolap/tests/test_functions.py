@@ -1,7 +1,11 @@
 from unittest import TestCase
+
+from decorators import rule
 from tinyolap.server import Server
 from tinyolap.cursor import Cursor
 from tinyolap.slice import Slice
+from tinyolap.rules import RuleScope
+
 
 class TestBaseFunction(TestCase):
     pass
@@ -42,9 +46,9 @@ class TestBaseFunction(TestCase):
     def test_formula(self):
 
         # Order of rules matter
-        self.cube._register(lambda x: "hallo B", ["products:B"])
-        self.cube._register(self.calc_var, ["datatype:var"])
-        self.cube._register(self.calc_var_percent, ["datatype:var%"])
+        self.cube.add_rule(lambda x: "hallo B", ["products:B"], RuleScope.ALL_LEVELS)
+        self.cube.add_rule(self.calc_var, ["datatype:var"])
+        self.cube.add_rule(self.calc_var_percent, ["datatype:var%"])
 
         # write some values to the cube
         c = self.cube.create_cursor("actual", "2021", "Jan", "A", "Sales")
@@ -62,12 +66,13 @@ class TestBaseFunction(TestCase):
                                    "rows": [{"dimension": "months"}, {"dimension": "products"}]}
         s = {"columns": [{"dimension": "datatype"}], "rows": [{"dimension": "years"}, {"dimension": "products"}]}
         report = Slice(self.cube, s)
-        print(report)
+        # print(report)
 
-
+    @rule("sales", ["var"], RuleScope.ALL_LEVELS)
     def calc_var(self, c: Cursor):
         return c["actual"] - c["plan"]
 
+    @rule("sales", ["var%"], RuleScope.ALL_LEVELS)
     def calc_var_percent(self, c):
         plan = c["plan"]
         if plan != 0:

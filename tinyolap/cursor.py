@@ -45,6 +45,7 @@ class Cursor(SupportsFloat):
         cursor = Cursor()
         cursor._cube = cube
         cursor._dim_names = dim_names
+        cursor._dim_count = len(dim_names)
         cursor._address = address
         cursor._bolt = bolt
         return cursor
@@ -54,6 +55,7 @@ class Cursor(SupportsFloat):
         self._dim_names = None
         self._address = None
         self._bolt = None
+        self._dim_count = -1
         pass
 
     def __new__(cls):
@@ -96,7 +98,7 @@ class Cursor(SupportsFloat):
 
     def __item_to_bold(self, item):
         """Setting a value through indexing/slicing will temporarily modify the cell idx_address and return
-        the value from that cell idx_address. This does NOT modify the cell idx_address of a Cursor object.
+        the value from that cell idx_address. This does NOT modify the cell idx_address of the Cursor object.
         To modify the cell idx_address of a Cursor, you can call the ``.alter(...)`` method."""
 
         modifiers = []
@@ -165,17 +167,26 @@ class Cursor(SupportsFloat):
             return idx_dim, idx_member, member_level
 
         # No dimension identifier in member name, search all dimensions
-        for idx, dim in enumerate(dimensions):
-            if member_name in dim.member_idx_lookup:
-                idx_dim = idx
-                idx_member = dim.member_idx_lookup[member_name]
+        # ...we'll search in reverse order, as we assume that it is more likely,
+        #    that inner dimensions are requested through rules.
+        for idx_dim in range(self._dim_count - 1, -1, -1):
+            if member_name in dimensions[idx_dim].member_idx_lookup:
+                idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
                 # adjust the super_level
                 member_level = dimensions[idx_dim].members[idx_member][level]
                 return idx_dim, idx_member, member_level
 
+        # for idx, dim in enumerate(dimensions):
+        #     if member_name in dim.member_idx_lookup:
+        #         idx_dim = idx
+        #         idx_member = dim.member_idx_lookup[member_name]
+        #         # adjust the super_level
+        #         member_level = dimensions[idx_dim].members[idx_member][level]
+        #         return idx_dim, idx_member, member_level
+
         if idx_dim == -1:
-            raise InvalidCellAddressError(f"'{member_name}' is not a member of "
-                                          f"any dimension in cube '{self._cube.name}.")
+            raise KeyError(f"'{member_name}' is not a member of "
+                           f"any dimension in cube '{self._cube.name}.")
 
     # endregion
 
