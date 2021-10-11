@@ -5,7 +5,6 @@ from database import Database
 
 
 class TestArea(TestCase):
-    pass
 
     def setUp(self) -> None:
         self.db, self.cube = self.create_database()
