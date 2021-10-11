@@ -8,10 +8,12 @@ TinyOlap comes with a few sample databases that are intended to explain the conc
 and how you can build or import your own data models and databases. You will find the samples in
 the **samples** folder.
 
+----------------
 1. Tiny Database
--------------------------
-Purpose of the data model
-^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------
+
+Purpose of the Tiny data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The **Tiny** data model is a very small and simple demo database created with Python code.
 It's contains just very small 5 dimensions and 1 cube that reflects some **sales** data.
 The intended use is to showcase the basic operations to create a TiynOlap database by code.
@@ -20,10 +22,12 @@ And also how to create and print a simple report to the console.
 The data model contains 5 dimensions for years, months, products, regions and some sales
 figures.
 
+-----------------
 2. Tutor Database
--------------------------
-Purpose of the data model
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------
+
+Purpose of the Tutor data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The **tutor** data model is a typical **sales planning and reporting** data model.
 Although being very old and special (see *History* below) it nicely reflects how
 business often was and still is structured.

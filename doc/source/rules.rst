@@ -1,9 +1,9 @@
 .. _formulas:
 
 ===============
-Formulas and Calculations
+Rules
 ===============
 
-.. autoclass:: tinyolap.rules.RulesScope
+.. autoenum:: tinyolap.rules.RulesScope
     :members:
     :noindex:

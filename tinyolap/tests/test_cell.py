@@ -14,14 +14,14 @@ class TestCell(TestCase):
         self.cube = self.db.cubes["sales"]
 
     def test_initialization(self):
-        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
         with self.assertRaises(Exception) as context:
-            c = self.cube.create_cell("2022", "Jan")
+            c = self.cube.cell("2022", "Jan")
         self.assertEqual(type(InvalidCellAddressError()), type(context.exception))
 
     def test_cell_manipulation(self):
-        a = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
-        b = self.cube.create_cell("2022", "Feb", "North", "trucks", "Sales")
+        a = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
+        b = self.cube.cell("2022", "Feb", "North", "trucks", "Sales")
         a.value = 2.0
         b.value = 123.0
 
@@ -53,7 +53,7 @@ class TestCell(TestCase):
         self.assertEqual(c, b)
 
     def test_value(self):
-        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
         temp = c.value
         c.value = True
         self.assertEqual(True, c.value)
@@ -65,13 +65,13 @@ class TestCell(TestCase):
         self.assertEqual(temp, c.value)
 
     def test_numeric_value(self):
-        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
         c.value = 13.0
         self.assertEqual(13.0, c)
 
     def test_overloaded_operators(self):
-        c_a = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
-        c_b = self.cube.create_cell("2022", "Feb", "North", "trucks", "Sales")
+        c_a = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
+        c_b = self.cube.cell("2022", "Feb", "North", "trucks", "Sales")
         c_a.value = 2.0
         c_b.value = 3.0
         f = c_b.value
@@ -111,7 +111,7 @@ class TestCell(TestCase):
         # todo: to be continued for all overloaded operators
 
     def test_math_operation(self):
-        c = self.cube.create_cell("2022", "Jan", "North", "trucks", "Sales")
+        c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
         c.value = 2.0
         f = 2.0
 

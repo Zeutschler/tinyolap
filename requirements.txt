@@ -2,3 +2,5 @@ fastapi
 Sphinx
 furo
 Faker
+sphinx-toolbox
+enum_tools

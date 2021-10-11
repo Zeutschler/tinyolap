@@ -51,7 +51,7 @@ class TestBaseFunction(TestCase):
         self.cube.add_rule(self.calc_var_percent, ["datatype:var%"])
 
         # write some values to the cube
-        c = self.cube.create_cell("actual", "2021", "Jan", "A", "Sales")
+        c = self.cube.cell("actual", "2021", "Jan", "A", "Sales")
         c["actual"] = 250.0
         c["plan"] = 200.0
         c["actual", "2022"] = 300.0

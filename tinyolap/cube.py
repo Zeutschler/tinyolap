@@ -3,6 +3,7 @@ from collections.abc import Iterable, Sized
 from inspect import isroutine
 
 import tinyolap.rules
+from area import Area
 from case_insensitive_dict import CaseInsensitiveDict
 from cell import Cell
 from tinyolap.custom_errors import *
@@ -347,6 +348,7 @@ class Cube:
         If no records exist for the given idx_address, then 0.0 will be returned."""
         (super_level, idx_address, idx_measures) = bolt
 
+        # ALL_LEVELS rules
         if self._rules_all_levels.any:
             found, func = self._rules_all_levels.first_match(idx_address)
             if found:
@@ -356,13 +358,26 @@ class Cube:
                     if value != Cell.CONTINUE:
                         return value
                 except Exception as e:
-                    raise RuleError(f"Function {func.__name__} failed. {str(e)}")
+                    raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
 
         if super_level == 0:  # base-level cells
+            # BASE_LEVEL rules
+            if self._rules_base_level.any:
+                found, func = self._rules_base_level.first_match(idx_address)
+                if found:
+                    cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                    try:
+                        value = func(cursor)
+                        if value != Cell.CONTINUE:
+                            return value
+                    except Exception as e:
+                        raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
+
             if type(idx_measures) is int:
                 self._cell_requests += 1
                 return self._facts.get(idx_address, idx_measures)
             else:
+                raise FatalError("Depreciated. Feature Needs to be removed")
                 self._cell_requests += len(idx_measures)
                 return [self._facts.get(idx_address, m) for m in idx_measures]
 
@@ -370,6 +385,18 @@ class Cube:
             if self._caching and bolt in self._cache:
                 self._cell_requests += 1
                 return self._cache[bolt]
+
+            # AGGREGATION_LEVEL
+            if self._rules_aggr_level.any:
+                found, func = self._rules_aggr_level.first_match(idx_address)
+                if found:
+                    cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                    try:
+                        value = func(cursor)
+                        if value != Cell.CONTINUE:
+                            return value
+                    except Exception as e:
+                        raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
 
             # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address)
@@ -380,6 +407,9 @@ class Cube:
                     return 0.0
                 facts = self._facts.facts
                 total = 0.0
+
+                # todo: add support for ROLL_UP rules
+
                 for row in rows:
                     if idx_measures in facts[row]:
                         value = facts[row][idx_measures]
@@ -392,6 +422,7 @@ class Cube:
 
                 return total
             else:
+                raise FatalError("Depreciated. Feature Needs to be removed")
                 if not rows:
                     return [0.0] * len(idx_measures)
                 facts = self._facts.facts
@@ -491,8 +522,9 @@ class Cube:
 
     # endregion
 
-    def create_cell(self, *args) -> Cell:
-        """Create a Cell for the Cube."""
+    # region cells
+    def cell(self, *args) -> Cell:
+        """Returns a new Cell from the Cube."""
         return Cell.create(self, self._dim_lookup, args, self.__to_bolt(args))
 
     def _create_cell_from_bolt(self, address, bolt) -> Cell:
@@ -505,3 +537,12 @@ class Cube:
             keys = list(dim.member_idx_lookup.keys())
             address.append(keys[0])
         return tuple(address)
+    # endregion
+
+    # region areas
+    def area(self, *args) -> Area:
+        """Returns a new Area fom the Cube."""
+        return Area(self, args)
+
+    # endregion
+

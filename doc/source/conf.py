@@ -36,7 +36,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosectionlabel',
-    'myst_parser'
+    'myst_parser',
+    'enum_tools.autoenum'   # install via: python3 -m pip install enum_tools --user
 ]
 
 # Make sure the target is unique

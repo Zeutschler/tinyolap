@@ -1,4 +1,4 @@
-.. _dimension:
+.. _dimensions:
 
 ==========
 Dimensions
