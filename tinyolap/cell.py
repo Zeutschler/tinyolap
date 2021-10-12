@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Iterable
+from collections  import Iterable
 from typing import SupportsFloat
 # noinspection PyProtectedMember
 

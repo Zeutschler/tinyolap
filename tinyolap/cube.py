@@ -58,7 +58,9 @@ class Cube:
 
         # initialize a default-measure if none is defined
 
-        self._cell_requests = 0
+        self._cell_request_counter: int = 0
+        self._rule_request_counter: int = 0
+        self._aggregation_counter: int = 0
         self._caching = True
         self._cache = {}
 
@@ -176,14 +178,20 @@ class Cube:
         return self._name
 
     @property
-    def cell_requests(self) -> int:
+    def counter_cell_requests(self) -> int:
         """Returns the number"""
-        return self._cell_requests
+        return self._cell_request_counter
 
-    def reset_cell_requests(self):
-        """Identifies if caching is activated for the current cube.
-        By default, caching is activated for all cubes."""
-        self._cell_requests = 0
+    @property
+    def counter_rule_requests(self) -> int:
+        """Returns the number"""
+        return self._rule_request_counter
+
+    def reset_counters(self):
+        """Resets the internal counters for cell- and rule-requests and aggregations."""
+        self._cell_request_counter = 0
+        self._rule_request_counter = 0
+        self._aggregation_counter = 0
 
     @property
     def caching(self) -> bool:
@@ -344,9 +352,16 @@ class Cube:
         return self._set(bolt, value)
 
     def _get(self, bolt):
-        """Returns a value from the cube for a given idx_address and measure.
-        If no records exist for the given idx_address, then 0.0 will be returned."""
+        """
+        Returns a value from the cube for a given idx_address and measure.
+        If no records exist for the given idx_address, then 0.0 will be returned.
+        """
         (super_level, idx_address, idx_measures) = bolt
+        self._cell_request_counter += 1
+
+        # caching
+        if self._caching and bolt in self._cache:
+            return self._cache[bolt]
 
         # ALL_LEVELS rules
         if self._rules_all_levels.any:
@@ -354,8 +369,11 @@ class Cube:
             if found:
                 cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                 try:
+                    self._rule_request_counter += 1
                     value = func(cursor)
                     if value != Cell.CONTINUE:
+                        if self._caching:
+                            self._cache[bolt] = value  # save value to cache
                         return value
                 except Exception as e:
                     raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
@@ -367,24 +385,26 @@ class Cube:
                 if found:
                     cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                     try:
+                        self._rule_request_counter += 1
                         value = func(cursor)
                         if value != Cell.CONTINUE:
+                            if self._caching:
+                                self._cache[bolt] = value  # save value to cache
                             return value
                     except Exception as e:
                         raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
 
             if type(idx_measures) is int:
-                self._cell_requests += 1
                 return self._facts.get(idx_address, idx_measures)
             else:
                 raise FatalError("Depreciated. Feature Needs to be removed")
-                self._cell_requests += len(idx_measures)
+                self._cell_request_counter += len(idx_measures)
                 return [self._facts.get(idx_address, m) for m in idx_measures]
 
         else:  # aggregated cells
-            if self._caching and bolt in self._cache:
-                self._cell_requests += 1
-                return self._cache[bolt]
+            # if self._caching and bolt in self._cache:
+            #     self._cell_request_counter += 1
+            #     return self._cache[bolt]
 
             # AGGREGATION_LEVEL
             if self._rules_aggr_level.any:
@@ -392,14 +412,18 @@ class Cube:
                 if found:
                     cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                     try:
+                        self._rule_request_counter += 1
                         value = func(cursor)
                         if value != Cell.CONTINUE:
+                            if self._caching:
+                                self._cache[bolt] = value  # save value to cache
                             return value
                     except Exception as e:
                         raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
 
             # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address)
+            self._aggregation_counter += len(rows)
 
             # aggregate records
             if type(idx_measures) is int:
@@ -416,7 +440,6 @@ class Cube:
                         if type(value) is float:
                             total += value
 
-                self._cell_requests += len(rows)
                 if self._caching:
                     self._cache[bolt] = total  # save value to cache
 
@@ -434,7 +457,6 @@ class Cube:
                             if type(value) is float:
                                 totals[idx] += value
 
-                self._cell_requests += len(rows) * len(idx_measures)
                 if self._caching:
                     self._cache[bolt] = totals  # save value to cache
                 return totals

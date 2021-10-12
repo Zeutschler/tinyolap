@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import itertools
 import math
+import time
 
 import tinyolap.cell
 from decorators import rule
@@ -229,6 +230,50 @@ def play(database: Database = load(), console_output: bool = True):
     if console_output:
         report.refresh()
         print(report)
+
+    # ...finally, let's dump ALL data to the console
+    if console_output:
+        print(f"\n{'-' * 100}\nComparison of execution time without and afterwards with caching\n{'-' * 100}")
+        print(f"Let's create and update a larger (nonsense) report . No caching, please wait...")
+    report_definition = {"title": "All data cells available in the Tiny data model...",
+                         "columns": [{"dimension": "months"}],
+                         "rows": [{"dimension": "years"}, {"dimension": "regions"}, {"dimension": "products"},
+                                  {"dimension": "measures"}]}
+    cube.reset_counters()
+    start = time.time()
+    report = Slice(cube, report_definition)
+
+    if console_output:
+        duration = time.time() - start
+        cells = report.grid_rows_count * report.grid_cols_count
+        # print(report)
+        print(f"Report with {report.grid_rows_count:,} rows x {report.grid_cols_count:,} columns ="
+              f" {cells:,} cells executed in {duration:.3} sec. "
+              f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
+              f"thereof {cube.counter_cell_requests - cells:,} by rules."
+              f"\n\t{cube.counter_rule_requests:,} rules executed"
+              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+
+    cube.caching = True
+    report.refresh()  # warm the cache...
+
+    if console_output:
+        print(f"\n...and now again same report, but now with 'caching' activated and 'pre-warmed cache', please wait...")
+
+    cube.reset_counters()
+    start = time.time()
+    report.refresh()
+
+    if console_output:
+        duration = time.time() - start
+        cells = report.grid_rows_count * report.grid_cols_count
+        # print(report)
+        print(f"Report with {report.grid_rows_count:,} rows x {report.grid_cols_count:,} columns ="
+              f" {cells:,} cells executed in {duration:.3} sec. "
+              f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
+              f"thereof {cube.counter_cell_requests - cells:,} by rules."
+              f"\n\t{cube.counter_rule_requests:,} rules executed"
+              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
 
 
 def play_advanced_business_logic(database: Database = load(), console_output: bool = False):
