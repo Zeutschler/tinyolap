@@ -5,6 +5,9 @@
 Developer's Guide
 =================
 
+.. tip::
+   TinyOlap for financial data transformation !!! Coole Idee...
+
 TinyOlap is a super-light-weight multi-dimensional **in-memory OLAP database** (often called a
 `MOLAP <https://en.wikipedia.org/wiki/Online_analytical_processing#Multidimensional_OLAP_(MOLAP)>`_
 Database) written in plain Python. TinyOlap follows the :ref:`model-driven approach <model_driven>`

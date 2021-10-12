@@ -113,12 +113,12 @@ def load():
     return db
 
 
-@rule("sales", ["Profit"], tinyolap.rules.RuleScope.ALL_LEVELS)
+@rule("sales", "Profit")
 def rule_profit(c: tinyolap.cell.Cell):
     return c["Sales"] - c["Cost"]
 
 
-@rule("sales", ["Profit in %"], tinyolap.rules.RuleScope.ALL_LEVELS)
+@rule("sales", ["Profit in %"], scope=tinyolap.rules.RuleScope.ALL_LEVELS, volatile=False)
 def rule_profit_in_percent(c: tinyolap.cell.Cell):
     sales = c["Sales"]
     profit = c["Profit"]
@@ -184,7 +184,8 @@ def play(database: Database = load(), console_output: bool = True):
     # ``member`` can be single member or a list of members.
     # If you skip the ``member`` definition, then the default member
     # of the dimension will be selected and used.
-    report_definition = {"header": [{"dimension": "years", "member": "2021"},
+    report_definition = {"title": "There are just 2 values (123.0 and 456.0) in the cube.",
+                         "header": [{"dimension": "years", "member": "2021"},
                                     {"dimension": "regions", "member": "Total"}],
                          "columns": [{"dimension": "months", "member": ["Jan", "Feb", "Mar", "Q1", "Q2", "Year"]}],
                          "rows": [{"dimension": "products"}]}
@@ -192,19 +193,7 @@ def play(database: Database = load(), console_output: bool = True):
     if console_output:
         print(report)
 
-    # You can even skip certain dimensions of the cube.
-    # For these, the default member will be selected and
-    # they will be automatically added to the header.
-    # In addition, dimensions in rows and columns can be nested.
-    # And you can set a report title.
-    report_definition = {"title": "What a fancy report...",
-                         "columns": [{"dimension": "months", "member": ["Q1", "Q2", "Q3", "Q4", "Year"]}],
-                         "rows": [{"dimension": "years"}, {"dimension": "regions"}]}
-    report = Slice(cube, report_definition)
-    if console_output:
-        print(report)
-
-    report_definition = {"title": "Another fancy report...",
+    report_definition = {"title": "A report where we can see our rules for Profit and Profit% in action.",
                          "columns": [{"dimension": "months",
                                       "member": ["Jan", "Feb", "Mar", "Q1", "Q2", "Q3", "Q4", "Year"]}],
                          "rows": [{"dimension": "measures"}]}
@@ -228,13 +217,14 @@ def play(database: Database = load(), console_output: bool = True):
 
     # Lets print the same report again
     if console_output:
+        report.title = "The same report as before, but now the cube is filled with random data."
         report.refresh()
         print(report)
 
     # ...finally, let's dump ALL data to the console
     if console_output:
-        print(f"\n{'-' * 100}\nComparison of execution time without and afterwards with caching\n{'-' * 100}")
-        print(f"Let's create and update a larger (nonsense) report . No caching, please wait...")
+        print(f"\n{'-' * 100}\nCACHING - Comparison of report execution times with Caching Off and On\n{'-' * 100}")
+        print(f"...let's run a larger report (without printing it). Caching is Off...")
     report_definition = {"title": "All data cells available in the Tiny data model...",
                          "columns": [{"dimension": "months"}],
                          "rows": [{"dimension": "years"}, {"dimension": "regions"}, {"dimension": "products"},
@@ -254,16 +244,12 @@ def play(database: Database = load(), console_output: bool = True):
               f"\n\t{cube.counter_rule_requests:,} rules executed"
               f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
 
-    cube.caching = True
-    report.refresh()  # warm the cache...
-
     if console_output:
-        print(f"\n...and now again same report, but now with 'caching' activated and 'pre-warmed cache', please wait...")
-
+        print(f"\n...again, the same report, now with Caching On, but cold=empty cache...")
     cube.reset_counters()
     start = time.time()
-    report.refresh()
-
+    cube.caching = True
+    report.refresh()  # warm the cache...
     if console_output:
         duration = time.time() - start
         cells = report.grid_rows_count * report.grid_cols_count
@@ -274,6 +260,29 @@ def play(database: Database = load(), console_output: bool = True):
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
               f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+
+    if console_output:
+        print(f"\n...finally the same report, with Caching On and warm cache...")
+    cube.reset_counters()
+    start = time.time()
+    report.refresh()
+    if console_output:
+        duration = time.time() - start
+        cells = report.grid_rows_count * report.grid_cols_count
+        # print(report)
+        print(f"Report with {report.grid_rows_count:,} rows x {report.grid_cols_count:,} columns ="
+              f" {cells:,} cells executed in {duration:.3} sec. "
+              f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
+              f"thereof {cube.counter_cell_requests - cells:,} by rules."
+              f"\n\t{cube.counter_rule_requests:,} rules executed"
+              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+
+    if console_output:
+        print(f"\nRecommendation: Leave Caching On, whenever possible!")
+        print(f"\t- Caching is anyhow activated by default.'")
+        print(f"\t- The more aggregations and rules you have, the more you will benefit from caching.'")
+        print(f"\t- Caching On and Off will return the same result, if all your rules are non-volatile.'")
+        print(f"\t- Switch off caching only if you have rules are 'volatile'.'")
 
 
 def play_advanced_business_logic(database: Database = load(), console_output: bool = False):

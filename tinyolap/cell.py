@@ -155,14 +155,14 @@ class Cell(SupportsFloat):
 
 
     # region Cell manipulation via indexing/slicing
-    def __getitem__(self, item):
-        return self._cube._get(self.__item_to_bold(item))
+    def __getitem__(self, args):
+        return self._cube._get(self.__item_to_bold(args))
 
-    def __setitem__(self, item, value):
-        self._cube._set(self.__item_to_bold(item), value)
+    def __setitem__(self, args, value):
+        self._cube._set(self.__item_to_bold(args), value)
 
-    def __delitem__(self, item):
-        self.__setitem__(item, None)
+    def __delitem__(self, args):
+        self.__setitem__(args, None)
     # endregion
 
     # region Cell manipulation

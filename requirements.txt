@@ -4,3 +4,4 @@ furo
 Faker
 sphinx-toolbox
 enum_tools
+psutil

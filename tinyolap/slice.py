@@ -80,6 +80,7 @@ class Slice:
         self.definition = definition
         self.suppress_zero_columns = suppress_zero_columns
         self.suppress_zero_rows = suppress_zero_rows
+        self.title = None
 
         self.__validate()
         self.__prepare()
@@ -420,9 +421,10 @@ class Slice:
         text = "\n"
 
         # title
-        if self.definition["title"]:
+        if self.definition["title"] or self.title:
+            title = self.definition["title"] if not self.title else self.title
             text += ("-" * 80) + "\n"
-            text += f"{self.definition['title']}\n"
+            text += f"{title}\n"
             if self.definition["description"]:
                 text += f"{self.definition['description']}\n"
             text += ("-" * 80) + "\n"
@@ -463,6 +465,7 @@ class Slice:
                     text += "\n"
                 for member in cell[4]:
                     text += member.ljust(row_header_width)
+
             text += value
 
         return text

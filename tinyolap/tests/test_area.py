@@ -14,14 +14,23 @@ class TestArea(TestCase):
         cube = self.cube
         self.fill_all_cells(cube, 1.0)
 
-        # all should be valid data area definitions
+        # valid data area definitions (no error should occur)
         area = cube.area("2021")
         area = cube.area("2021", "months:Jan", "3:A")
         area = cube.area(["2021", "2022"], "months:Jan", "3:A")
         area = cube.area(["2021", "2022"], "months:Jan", ("A", "C"))
         area = cube.area(["2021", "2022"], "months:Jan", ("products:Total",))
 
-    def test_area_clear(self):
+        with self.assertRaises(Exception):
+            area = cube.area(123)  # wrong data type
+
+        with self.assertRaises(Exception):
+            area = cube.area(["Jan", "2022"])  # member from different dimensions on one axis
+
+        with self.assertRaises(Exception):
+            area = cube.area(["2021", "2022"], ["2022", "2023"])  # multiple use of a dimension
+
+    def test_area_create_modify_clear(self):
 
         cube = self.cube
         self.fill_all_cells(cube, 1.0)
@@ -30,35 +39,85 @@ class TestArea(TestCase):
         address = ("2020", "Q1", "Total", "Total", "Sales")
         value_before = cube.get(address)
 
-        # all valid area definitions
-        cube.area("2021").clear()
+        # 1. create area
+        area = cube.area("2021")
 
-        value_after = cube.get(address)
-        self.assertEqual(0.0, value_after)
+        # 2. evaluate min, max, avg
+        self.assertEqual(1.0, area.min())
+        self.assertEqual(1.0, area.max())
+        self.assertEqual(1.0, area.avg())
+
+        # 3. multiply -> evaluate min, max, avg
+        area.multiply(2.0)
+        self.assertEqual(2.0, area.min())
+        self.assertEqual(2.0, area.max())
+        self.assertEqual(2.0, area.avg())
+
+        # 4. increment -> evaluate min, max, avg
+        area.increment(1.0)
+        self.assertEqual(3.0, area.min())
+        self.assertEqual(3.0, area.max())
+        self.assertEqual(3.0, area.avg())
+
+        # 5. sum
+        value = area.sum()
+        self.assertEqual(864.0, value)
+
+        # 6. clear values (remove all records and update all indexes)
+        rows = len(area)
+        self.assertEqual(288, rows)
+
+        area.clear()
+
+        rows = len(area)
+        self.assertEqual(0, rows)
+
+    def test_area_loops_over_records(self):
+        cube = self.cube
+        cube.clear()
+        self.fill_all_cells(cube, 1.0)
+
+        area = cube.area("2021", "Jan")
+
+        sum = 0.0
+        for record in area.records(include_cube_name=True, as_list=True):
+            sum += record[-1]
+        self.assertEqual(area.sum(), sum)
+
+        addresses = []
+        for address in area.addresses():
+            addresses.append(address)
+        self.assertEqual(len(area), len(addresses))
+
 
     def test_area_math(self):
 
         cube = self.cube
+        cube.clear()
         self.fill_all_cells(cube, 1.0)
-
-        # multiply
-        address = ("2021", "Jan", "North", "A", "Sales")
-        value_before = cube.get(address)
-
-        cube.area("2021").multiply(2.0)
-
-        value_after = cube.get(address)
-        self.assertEqual(value_before * 2.0, value_after)
 
         # area = area * factor
         address = ("2020", "Feb", "North", "A", "Sales")
         value_before = cube.get(address)
+        self.assertEqual(1.0, value_before)
 
-        area = cube.area("2021")
+        area = cube.area("2020")
+
         area["Feb"] = area["Jan"] * 3.0
-
         value_after = cube.get(address)
-        self.assertEqual(value_before * 3.0, value_after)
+        self.assertEqual(3.0, value_after)
+
+        area["Feb"] /= 3.0
+        value_after = cube.get(address)
+        self.assertEqual(1.0, value_after)
+
+        area["Feb"] += 4.0
+        value_after = cube.get(address)
+        self.assertEqual(5.0, value_after)
+
+        area["Feb"] -= 2.0
+        value_after = cube.get(address)
+        self.assertEqual(3.0, value_after)
 
     def create_database(self):
         db = Database("sales", in_memory=True)

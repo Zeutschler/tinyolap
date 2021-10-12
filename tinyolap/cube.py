@@ -70,6 +70,7 @@ class Cube:
     def __repr__(self):
         return f"cube '{self.name}'"
 
+
     # region Rules
     def remove_rule(self, pattern: list[str]) -> bool:
         """
@@ -125,9 +126,9 @@ class Cube:
         if not scope:
             if hasattr(function, "scope"):
                 scope = function.scope
-                if not type(scope) is RuleScope:
+                if not (str(type(scope)) == str(type(RuleScope.ROLL_UP))):
                     raise RuleError(f"Failed to add rule function. Argument 'scope' is not of the expected "
-                                    f"type 'RuleScope' but of type '{type(scope)}'.")
+                                    f"type ''{type(RuleScope.ALL_LEVELS)}' but of type '{type(scope)}'.")
             else:
                 raise RuleError(f"Failed to add rule function. Argument 'scope' missing for "
                                 f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
@@ -159,9 +160,9 @@ class Cube:
         """
         if type(pattern) is str:
             pattern = list((pattern,))
-        # Sorry, miss-use of cursor. All the effort just to use the 'c._get_member(p)' function
+        # Sorry, miss-use of cursor. maybe some refactoring required...
         address = self._get_default_cell_address()
-        c = self._create_cell_from_bolt(address, self.__to_bolt(address))
+        c = self._create_cell_from_bolt(address, self.__address_to_bolt(address))
         # create something like this: idx_pattern = [(0, 3)]
         idx_pattern = []
         for p in pattern:
@@ -172,6 +173,10 @@ class Cube:
     # endregion
 
     # region Properties
+    @property
+    def cells_count(self) -> int:
+        return len(self._facts.facts)
+
     @property
     def name(self) -> str:
         """Returns the name of the cube."""
@@ -276,79 +281,37 @@ class Cube:
 
     # region Cell access via indexing/slicing
     def __getitem__(self, item):
-        bolt = self.__to_bolt(item)
+        bolt = self.__address_to_bolt(item)
         return self._get(bolt)
 
     def __setitem__(self, item, value):
-        bolt = self.__to_bolt(item)
+        bolt = self.__address_to_bolt(item)
         self._set(bolt, value)
 
     def __delitem__(self, item):
-        bolt = self.__to_bolt(item)
+        bolt = self.__address_to_bolt(item)
         self._set(bolt, None)
 
     # endregion
 
     # region Read and write values
-
-    # FOR FUTURE USE...
-    # def get_value_by_bolt(self, bolt: tuple):
-    #     """Returns a value from the cube for a given idx_address and measure.
-    #     If no records exist for the given idx_address, then 0.0 will be returned."""
-    #     return self.__get(bolt)
-    # def get_bolt(self, *keys:str):
-    #     return self.__to_bolt(keys)
-
-    def __to_bolt(self, keys):
-        """Converts a given idx_address, incl. member and (optional) measures, into a bolt.
-        A bolt is a tuple of integer keys, used for internal access of cells.
+    def clear(self):
         """
-
-        dim_count = self._dim_count
-        measures_count = len(keys) - dim_count
-        if measures_count < 0:
-            raise InvalidCellAddressError(f"Invalid idx_address. At least {self._dim_count} members expected "
-                                          f"for cube '{self._name}, but only {len(keys)} where passed in.")
-        # Validate members
-        dimensions = self._dimensions
-        idx_address = [None] * dim_count
-        super_level = 0
-        for i, member in enumerate(keys[: dim_count]):
-            if member in dimensions[i].member_idx_lookup:
-                idx_address[i] = dimensions[i].member_idx_lookup[member]
-                super_level += dimensions[i].members[idx_address[i]][6]
-            else:
-                raise InvalidCellAddressError(f"Invalid idx_address. '{member}' is not a member of the {i}. "
-                                              f"dimension '{dimensions[i].name}' in cube {self._name}.")
-        idx_address = tuple(idx_address)
-
-        # validate measures (if defined)
-        if measures_count == 0:
-            idx_measures = self._measures[self._default_measure]
-        else:
-            idx_measures = []
-            for measure in keys[self._dim_count:]:
-                if measure not in self._measures:
-                    raise InvalidCellAddressError(f"'{measure}' is not a measure of cube '{self.name}'.")
-                idx_measures.append(self._measures[measure])
-            if measures_count == 1:
-                idx_measures = idx_measures[0]
-            else:
-                idx_measures = tuple(idx_measures)
-
-        return super_level, idx_address, idx_measures  # that's the 'bolt'
+        Removes all values from the Cube.
+        """
+        self._facts.clear()
 
     def get(self, address: tuple):
         """Reads a value from the cube for a given idx_address.
         If no records exist for the given idx_address, then 0.0 will be returned.
         :raises InvalidKeyError:
         """
-        bolt = self.__to_bolt(address)
+        bolt = self.__address_to_bolt(address)
         return self._get(bolt)
 
     def set(self, address: tuple, value):
         """Writes a value to the cube for the given bolt (idx_address and measures)."""
-        bolt = self.__to_bolt(address)
+        bolt = self.__address_to_bolt(address)
         return self._set(bolt, value)
 
     def _get(self, bolt):
@@ -542,12 +505,65 @@ class Cube:
         for o in ordinal:
             self._facts.remove_members(o, members)
 
+    def _idx_address_to_address(self, idx_address, include_cube_name: bool = False):
+        """
+        Converts an address index to a adress with member names
+        :param idx_address:
+        :return:
+        """
+        if include_cube_name:
+            address = [self.name, ]
+        else:
+            address = []
+        for i in range(self._dim_count):
+            address.append(self._dimensions[i].members[idx_address[i]][1])
+        return address
+
+    def __address_to_bolt(self, keys):
+        """Converts a given idx_address, incl. member and (optional) measures, into a bolt.
+        A bolt is a tuple of integer keys, used for internal access of cells.
+        """
+
+        dim_count = self._dim_count
+        measures_count = len(keys) - dim_count
+        if measures_count < 0:
+            raise InvalidCellAddressError(f"Invalid idx_address. At least {self._dim_count} members expected "
+                                          f"for cube '{self._name}, but only {len(keys)} where passed in.")
+        # Validate members
+        dimensions = self._dimensions
+        idx_address = [None] * dim_count
+        super_level = 0
+        for i, member in enumerate(keys[: dim_count]):
+            if member in dimensions[i].member_idx_lookup:
+                idx_address[i] = dimensions[i].member_idx_lookup[member]
+                super_level += dimensions[i].members[idx_address[i]][6]
+            else:
+                raise InvalidCellAddressError(f"Invalid idx_address. '{member}' is not a member of the {i}. "
+                                              f"dimension '{dimensions[i].name}' in cube {self._name}.")
+        idx_address = tuple(idx_address)
+
+        # validate measures (if defined)
+        if measures_count == 0:
+            idx_measures = self._measures[self._default_measure]
+        else:
+            idx_measures = []
+            for measure in keys[self._dim_count:]:
+                if measure not in self._measures:
+                    raise InvalidCellAddressError(f"'{measure}' is not a measure of cube '{self.name}'.")
+                idx_measures.append(self._measures[measure])
+            if measures_count == 1:
+                idx_measures = idx_measures[0]
+            else:
+                idx_measures = tuple(idx_measures)
+
+        return super_level, idx_address, idx_measures  # that's the 'bolt'
+
     # endregion
 
     # region cells
     def cell(self, *args) -> Cell:
         """Returns a new Cell from the Cube."""
-        return Cell.create(self, self._dim_lookup, args, self.__to_bolt(args))
+        return Cell.create(self, self._dim_lookup, args, self.__address_to_bolt(args))
 
     def _create_cell_from_bolt(self, address, bolt) -> Cell:
         """Create a Cell for the Cube directly from an existing bolt."""

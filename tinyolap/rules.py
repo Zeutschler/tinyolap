@@ -17,7 +17,7 @@ class RuleScope(enum.Enum):
     #: the rule. This can dramatically slow down aggregation speed. Requires a special trigger to be set.
     ROLL_UP = 3
     #: Indicates that these rules should be executed when cell values are set or changed.
-    #: This is useful for time consuming calculations which may be *too expensive* to run at query time.
+    #: This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
     ON_ENTRY = 4
 
     def __eq__(self, other):

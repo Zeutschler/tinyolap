@@ -145,7 +145,7 @@ class Backend:
         return 0.0
 
     def cube_get_range(self, cube_name, member_lists: list[list[int]], measures, aggregate: bool =True) -> list:
-        """Executes a range query on the cube fact table """
+        """Executes a range idx_address on the cube fact table """
         if not isinstance(measures, Iterable):
             measures = [measures]
         member_list_text = []
@@ -279,7 +279,7 @@ class Backend:
             raise FatalError()
 
     def __execute(self, sql: str, data=None):
-        """Executes an SQL query without returning a result or resultset."""
+        """Executes an SQL idx_address without returning a result or resultset."""
         duration = 0.0
         if self.LOG_LEVEL == logging.DEBUG:
             duration = timer()
@@ -330,7 +330,7 @@ class Backend:
         return True
 
     def __fetchall(self, sql: str):
-        """Executes an SQL query statement and returns all records as the resultset."""
+        """Executes an SQL idx_address statement and returns all records as the resultset."""
         duration = 0.0
         if self.LOG_LEVEL == logging.DEBUG:
             duration = timer()
