@@ -119,6 +119,14 @@ class TestArea(TestCase):
         value_after = cube.get(address)
         self.assertEqual(3.0, value_after)
 
+        with self.assertRaises(Exception):
+            area["Feb"] = area["2021"]
+
+        with self.assertRaises(Exception):
+            area["Feb"] = area["Jan", "2021"]
+
+
+
     def create_database(self):
         db = Database("sales", in_memory=True)
 

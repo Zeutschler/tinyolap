@@ -480,7 +480,13 @@ class Area:
 
         if self._modifiers:
 
-            if not self.equal_modifiers(self._modifiers, other._modifiers):
+            if not self.modifiers_of_same_scope(self._modifiers, other._modifiers):
+                raise KeyError(f"Unsupported area operations. Areas modifiers need to"
+                               f"address the same dimensions and the same number of members, "
+                               f"e.g.: a['Jan'] = a['Feb'] would be valid, but "
+                               f"a['Jan'] = a['2022'] would not be valid, because of different dimensions.")
+
+            if not self.identical_modifiers(self._modifiers, other._modifiers):
                 self.clear()
 
             if not other._rows:
@@ -502,7 +508,7 @@ class Area:
                     self._cube._set(bolt, value)
                     # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
 
-    def equal_modifiers(self, modifiers_a, modifiers_b) -> bool:
+    def identical_modifiers(self, modifiers_a, modifiers_b) -> bool:
         if len(modifiers_a) != len(modifiers_b):
             return False
         for a, b in zip(modifiers_a, modifiers_b):
@@ -512,5 +518,16 @@ class Area:
                 return False
             if tuple(idx_members_a) != tuple(idx_members_b):
                 return False
+        return True
 
+    def modifiers_of_same_scope(self, modifiers_a, modifiers_b) -> bool:
+        if len(modifiers_a) != len(modifiers_b):
+            return False
+        for a, b in zip(modifiers_a, modifiers_b):
+            idx_dim_a, members_a, idx_members_a, level_members_a = a
+            idx_dim_b, members_b, idx_members_b, level_members_b = b
+            if idx_dim_a != idx_dim_b:
+                return False
+            if len(idx_members_a) != len(idx_members_b):
+                return False
         return True
