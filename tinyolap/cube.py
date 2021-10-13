@@ -314,7 +314,7 @@ class Cube:
         bolt = self.__address_to_bolt(address)
         return self._set(bolt, value)
 
-    def _get(self, bolt):
+    def _get(self, bolt, bypass_rules=False):
         """
         Returns a value from the cube for a given idx_address and measure.
         If no records exist for the given idx_address, then 0.0 will be returned.
@@ -323,28 +323,14 @@ class Cube:
         self._cell_request_counter += 1
 
         # caching
-        if self._caching and bolt in self._cache:
-            return self._cache[bolt]
+        if not bypass_rules:
+            if self._caching and bolt in self._cache:
+                return self._cache[bolt]
 
         # ALL_LEVELS rules
-        if self._rules_all_levels.any:
-            found, func = self._rules_all_levels.first_match(idx_address)
-            if found:
-                cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
-                try:
-                    self._rule_request_counter += 1
-                    value = func(cursor)
-                    if value != Cell.CONTINUE:
-                        if self._caching:
-                            self._cache[bolt] = value  # save value to cache
-                        return value
-                except Exception as e:
-                    raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
-
-        if super_level == 0:  # base-level cells
-            # BASE_LEVEL rules
-            if self._rules_base_level.any:
-                found, func = self._rules_base_level.first_match(idx_address)
+        if not bypass_rules:
+            if self._rules_all_levels.any:
+                found, func = self._rules_all_levels.first_match(idx_address)
                 if found:
                     cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                     try:
@@ -356,6 +342,23 @@ class Cube:
                             return value
                     except Exception as e:
                         raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
+
+        if super_level == 0:  # base-level cells
+            # BASE_LEVEL rules
+            if not bypass_rules:
+                if self._rules_base_level.any:
+                    found, func = self._rules_base_level.first_match(idx_address)
+                    if found:
+                        cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                        try:
+                            self._rule_request_counter += 1
+                            value = func(cursor)
+                            if value != Cell.CONTINUE:
+                                if self._caching:
+                                    self._cache[bolt] = value  # save value to cache
+                                return value
+                        except Exception as e:
+                            raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
 
             if type(idx_measures) is int:
                 return self._facts.get(idx_address, idx_measures)
@@ -370,19 +373,20 @@ class Cube:
             #     return self._cache[bolt]
 
             # AGGREGATION_LEVEL
-            if self._rules_aggr_level.any:
-                found, func = self._rules_aggr_level.first_match(idx_address)
-                if found:
-                    cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
-                    try:
-                        self._rule_request_counter += 1
-                        value = func(cursor)
-                        if value != Cell.CONTINUE:
-                            if self._caching:
-                                self._cache[bolt] = value  # save value to cache
-                            return value
-                    except Exception as e:
-                        raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
+            if not bypass_rules:
+                if self._rules_aggr_level.any:
+                    found, func = self._rules_aggr_level.first_match(idx_address)
+                    if found:
+                        cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                        try:
+                            self._rule_request_counter += 1
+                            value = func(cursor)
+                            if value != Cell.CONTINUE:
+                                if self._caching:
+                                    self._cache[bolt] = value  # save value to cache
+                                return value
+                        except Exception as e:
+                            raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
 
             # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address)
@@ -430,6 +434,9 @@ class Cube:
             self._cache = {}  # clear the cache
 
         (super_level, idx_address, idx_measures) = bolt
+
+        if type(value) is int:
+            value = float(value)
 
         if super_level == 0:  # for base-level cells...
             if type(idx_measures) is int:

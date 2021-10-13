@@ -40,6 +40,10 @@ class Cell(SupportsFloat):
     #: pushed up to initially calling cell request.
     ERROR = object()
 
+    #: Indicates that the rules functions wants to bypass all rules and get the
+    #: underlying base_level or aggregated value from the cube.
+    BYPASS_RULES = object()
+
     # region Initialization
     @classmethod
     def create(cls, cube, dim_names, address, bolt):
@@ -156,7 +160,10 @@ class Cell(SupportsFloat):
 
     # region Cell manipulation via indexing/slicing
     def __getitem__(self, args):
-        return self._cube._get(self.__item_to_bold(args))
+        if args[-1] == self.BYPASS_RULES:
+            return self._cube._get(self.__item_to_bold(args[:len(args)-1]), True)
+        else:
+            return self._cube._get(self.__item_to_bold(args))
 
     def __setitem__(self, args, value):
         self._cube._set(self.__item_to_bold(args), value)

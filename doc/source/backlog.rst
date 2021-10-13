@@ -77,6 +77,9 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
 - **Web API** - A web API server, utilizing FastAPI, to serve TinyOlap databases.
 
+- **Web Frontend** - A minimalistic web frontend on top of the Web API. Providing capabilities
+  to browse (slice and dice) and manually enter data
+
 -----------------
 
 - **Cubes** - Additional Cube features.
@@ -91,11 +94,6 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
 3. Backlog
 ----------
-
-- **Web Frontend** - A minimalistic web frontend on top of the Web API. Providing capabilities
-  to browse (slice and dice) and manually enter data
-
------------------
 
 - **Cubes** - Additional Cube features.
 
