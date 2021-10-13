@@ -17,6 +17,7 @@ def is_valid_db_object_name(name: str):
 
 
 def to_valid_key(s: str):
+    """Converts a string key to a valid TinyOlap object name."""
     s = str(s).strip().replace(' ', '_')
     return re.sub(r'(?u)[^-\w.]', '', s)
 
@@ -37,3 +38,4 @@ def dict_keys_to_int(dictionary: dict):
             new_v = v
         converted[new_k] = new_v
     return converted
+

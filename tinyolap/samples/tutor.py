@@ -6,14 +6,14 @@ import os
 import time
 import psutil
 
-from cell import Cell
-from decorators import rule
-from rules import RuleScope
+from tinyolap.cell import Cell
+from tinyolap.decorators import rule
+from tinyolap.rules import RuleScope
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 
 
-def load():
+def load(silent: bool = False):
     """
     Loads the **Tutor** data model from TXT source files (this may take
     a seconds or two). The source TXT files have an awkward and quite
@@ -32,6 +32,9 @@ def load():
     only Database object.
     """
 
+    if not silent:
+        print("Importing Tutor database from CSV file. Please wait...")
+
     start = time.time()
     initially_used_memory = psutil.Process().memory_info().rss / (1024 * 1024)
 
@@ -42,7 +45,7 @@ def load():
     measures = ("value", "count")
     dimension_names = ["jahre", "datenart", "regionen", "produkte", "monate", "wertart"]
     dim_count = len(dimension_names)
-    root_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    root_path = os.path.dirname(os.path.abspath(__file__))
 
     # 1. setup a new tinyolap database
     db = Database(db_name, in_memory=True)
@@ -51,7 +54,7 @@ def load():
     # JAHRE.TXT, DATENART.TXT, REGIONEN.TXT, PRODUKTE.TXT, MONATE.TXT, WERTART.TXT
     dimensions = []
     for dim in dimension_names:
-        file_name = os.path.join(root_path, "samples", "tutor_files", dim.upper() + ".TXT")
+        file_name = os.path.join(root_path, "tutor_files", dim.upper() + ".TXT")
         # add a new dimension to the database
         dim = db.add_dimension(dim)
         # open the dimension for editing (adding or removing members)
@@ -100,7 +103,7 @@ def load():
     cube.add_rule(rule_price)
 
     # 4. Now it's time to import the data from a CSV file into the cube
-    file_name = os.path.join(root_path, "samples", "tutor_files", cube_name.upper() + ".TXT")
+    file_name = os.path.join(root_path, "tutor_files", cube_name.upper() + ".TXT")
     empty_rows = 0
     with open(file_name, encoding='latin-1') as file:
         while line := [t.strip() for t in file.readline().rstrip().split("\t")]:
@@ -116,11 +119,12 @@ def load():
 
     # Some statistics...
     duration = time.time() - start
-    memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
-    print(f"Info: Importing Tutor database from CSV in {duration:.3} sec.")
-    print(f"Info: Memory consumption of Tutor database containing {cube.cells_count:,} values "
-          f"is ±{memory_consumption:,} MB, "
-          f"±{round(memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
+    if not silent:
+        memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
+        print(f"Info: Importing Tutor database from CSV in {duration:.3} sec.")
+        print(f"Info: Memory consumption of Tutor database containing {cube.cells_count:,} values "
+              f"is ±{memory_consumption:,} MB, "
+              f"±{round(memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
 
     # That's it...
     return db

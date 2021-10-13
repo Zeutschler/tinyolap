@@ -1,6 +1,7 @@
 import enum
 import weakref
-from cube import Cube
+from tinyolap.cube import Cube
+
 
 class Slice:
     """Represents a slice from a cube. Slices can be seen as a report in Excel with filters on top,
@@ -76,7 +77,7 @@ class Slice:
         self.zero_cols = []
         self.dimensions = {}
         self.measures = []
-        self.cube = cube  #weakref.ref(cube) if cube else None
+        self.cube = cube  # weakref.ref(cube) if cube else None
         self.definition = definition
         self.suppress_zero_columns = suppress_zero_columns
         self.suppress_zero_rows = suppress_zero_rows
@@ -112,13 +113,12 @@ class Slice:
         else:
             for address in addresses:
                 results.append(self._experimental_refresh_grid_cell(address))
-        return time() - start,  results
+        return time() - start, results
 
     def _experimental_refresh_grid_cell(self, address):
         # arg := [col, row, value, col_members, row_members, idx_address, measure]
         value = self.cube.get(address)
         return value
-
 
     def refresh(self):
         """Refreshes the data defined by the slice. Only required when data has changed since the creation
@@ -161,7 +161,6 @@ class Slice:
                         measure = col_member[1]
                     else:
                         address[dim_ordinal] = col_member[1]
-
 
                 # check formats
                 format = None
@@ -470,8 +469,152 @@ class Slice:
 
         return text
 
-    def as_html(self) -> str:
-        return str(self)
+    def as_html(self, footer="") -> str:
+        """Renders an output suitable for printing to the html only. The output most probably contains
+        control characters and color definitions and is therefore not suitable for other use cases."""
+        # title, description
+        # print headers
+        # print col headers
+        # print row headers and values
+
+        cell_width = 12
+        row_header_width = 12
+
+        row_dims = len(self.grid[0][4])
+        col_dims = len(self.grid[0][3])
+
+        tro = "<tr>"
+        trc = "</tr>\n"
+        tdo = "<td>"
+        tdc = "</td>"
+
+        text = ""
+        # title
+        if self.definition["title"] or self.title:
+            title = self.definition["title"] if not self.title else self.title
+            text += f"<h2>{title}</h2>\n"
+            if self.definition["description"]:
+                text += f"<h4>{self.definition['description']}</h4>\n"
+        text += f'<div class="font-italic font-weight-light">{footer}</div>'
+
+        # header dimensions
+        text += '<table class="table w-auto"><tbody>\n'
+        for member in self.axis[0]:
+            if member[0] == -1:
+                text += f'<tr><th scope="row">Measure</th><td>{member[1]}</td></tr>\n'
+            else:
+                text += f'<tr><th scope="row">{member[2]}</th><td>{member[1]}</td></tr>\n'
+        text += '</tbody></table>'
+
+        text += '<div style= width: 100%">'
+        text += '<div class"table-responsive">' \
+                '<table class="table table-hover table-striped table-bordered"' \
+                '>\n'
+        text += '<thead">\n'
+
+        # column headers
+        text += tro
+        for c in range(col_dims):
+            for r in range(row_dims):
+                text += f'<th scope="col" class="th-lg" style="width: 80px"></th>\n'
+                # text += tdo + " ".ljust(row_header_width) + tdc
+            for i in range(self.grid_cols_count):
+                text += f'<th scope="col" class="text-center" style="width: 80px">' \
+                        f'{self.grid[i][3][c]}' \
+                        f'</th>\n'
+                # text += tdo + self.grid[i][3][c].center(cell_width) + tdc
+        text += trc
+        text += '</thead">\n'
+
+        # row headers and cells
+        text += tro
+        for cell in self.grid:
+            col = cell[0]
+            row = cell[1]
+            value = cell[2]
+            format = cell[7]
+
+            # row headers
+            if col == 0:
+                if row > 0:
+                    text += trc
+                    text += tro
+                for member in cell[4]:
+                    text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
+
+            if type(value) is float:
+                if format:
+                    value = format.format(value)
+                else:
+                    value = f"{value:,.0f}"  # :,.2f}"
+            elif value is None:
+                value = "-"
+            else:
+                value = ""
+            text += f'<td class="text-nowrap" style="text-align: right">{value}</td>\n'
+
+        text += trc
+        text += "</table></div>"
+        text += '</div>'
+
+
+        style = 'table.table-fit {width: auto !important;table-layout: auto !important;}' \
+                'table.table-fit thead th, table.table-fit tfoot th {width: auto !important;}' \
+                'table.table-fit tbody td, table.table-fit tfoot td {width: auto !important;}'
+
+        header = '<header class="p-3 bg-dark text-white">' \
+                 '<div class="container">' \
+                 '<div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">' \
+                 '<a href="/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">' \
+                 '<img width="48" height="48" src="/logo.png" aria-label="TinyOlap"></img>' \
+                 ' <a class="navbar-brand px-2 text-white">TinyOlap</a>' \
+                 '</a>' \
+                 '<ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">' \
+                 '<li><a href="#" class="nav-link px-2 text-secondary">Home</a></li>' \
+                 '<li><a href="#" class="nav-link px-2 text-white">Foo</a></li>' \
+                 '<li><a href="#" class="nav-link px-2 text-white">Bar</a></li>' \
+                 '<li><a href="#" class="nav-link px-2 text-white">Baz</a></li>' \
+                 '</ul>' \
+                 '<form action="/report" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
+                 '<div class="text-end">' \
+                 '<button type="submit" class="btn btn-warning">Refresh</button>' \
+                 '</div>' \
+                 '</form>' \
+                 '</div>' \
+                 '</div>' \
+                 '</header>'
+
+        # '<button onClick="Refresh(10)" class="btn btn-warning">Refresh 10x</button>'
+        script = 'function Refresh(refreshesLeft) {' \
+                 'refreshesLeft = refreshesLeft || 5;' \
+                 'window.parent.location = window.parent.location.href + \'?refreshesLeft = \'+refreshesLeft;' \
+                 '}' \
+                 'function onLoad() {' \
+                 'let params = new URLSearchParams(document.location.search.substring(1));' \
+                 'let rl = params.get("refreshesLeft")' \
+                 'if (rl) Refresh( (rl | 0 ) -1)' \
+                 '}' \
+                 'document.addEventListener("DOMContentLoaded", onLoad)'
+
+        html = f'<!doctype html><html lang="en"><head><!-- Required meta tags --><meta charset="utf-8">' \
+               f'<meta name="viewport" content="width=device-width, initial-scale=1">' \
+               f'<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" ' \
+               f'integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" ' \
+               f'crossorigin="anonymous">' \
+               f'<title>TinyOlap report</title>' \
+               f'<style>{style}</style>' \
+               f'<script>{script}</script>' \
+               f'</head>' \
+               f'<body>' \
+               f'{header}' \
+               f'<div class="p-3">' \
+               f'{text}' \
+               f'</div>' \
+               f'<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" ' \
+               f'integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" ' \
+               f'crossorigin="anonymous"></script></body></html>'
+
+        return html
 
     def as_csv(self) -> str:
         return str(self)

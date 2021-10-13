@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import Tuple
 from collections.abc import Iterable
 
-import utils
-from case_insensitive_dict import CaseInsensitiveDict
+import tinyolap.utils
+from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.custom_errors import *
-from cube import Cube
-from dimension import Dimension
-from backend import Backend
+from tinyolap.cube import Cube
+from tinyolap.dimension import Dimension
+from tinyolap.backend import Backend
 
 class Database:
     """
@@ -44,7 +44,7 @@ class Database:
         given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
         use the ``save()``method of the database object.
         """
-        if name != utils.to_valid_key(name):
+        if name != tinyolap.utils.to_valid_key(name):
             raise InvalidKeyError(f"'{name}' is not a valid database name. "
                                       f"alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -187,7 +187,7 @@ class Database:
         :raises InvalidDimensionNameException: If the dimension name is invalid.
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
-        if not utils.is_valid_db_object_name(name):
+        if not tinyolap.utils.is_valid_db_object_name(name):
             raise InvalidKeyError(f"'{name}' is not a valid dimension name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -263,7 +263,7 @@ class Database:
         """
 
         # validate cube name
-        if not utils.is_valid_db_object_name(name):
+        if not tinyolap.utils.is_valid_db_object_name(name):
             raise CubeCreationError(f"Invalid cube name '{name}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
@@ -298,12 +298,12 @@ class Database:
         # validate measures
         if measures:
             if type(measures) is str:
-                if not utils.is_valid_member_name(measures):
+                if not tinyolap.utils.is_valid_member_name(measures):
                     raise CubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
                                                 f"Please refer the documentation for further details.")
             elif isinstance(measures, Iterable):
                 for m in measures:
-                    if not utils.is_valid_member_name(m):
+                    if not tinyolap.utils.is_valid_member_name(m):
                         raise CubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
                                                     f"Please refer the documentation for further details.")
         # create and return the cube

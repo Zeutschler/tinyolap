@@ -3,9 +3,9 @@ from collections.abc import Iterable, Sized
 from inspect import isroutine
 
 import tinyolap.rules
-from area import Area
-from case_insensitive_dict import CaseInsensitiveDict
-from cell import Cell
+from tinyolap.area import Area
+from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.cell import Cell
 from tinyolap.custom_errors import *
 from tinyolap.fact_table import FactTable
 from tinyolap.dimension import Dimension

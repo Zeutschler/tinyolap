@@ -2,8 +2,8 @@ from __future__ import annotations
 import copy
 from collections import Iterable
 
-from custom_errors import InvalidCellAddressError
-from member import Member
+from tinyolap.custom_errors import InvalidCellAddressError
+from tinyolap.member import Member
 
 
 class Area:

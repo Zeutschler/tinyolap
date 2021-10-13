@@ -8,9 +8,9 @@ import json
 from collections.abc import Iterable
 import collections.abc
 
-from case_insensitive_dict import CaseInsensitiveDict
-from custom_errors import *
-import utils
+from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.custom_errors import *
+import tinyolap.utils
 
 
 class Dimension:

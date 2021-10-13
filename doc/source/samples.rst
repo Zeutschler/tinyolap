@@ -47,7 +47,7 @@ The **tutor** database is a piece of OLAP history, it's almost 30 years old, act
 the pre-internet area. The Tutor database was shipped as the sample database of **MIS Alea**,
 one of the first *true* MOLAP databases available. MIS Alea was developed by the MIS Group in
 Darmstadt, Germany. Actutally MIS Alea was a clone of TM/1, which itself was developed
-by ´Manny Perez<https://cubewise.com/history/>` at Sinper Corp., USA. After several
+by `Manny Perez <https://cubewise.com/history/>`_ at Sinper Corp., USA. After several
 company transitions, MIS Alea is still successful in the BI market and is now owned
 by Infor and currently called **Infor d/EPM v12**, if I'm not mistaken.
 

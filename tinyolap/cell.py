@@ -4,7 +4,7 @@ from collections  import Iterable
 from typing import SupportsFloat
 # noinspection PyProtectedMember
 
-from custom_errors import *
+from tinyolap.custom_errors import *
 from tinyolap.member import Member
 
 
