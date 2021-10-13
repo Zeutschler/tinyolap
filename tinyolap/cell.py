@@ -405,7 +405,7 @@ class Cell(SupportsFloat):
         return self.numeric_value.__bool__()
 
     def __str__(self):
-        return self.numeric_value.__str__()
+        return self.value.__str__()
 
     def __int__(self):
         return self.numeric_value.__int__()
