@@ -10,7 +10,7 @@ import collections.abc
 
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.custom_errors import *
-import tinyolap.utils
+from tinyolap.utils import *
 
 
 class Dimension:
@@ -712,7 +712,7 @@ class Dimension:
         :raises InvalidKeyError: Raised when the name of the attribute is invalid.
         :raises DuplicateKeyError: Raised when the name of the attribute already exists.
         """
-        if not utils.is_valid_db_object_name(attribute_name):
+        if not is_valid_db_object_name(attribute_name):
             raise InvalidKeyError(f"'{attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -730,7 +730,7 @@ class Dimension:
         :raises InvalidKeyError: Raised when the new name of the attribute is invalid.
         :raises DuplicateKeyError: Raised when the new name of the attribute already exists.
         """
-        if not utils.is_valid_db_object_name(new_attribute_name):
+        if not is_valid_db_object_name(new_attribute_name):
             raise InvalidKeyError(f"Failed to rename dimension attribute. "
                                       f"'{new_attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
@@ -802,7 +802,7 @@ class Dimension:
         :raises TypeError: Raised when members list is not of the expected type (list or tuple)
         :raises KeyError: Raised when a member from the members list is not contained in the dimension.
         """
-        if not utils.is_valid_db_object_name(subset_name):
+        if not is_valid_db_object_name(subset_name):
             raise InvalidKeyError(f"'{subset_name}' is not a valid dimension subset name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -868,7 +868,7 @@ class Dimension:
         :raises InvalidKeyError: Raised when the new name for the subset is invalid.
         :raises KeyError: Raised when the subset is not contained in the dimension.
         """
-        if not utils.is_valid_db_object_name(new_subset_name):
+        if not is_valid_db_object_name(new_subset_name):
             raise InvalidKeyError(f"'{new_subset_name}' is not a valid dimension subset name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -957,7 +957,7 @@ class Dimension:
             new_subsets = dim["subsets"]
 
             # json does not allow non-string keys, but we use integer keys. Conversion is required.
-            new_members = utils.dict_keys_to_int(new_members)
+            new_members = dict_keys_to_int(new_members)
 
             # second, apply everything (this should not fail)
             self.name = new_name

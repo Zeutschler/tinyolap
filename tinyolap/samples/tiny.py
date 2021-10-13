@@ -14,7 +14,7 @@ from tinyolap.slice import Slice
 from random import uniform, randrange
 
 
-def load():
+def load_tiny():
     """
     Creates a very simple (tiny) database for 'actual sales figures',
     just by code. Although the database is super minimalistic, it
@@ -127,7 +127,7 @@ def rule_profit_in_percent(c: tinyolap.cell.Cell):
     return None
 
 
-def play(database: Database = load(), console_output: bool = True):
+def play_tiny(database: Database = load_tiny(), console_output: bool = True):
     """ Demonstrates the usage TinyOlap and the Tiny database.
     It creates and print some simple reports to the console.
 
@@ -285,7 +285,7 @@ def play(database: Database = load(), console_output: bool = True):
         print(f"\t- Switch off caching only if you have rules are 'volatile'.'")
 
 
-def play_advanced_business_logic(database: Database = load(), console_output: bool = False):
+def play_advanced_business_logic(database: Database = load_tiny(), console_output: bool = False):
     """ Demonstrates the implementation of advanced business logic in TinyOlap.
     :param console_output: Set to ``False``to suppress console output.
     :param database: The Tiny database generate by the ``load()`` function.
@@ -381,7 +381,7 @@ def play_advanced_business_logic(database: Database = load(), console_output: bo
 
 
 def main():
-    play()
+    play_tiny()
     play_advanced_business_logic()
 
 

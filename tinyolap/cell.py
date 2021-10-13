@@ -160,7 +160,7 @@ class Cell(SupportsFloat):
 
     # region Cell manipulation via indexing/slicing
     def __getitem__(self, args):
-        if args[-1] == self.BYPASS_RULES:
+        if not isinstance(args, (str, Member)) and (args[-1] == self.BYPASS_RULES):
             return self._cube._get(self.__item_to_bold(args[:len(args)-1]), True)
         else:
             return self._cube._get(self.__item_to_bold(args))

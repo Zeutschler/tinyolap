@@ -1,5 +1,6 @@
 from unittest import TestCase
-import tutor, tiny
+from tinyolap.samples.tiny import play_tiny
+from tinyolap.samples.tutor import play_tutor
 
 
 class Test(TestCase):
@@ -9,12 +10,12 @@ class Test(TestCase):
         Creates and loads the tutor_files sample database from text files.
         The only test criteria is, that the sample does not fail (raise exceptions).
         """
-        tiny.play(console_output=False)
+        play_tutor(console_output=False)
 
     def test_sample_database_tutor(self):
         """
         Creates and loads the tutor_files sample database from text files.
         The only test criteria is, that the sample does not fail (raise exceptions).
         """
-        tutor.play(console_output=False)
+        play_tutor(console_output=False)
 

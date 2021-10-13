@@ -13,7 +13,7 @@ from tinyolap.database import Database
 from tinyolap.slice import Slice
 
 
-def load(silent: bool = False):
+def load_tutor(console_output: bool = True):
     """
     Loads the **Tutor** data model from TXT source files (this may take
     a seconds or two). The source TXT files have an awkward and quite
@@ -32,7 +32,7 @@ def load(silent: bool = False):
     only Database object.
     """
 
-    if not silent:
+    if console_output:
         print("Importing Tutor database from CSV file. Please wait...")
 
     start = time.time()
@@ -119,7 +119,7 @@ def load(silent: bool = False):
 
     # Some statistics...
     duration = time.time() - start
-    if not silent:
+    if console_output:
         memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
         print(f"Info: Importing Tutor database from CSV in {duration:.3} sec.")
         print(f"Info: Memory consumption of Tutor database containing {cube.cells_count:,} values "
@@ -149,7 +149,8 @@ def rule_price(c: Cell):
     else:
         return "-"
 
-def play(database: Database = load(), console_output: bool = True):
+
+def play_tutor(database: Database = load_tutor(), console_output: bool = True):
     """ Demonstrates the usage TinyOlap and the Tutor database.
     It create and print some simple reports to the console.
 
@@ -202,7 +203,7 @@ def play(database: Database = load(), console_output: bool = True):
     # If you skip the ``member`` definition, then the default member
     # of the dimension will be selected and used.
     report_definition = {"title": "Report with rules calculations",
-        "header": [{"dimension": "jahre", "member": "1994"},
+                         "header": [{"dimension": "jahre", "member": "1994"},
                                     {"dimension": "regionen", "member": "USA"},
                                     {"dimension": "produkte", "member": "Produkte gesamt"},
                                     {"dimension": "monate", "member": "Jahr Gesamt"}],
@@ -213,7 +214,7 @@ def play(database: Database = load(), console_output: bool = True):
         print(report)
 
     report_definition = {"title": "Report - Sales by years and months",
-        "header": [{"dimension": "datenart", "member": "Ist"},
+                         "header": [{"dimension": "datenart", "member": "Ist"},
                                     {"dimension": "regionen", "member": "USA"},
                                     {"dimension": "produkte", "member": "Produkte gesamt"},
                                     {"dimension": "wertart", "member": "Umsatz"}],
@@ -236,9 +237,8 @@ def play(database: Database = load(), console_output: bool = True):
               f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
 
 
-
 def main():
-    play()
+    play_tutor()
 
 
 if __name__ == "__main__":

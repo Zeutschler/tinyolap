@@ -2,7 +2,7 @@ import math
 import unittest
 from unittest import TestCase
 
-import tiny
+from tinyolap.samples.tiny import load_tiny
 from tinyolap.cell import Cell
 from tinyolap.custom_errors import InvalidCellAddressError
 
@@ -10,7 +10,7 @@ from tinyolap.custom_errors import InvalidCellAddressError
 class TestCell(TestCase):
 
     def setUp(self) -> None:
-        self.db = tiny.load()
+        self.db = load_tiny()
         self.cube = self.db.cubes["sales"]
 
     def test_initialization(self):

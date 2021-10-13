@@ -10,10 +10,10 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.responses import FileResponse
 
-from tinyolap.samples.tutor import load
+from tinyolap.samples.tutor import load_tutor
 from tinyolap.slice import Slice
 
-db = load()  # load Tutor database
+db = load_tutor()  # load Tutor database
 
 app = FastAPI(title="TinyOlap API")
 

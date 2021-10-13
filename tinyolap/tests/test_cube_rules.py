@@ -16,7 +16,7 @@ def create_database():
     dim_years.add_member(["2020", "2021", "2022", "2023"])
     dim_years.commit()
 
-    dim_currency = db.add_dimension("products")
+    dim_currency = db.add_dimension("curreny")
     dim_currency.edit()
     dim_currency.add_member(["EUR", "USD"])
     dim_currency.commit()
