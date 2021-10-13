@@ -1,210 +1,126 @@
-# importing the module
 import enum
-from types import FunctionType
-import time
-import re
-import math
+import inspect
 
 
-class RulesCompilationError(Exception):
-    """Occurs when the validation or compilation of a rule fails."""
-    pass
+class RuleScope(enum.Enum):
+    """
+    Defines the scope of a rule. Meaning, to which level of data the rule should be applied.
+    """
 
+    #: (default) Indicates that the rule should be executed for base level and aggregated level cells.
+    ALL_LEVELS = 0
+    #: Indicates that the rule should be executed for aggregated level cells only.
+    AGGREGATION_LEVEL = 1
+    #: Indicates that the rule should be executed for base level cells only.
+    BASE_LEVEL = 2
+    #: Indicates that the rule should replace the base level cell value from the database by the results of
+    #: the rule. This can dramatically slow down aggregation speed. Requires a special trigger to be set.
+    ROLL_UP = 3
+    #: Indicates that these rules should be executed when cell values are set or changed.
+    #: This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
+    ON_ENTRY = 4
 
-class RulesExecutionError(Exception):
-    """Occurs when the execution of a rule fails."""
-    pass
+    def __eq__(self, other):
+        return self.value == other.value
 
+    def __ne__(self, other):
+        return self.value != other.value
+
+    def __hash__(self):
+        return hash(self.value)
 
 class Rules:
-    """represents a set of formulas to be used for cube calculations beyond simple aggregation."""
+    """Rules define custom calculation or business logic to be assigned to a cube.
 
-    class FormulaType(enum.Enum):
-        UNIVERSAL = 0
-        PUSH_DOWN = 1
-        AGGREGATION = 2
+    Rules consist two main components:
+    * A trigger or pattern, defining the context for which the rule should be executed
+    * A scope, defining to which level of data the rule should be applied.
+      Either for base level cells, aggregated cells, all cells or on write back of values.
+    * A function, defining the custom calculation or business logic. This can be any Python method or function.
 
-    def __init__(self, cube):
-        self.cube = cube
-        self.formulas = []               # list of registered formulas
-        self.triggered_formulas = {}     # list of formulas indexes, access by triggers
-        self.triggers = set()            # Set of all yet registered triggers
-        self.targets = set()             # set of all yet registered targets
-        self.target_formulas = {}        # list of formulas indexes, access by targets
+    .. information::
+        Rules functions have to be implemented as a simple Python function with just one single parameter and
+        a return value. The single parameter should be called 'c' and will contain an TinyOlap Cell, representing
+        the current cell context the rule should be calculated for.
 
-    def add(self, formula: str) -> (bool, str):
-        """Adds a new formula to the formula collection. If the formula was successfully added to the Cube,
-        then the values <True> and <None> will be return, on failure the value <False> and an error message
-        will be returned."""
-        # validate formula and generate source code
-        success, message, formula_type, formula_function_name, target, detected_triggers, tokens, code, comment \
-            = self.__compile_measure_rule(formula)
-        if not success:
-            return False, message
-        if target in self.targets:
-            # todo: Should be overwritten instead
-            return False, f"Formula compilation failed. A formula definition for target [{target}] already exists."
+        What happens in a rule function, is up totally to the programmer. The value returned by rules function
+        can either be a certain value (most often a numerical number, but can be anything) or one of the following
+        constants which are directly available from within a cursor object.
 
-        # compile the generated formula source code
-        try:
-            code_object = compile(code, "<float>", "exec")
-            func = FunctionType(code_object.co_consts[0], globals(), formula_function_name)
-        except (SyntaxError, ValueError) as err:
-            return False, f"Formula compilation failed. {str(err)}"
+        * **NONE** - Indicates that rules function was not able return a proper result (why ever).
+        * **CONTINUE** - Indicates that either subsequent rules should continue and do the calculation work
+           or that the cell value, either from a base-level or an aggregated cell, form the underlying cube should
+           be used.
+        * **ERROR** - Indicates that the rules functions run into an error. Such errors will be pushed up to initially
+          calling cell request.
 
-        # Setup a new rule and save it
-        rule = {"type": formula_type, "formula": formula, "func": func,
-                "target": target, "triggers": detected_triggers, "tokens": tokens,
-                "comment": comment}
-        idx_new_formula = len(self.formulas)
-        self.formulas.append(rule)
+        Sample of a proper rule:
 
-        # Register the target
-        self.targets.add(target)
-        self.target_formulas[target] = idx_new_formula
+        .. code:: python
+            def rule_average_price(c : tinyolap.context):
+                quantity = c["quantity"]
+                sales = c["sales"]
+                # ensure both values exist or are of the expected type (cell values can be anything)
+                if quantity is float and sales is float:
+                    if quantity != 0.0:
+                        return sales / quantity
+                    return "n.a."  # the developer decided to return some text, what is totally fine.
+                return c.CONTINUE
+    """
 
-        # Register triggers
-        for trigger in detected_triggers:
-            self.triggers.add(trigger)
-            if trigger not in self.triggered_formulas:
-                self.triggered_formulas[trigger] = [idx_new_formula]
+    def __init__(self):
+        self.any: bool = False
+        self.functions = []
+        self.function_names = []
+        self.function_scopes = []
+        self.source = []
+        self.pattern = []
+        self.pattern_idx = []
+
+    def __bool__(self):
+        return self.functions is True
+
+    def __len__(self):
+        return len(self.functions)
+
+    def register(self, function, function_name: str,
+                 pattern: list[str], idx_pattern: list[tuple[int, int]], scope: RuleScope):
+        """
+        Registers a rules function (a Python method or function).
+
+        :param scope: The scope of the rule function.
+        :param function_name: Name of the rule function.
+        :param function: The Python rule function to execute.
+        :param pattern: The cell pattern to trigger the rule function.
+        :param idx_pattern: The cell index pattern to trigger the rule function.
+        """
+        self.functions.append(function)
+        self.function_names.append(function_name)
+        self.function_scopes.append(scope)
+        self.pattern.append(pattern)
+        self.source.append(self._get_source(function))
+        self.pattern_idx.append(idx_pattern)
+        self.any = True
+
+    @staticmethod
+    def _get_source(function):
+        lines = inspect.getsource(function)
+        return lines
+
+    def first_match(self, idx_address) -> (bool, object):
+        """
+        Returns the first pattern match, if any, for a given cell address.
+
+        :param idx_address: The cell address in index format.
+        :return: Returns a tuple (True, *function*) if at least one pattern matches,
+        *function* is the actual rules function to call, or (False, None) if none
+        of the patterns matches the given cell address.
+        """
+        for idx, function_pattern in enumerate(self.pattern_idx):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
+            for dim_pattern in function_pattern:   # e.g. (0,3) >> dim0 = member3
+                if idx_address[dim_pattern[0]] != dim_pattern[1]:
+                    break
             else:
-                if idx_new_formula not in self.triggered_formulas[trigger]:
-                    self.triggered_formulas[trigger].append(idx_new_formula)
+                return True, self.functions[idx]  # this will be executed only if the inner loop did NOT break
+        return False, None
 
-    def on_set(self, super_level, address, measure, value):
-        # Evaluates if any formulas will be triggered by the given measure.
-        # If yes all triggered formulas will be executes and the results will be written to the target of the formulas.
-        if super_level == 0 and measure in self.triggered_formulas:
-            for formula_idx in self.triggered_formulas[measure]:
-                if self.formulas[formula_idx]["type"] != Rules.FormulaType.PUSH_DOWN:
-                    continue  # we are interested in push down formulas only
-
-                variables = []
-                for trigger in self.formulas[formula_idx]["triggers"]:  # trigger (should) have already the right order
-                    if trigger == measure:
-                        variables.append(value)
-                    else:
-                        variables.append(self.cube.get(address, trigger))
-
-                # execute the compiled formula function
-                result = self.formulas[formula_idx]["func"](variables)
-                # due to inaccuracy of float operations, some rounding is required.
-                if result < 1:
-                    result = round(result, 10)
-                elif result > 100_000.0:
-                    result = round(result, 4)
-                else:
-                    result = round(result, 6)
-
-                # write result to target
-                self.cube.set(address, self.formulas[formula_idx]["target"], result)
-        return True
-
-    def on_get(self, super_level, address, measure):
-        # Evaluates if a formula is defined for the given measure. If yes, the formula will be calculated
-        # and the boolean value 'True' and the calculation result will be returned. If not 'False' and 'None'
-        # will be returned.
-        if measure not in self.targets:
-            return False, None  # no suitable formula
-
-        idx_formula = self.target_formulas[measure]
-        formula_type = self.formulas[idx_formula]["type"]
-        if (super_level == 0) and (formula_type == Rules.FormulaType.AGGREGATION):
-            return False, None # we are interested in aggregation formulas on base level cells
-
-        variables = []
-        for trigger in self.formulas[idx_formula]["triggers"]:  # trigger (should) have already the right order
-            variables.append(self.cube.get(address, trigger))
-
-        # execute the compiled formula function
-        result = self.formulas[idx_formula]["func"](variables)
-        # due to inaccuracy of float operations, some rounding is required.
-        if result < 1:
-            result = round(result, 10)
-        elif result > 100_000.0:
-            result = round(result, 4)
-        else:
-            result = round(result, 6)
-
-        return True, result
-
-
-
-    def __compile_measure_rule(self, formula:str):
-        success = True
-        message = ""
-        comment = ""
-        formula_type = Rules.FormulaType.UNIVERSAL
-        name = None
-        code = None
-        triggers = []
-        target = None
-        tokens=[]
-
-        formula = formula.strip()
-        # 1. check for prefixes to detect formula type
-        if formula.lower().startswith("p:"):
-            formula_type = Rules.FormulaType.PUSH_DOWN
-        elif formula.lower().startswith("a:"):
-            formula_type = Rules.FormulaType.AGGREGATION
-
-        # 2. look for first equal sign '=' to split target and formula definition
-        pos_equal = formula.find("=")
-        if pos_equal == -1:
-            return False, f"Invalid formula. Assigment operator '=' missing in formula.",\
-                   formula_type, name, target, triggers, tokens, code, comment
-
-        # 3. get all measure tokens [ ... ] from formula and validate them
-        measure_tokens = re.findall(r"\[.*?\]", formula)
-        cube_measures = self.cube.get_measures()
-        tokens = []
-        pos = 0
-        for measure_token in measure_tokens:
-            token_info = {"token": measure_token}
-
-            # extract the measure name
-            measure: str = measure_token[1:-1].strip()
-            if measure.startswith(('"', "'")) and measure.endswith(('"', "'")):
-                measure = measure[1:-1].strip()
-            if measure not in cube_measures:
-                return False, f"Invalid formula. Unknown measure {measure} found in formula. Check spelling, " \
-                              f"maybe just a typo. ", formula_type, name, target, triggers, tokens, code, comment
-            token_info["measure"] = measure
-
-            # evaluate position
-            token_info["is_target"] = (pos == 0)
-            if pos == 0:
-                target = measure # save the target
-            start = formula.find(measure_token, pos)
-            length = len(measure_token)
-            token_info["start"] = start
-            token_info["length"] = length
-            pos = (start + length)
-
-            # check if the token was already used before
-            token_info["ordinal"] = len(tokens)-1
-            token_info["is_func_argument"] = True
-            for other in [token for token in tokens if token["measure"] == measure]:
-                token_info["ordinal"] = other["ordinal"]
-                token_info["is_func_argument"] = False
-                break
-
-            tokens.append(token_info)
-
-        # 4. get all triggers
-        triggers = list([(token["measure"], token["ordinal"]) for token in tokens
-                             if (not token["is_target"]) and (token_info["is_func_argument"] == True)])
-
-        triggers.sort(key=lambda tup: tup[1])  # sort by ordinal
-        triggers = [t[0] for t in triggers]
-
-        # 5. setup source code
-        name = "formula_" + ''.join(e for e in tokens[0]["measure"] if e.isalnum()).lower()  # should be a valid function name
-        formula_code = formula[formula.find('=')+1:].strip()
-        for token in tokens:
-            variable = f"v[{token['ordinal']}]"
-            formula_code = formula_code.replace(token["token"], variable)
-        code = f"def {name}(v): return {formula_code}"
-
-        return success, message, formula_type, name, target, triggers, tokens, code, comment

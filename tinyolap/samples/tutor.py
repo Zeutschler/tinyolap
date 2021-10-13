@@ -2,16 +2,18 @@
 # Copyright (c) Thomas Zeutschler (Germany).
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
 import os
+import time
+import psutil
+
+from tinyolap.cell import Cell
+from tinyolap.decorators import rule
+from tinyolap.rules import RuleScope
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 
-class Tutor:
-    """lorem ipsum"""
-    pass
 
-def load():
+def load_tutor(console_output: bool = True):
     """
     Loads the **Tutor** data model from TXT source files (this may take
     a seconds or two). The source TXT files have an awkward and quite
@@ -30,6 +32,12 @@ def load():
     only Database object.
     """
 
+    if console_output:
+        print("Importing Tutor database from CSV file. Please wait...")
+
+    start = time.time()
+    initially_used_memory = psutil.Process().memory_info().rss / (1024 * 1024)
+
     # 0. setup some meta data needed to setup a tinyolap data model and
     # to import data
     db_name = "tutor"
@@ -37,17 +45,16 @@ def load():
     measures = ("value", "count")
     dimension_names = ["jahre", "datenart", "regionen", "produkte", "monate", "wertart"]
     dim_count = len(dimension_names)
-    root_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    root_path = os.path.dirname(os.path.abspath(__file__))
 
     # 1. setup a new tinyolap database
     db = Database(db_name, in_memory=True)
 
     # 2. create dimensions from the following 6 dimension files:
-    # JAHRE.TXT, DATENART.TXT, REGIONEN.TXT, PRODUKTE.TXT,
-    # MONATE.TXT, WERTART.TXT
+    # JAHRE.TXT, DATENART.TXT, REGIONEN.TXT, PRODUKTE.TXT, MONATE.TXT, WERTART.TXT
     dimensions = []
     for dim in dimension_names:
-        file_name = os.path.join(root_path, "samples", "tutor_files", dim.upper() + ".TXT")
+        file_name = os.path.join(root_path, "tutor_files", dim.upper() + ".TXT")
         # add a new dimension to the database
         dim = db.add_dimension(dim)
         # open the dimension for editing (adding or removing members)
@@ -90,8 +97,13 @@ def load():
     # 3. create cube
     cube = db.add_cube(cube_name, dimensions, measures)
 
-    # 4. Now it's time to import the data into the cube
-    file_name = os.path.join(root_path, "samples", "tutor_files", cube_name.upper() + ".TXT")
+    # 4. Add rules
+    cube.add_rule(rule_delta)
+    cube.add_rule(rule_profit_contribution)
+    cube.add_rule(rule_price)
+
+    # 4. Now it's time to import the data from a CSV file into the cube
+    file_name = os.path.join(root_path, "tutor_files", cube_name.upper() + ".TXT")
     empty_rows = 0
     with open(file_name, encoding='latin-1') as file:
         while line := [t.strip() for t in file.readline().rstrip().split("\t")]:
@@ -105,11 +117,40 @@ def load():
             # write a value to the database
             cube.set(address, value)
 
+    # Some statistics...
+    duration = time.time() - start
+    if console_output:
+        memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
+        print(f"Info: Importing Tutor database from CSV in {duration:.3} sec.")
+        print(f"Info: Memory consumption of Tutor database containing {cube.cells_count:,} values "
+              f"is ±{memory_consumption:,} MB, "
+              f"±{round(memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
+
     # That's it...
     return db
 
 
-def play(database: Database = load(), console_output: bool = True):
+@rule("verkauf", ["Abweichung"])
+def rule_delta(c: Cell):
+    return c["Ist"] - c["Plan"]
+
+
+@rule("verkauf", ["DB1"], scope=RuleScope.ALL_LEVELS, volatile=False)
+def rule_profit_contribution(c: Cell):
+    return c["Umsatz"] - c["variable Kosten"]
+
+
+@rule("verkauf", ["Preis"], scope=RuleScope.AGGREGATION_LEVEL)
+def rule_price(c: Cell):
+    umsatz = c["Umsatz"]
+    menge = c["Menge"]
+    if menge != 0.0:
+        return umsatz / menge
+    else:
+        return "-"
+
+
+def play_tutor(database: Database = load_tutor(), console_output: bool = True):
     """ Demonstrates the usage TinyOlap and the Tutor database.
     It create and print some simple reports to the console.
 
@@ -161,29 +202,43 @@ def play(database: Database = load(), console_output: bool = True):
     # ``member`` can be single member or a list of members.
     # If you skip the ``member`` definition, then the default member
     # of the dimension will be selected and used.
-    report_definition = {"header": [{"dimension": "datenart", "member": "Ist"},
+    report_definition = {"title": "Report with rules calculations",
+                         "header": [{"dimension": "jahre", "member": "1994"},
+                                    {"dimension": "regionen", "member": "USA"},
+                                    {"dimension": "produkte", "member": "Produkte gesamt"},
+                                    {"dimension": "monate", "member": "Jahr Gesamt"}],
+                         "columns": [{"dimension": "datenart"}],
+                         "rows": [{"dimension": "wertart"}]}
+    report = Slice(cube, report_definition)
+    if console_output:
+        print(report)
+
+    report_definition = {"title": "Report - Sales by years and months",
+                         "header": [{"dimension": "datenart", "member": "Ist"},
                                     {"dimension": "regionen", "member": "USA"},
                                     {"dimension": "produkte", "member": "Produkte gesamt"},
                                     {"dimension": "wertart", "member": "Umsatz"}],
                          "columns": [{"dimension": "jahre"}],
-                         "rows":    [{"dimension": "monate"}]}
+                         "rows": [{"dimension": "monate"}]}
+    cube.reset_counters()
+    cube.caching = True
+    start = time.time()
     report = Slice(cube, report_definition)
     if console_output:
+        duration = time.time() - start
+        cells = report.grid_rows_count * report.grid_cols_count
         print(report)
-
-    # You can even skip certain dimensions of the cube.
-    # For these, the default member will be selected and
-    # they will be automatically added to the header.
-    # In addition, dimensions in rows and columns can be nested.
-    report_definition = {"columns": [{"dimension": "wertart"}],
-                         "rows":    [{"dimension": "jahre"}, {"dimension": "monate"}]}
-    report = Slice(cube, report_definition)
-    if console_output:
-        print(report)
+        # print(report)
+        print(f"\nReport with {report.grid_rows_count:,} rows x {report.grid_cols_count:,} columns ="
+              f" {cells:,} cells executed in {duration:.3} sec. "
+              f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
+              f"thereof {cube.counter_cell_requests - cells:,} by rules."
+              f"\n\t{cube.counter_rule_requests:,} rules executed"
+              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
 
 
 def main():
-    play()
+    play_tutor()
 
 
 if __name__ == "__main__":

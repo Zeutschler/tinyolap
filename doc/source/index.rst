@@ -1,9 +1,13 @@
 .. attention::
-   TinyOlap is under active development. Code and API is subject of change.
+   TinyOlap is under active development and therefore subject of change.
+   Please refer :ref:`feature backlog <backlog>` for a high-level status overview.
 
 =================
 Developer's Guide
 =================
+
+.. tip::
+   TinyOlap for financial data transformation !!! Coole Idee...
 
 TinyOlap is a super-light-weight multi-dimensional **in-memory OLAP database** (often called a
 `MOLAP <https://en.wikipedia.org/wiki/Online_analytical_processing#Multidimensional_OLAP_(MOLAP)>`_
@@ -102,7 +106,7 @@ In the past, I have built comparable commercial database products using C and C#
 orders of magnitudes faster, they were a pain to implement and the implementation took months to years.
 
 **TinyOlap is also a reminiscence and homage to the early days of OLAP databases**, where great products like
-Applix TM/1 (now IBM) or MIS Alea (nor infor) enabled business users to build expressive data models with
+Applix TM/1 (now IBM) or MIS Alea (now Infor) enabled business users to build expressive data models with
 dimension, cubes and complex business logic in just a few minutes our hours. Unfortunately, these products
 have grown up to complex and very expensive client-server database technologies, all striving for the ultimate
 performance on mass data processing and high number of concurrent users.
@@ -114,19 +118,22 @@ budgeting, calculations and analysis for research, educational, evaluation and t
 
 What makes TinyOlap unique?
 ---------------------------
-Aside of being written in Python, the very cool thing about TinyOlap is that really **anything happens by code**.
-You want to build business logic in professional OLAP databases like TM/1, Palo or SAP HANA or even in full
-blown CPM solution like SAP SAC, Tagetik or Anaplan you need to rely on their build-in proprietary modelling
-and rules languages. Although these build-in languages are most often super powerful and fast, they are hard to
-learn and even harder to master and often fail to support really complex use cases.
+Because TinyOlap is written in plan Python, really **anything happens by code**. Although this might not seem
+to be a big thing, but is actually is:
+If you want to build business logic in professional OLAP databases like IBM TM/1, Jedox Palo or SAP HANA or
+even in full blown CPM solution like SAP SAC, Tagetik or Anaplan, you need to rely on and use their *build-in
+proprietary modelling and rules languages*. Although these build-in languages are most often super powerful
+and fast, they are often hard to learn and even harder to master and often fail to support really complex
+use cases. By using plain Python code, you are free and open to do whatever you want: the (upcoming)
+**Plain Spotter Database** example database, which can be found in the TinyOlap samples folder, is a
+funny (and useless) example of what you can do with TinyOlap.
 
 With TinyOlap you build your business logic directly in Python. This opens up unmatched opportunities
 to perform even the most complex computations and integrate whatever service or capability into your
-TinyOlap database you like. Integrate `weather data from Accuweather<https://github.com/bieniu/accuweather>` ,
-no problem. Use Facebook's very elegant `forecasting library 'Prophet'<https://facebook.github.io/prophet/>`,
+TinyOlap database you like. Integrate `weather data from Accuweather <https://github.com/bieniu/accuweather>`_ ,
+no problem. Use Facebook's very elegant `forecasting library 'Prophet' <https://facebook.github.io/prophet/>`_,
 no problem. **Your imagination is the limit**, you can even blend or integrate real time data steams into your
-TinyOlap cubes. Or take a look at the (upcoming, funny and useless) **Mandelbox** example in the TinyOlap
-samples folder, to get inspired.
+TinyOlap cubes.
 
 How TinyOlap internally works?
 -----------------------------
@@ -155,7 +162,7 @@ e.g., adding new members to dimensions new calculations.
 For smaller use cases (< 100k records) TinyOlap might even outperform solutions like SAP HANA, TM/1 or
 Jedox. Not because TinyOlap is the faster database by any means - these professional products are actually
 magnitudes faster on calculations and aggregations - but as client-server solutions they have to
-heavily deal with `marshalling <https://en.wikipedia.org/wiki/Marshalling_(computer_science)>`
+heavily deal with `marshalling <https://en.wikipedia.org/wiki/Marshalling_(computer_science)>`_
 (sending data from the server to the client over the network or over process boundaries) what TinyOlap,
 as a a simple in-process solution, does not need to care about. By this, you can consistently
 execute up to 100k individual cell read requests per second against an 8-dimensional cube and expect
@@ -181,7 +188,7 @@ HDD this value might even drop dramatically down to just 2k records per seconds.
 TinyOlap Limitations
 --------------------
 As of today, TinyOlap is built upon a relational database SQLite
-(see `https://www.sqlite.org<https://www.sqlite.org>') for persistence.
+(see `https://www.sqlite.org <https://www.sqlite.org>`_) for persistence.
 This implies that TinyOlap is subject to certain limitations, for instance:
 
 - SQLite is not a client-server database, so TinyOlap is not one.
@@ -207,6 +214,7 @@ Table of Contents
 .. toctree::
    :maxdepth: 2
 
+   backlog
    setup
    usage
    model_driven
@@ -215,6 +223,9 @@ Table of Contents
    databases
    cubes
    dimensions
+   cells
+   members
+   areas
    rules
    server
    license

@@ -1,9 +1,9 @@
-.. _formulas:
+.. _areas:
 
 ===============
-Rules
+Areas
 ===============
 
-.. autoenum:: tinyolap.rules.RulesScope
+.. autoclass:: tinyolap.area.Area
     :members:
     :noindex:

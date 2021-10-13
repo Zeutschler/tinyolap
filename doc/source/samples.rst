@@ -8,10 +8,12 @@ TinyOlap comes with a few sample databases that are intended to explain the conc
 and how you can build or import your own data models and databases. You will find the samples in
 the **samples** folder.
 
+----------------
 1. Tiny Database
--------------------------
-Purpose of the data model
-^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------
+
+Purpose of the Tiny data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The **Tiny** data model is a very small and simple demo database created with Python code.
 It's contains just very small 5 dimensions and 1 cube that reflects some **sales** data.
 The intended use is to showcase the basic operations to create a TiynOlap database by code.
@@ -20,10 +22,12 @@ And also how to create and print a simple report to the console.
 The data model contains 5 dimensions for years, months, products, regions and some sales
 figures.
 
+-----------------
 2. Tutor Database
--------------------------
-Purpose of the data model
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------
+
+Purpose of the Tutor data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The **tutor** data model is a typical **sales planning and reporting** data model.
 Although being very old and special (see *History* below) it nicely reflects how
 business often was and still is structured.
@@ -43,7 +47,7 @@ The **tutor** database is a piece of OLAP history, it's almost 30 years old, act
 the pre-internet area. The Tutor database was shipped as the sample database of **MIS Alea**,
 one of the first *true* MOLAP databases available. MIS Alea was developed by the MIS Group in
 Darmstadt, Germany. Actutally MIS Alea was a clone of TM/1, which itself was developed
-by ´Manny Perez<https://cubewise.com/history/>` at Sinper Corp., USA. After several
+by `Manny Perez <https://cubewise.com/history/>`_ at Sinper Corp., USA. After several
 company transitions, MIS Alea is still successful in the BI market and is now owned
 by Infor and currently called **Infor d/EPM v12**, if I'm not mistaken.
 

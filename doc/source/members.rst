@@ -1,9 +1,9 @@
-.. _formulas:
+.. _members:
 
 ===============
-Rules
+Members
 ===============
 
-.. autoenum:: tinyolap.rules.RulesScope
+.. autoclass:: tinyolap.member.Member
     :members:
     :noindex:

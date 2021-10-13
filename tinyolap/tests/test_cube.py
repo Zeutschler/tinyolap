@@ -2,6 +2,8 @@ from unittest import TestCase
 import os
 from pathlib import Path
 import time
+
+from rules import RuleScope
 from tinyolap.database import Database
 from tinyolap.cube import Cube
 from tinyolap.dimension import Dimension
@@ -55,11 +57,14 @@ class TestCube(TestCase):
         dim_products.add_member("Total", ["A", "B", "C"])
         dim_products.commit()
 
-        measures = ["Sales", "Cost", "Profit"]
-        cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products], measures)
-        # todo: Uppps, not yet supported for measures...
-        cube._register(lambda x: x["Sales"] - x["Cost"], "Profit")
-        cube._register(lambda x: x["jan"] - x["FEB"], "q1")
+        dim_measures = db.add_dimension("measures")
+        dim_measures.edit()
+        dim_measures.add_member(["Sales", "Cost", "Profit"])
+        dim_measures.commit()
+
+        cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products, dim_measures])
+        cube.add_rule(lambda x: x["Sales"] - x["Cost"], "Profit", RuleScope.ALL_LEVELS )
+        cube.add_rule(lambda x: x["jan"] - x["FEB"], "q1", RuleScope.ALL_LEVELS)
 
         # disable caching
         cube.caching = False
@@ -76,11 +81,11 @@ class TestCube(TestCase):
         if console_output:
             print(f"{address} := {value}")
 
-        max_loops = 1000
+        max_loops = 100
         # Performance: read from cube base cells
         total = 0.0
         start = time.time()
-        loops = max(10_000, max_loops)
+        loops = min(10_000, max_loops)
         for r in range(0, loops):
             total += cube.get(address)
         duration = time.time() - start
@@ -92,13 +97,13 @@ class TestCube(TestCase):
         cube.set(address, 1.0)
 
         # read from aggregated cells
-        address = ("2020", "Q1", "Total", "Total")  # , "Sales") >>> dropped to force use of default member
+        address = ("2020", "Q1", "Total", "Total", "Sales")
         value = cube.get(address)
 
         # Performance: read from aggregated cells
         total = 0.0
         start = time.time()
-        loops = max(10_000, max_loops)
+        loops = min(10_000, max_loops)
         for r in range(0, loops):
             total += cube.get(address)
         duration = time.time() - start
@@ -112,7 +117,7 @@ class TestCube(TestCase):
         # Performance: read from formula cells
         total = 0.0
         start = time.time()
-        loops = max(10_000, max_loops)
+        loops = min(10_000, max_loops)
         for r in range(0, loops):
             total += cube.get(address)
         duration = time.time() - start
@@ -129,8 +134,8 @@ class TestCube(TestCase):
         max_dims = 8
         measures = [f"measure_{i}" for i in range(0, 10)]
         base_members = [f"member_{i}" for i in range(0, 100)]
-        max_loop_base_level = 10000
-        max_loop_aggregation = 1000
+        max_loop_base_level = 100
+        max_loop_aggregation = 100
 
         for dims in range(min_dims, max_dims):
             db = Database("test", in_memory=True)

@@ -1,5 +1,8 @@
 # case_insensitive_dict.py
 class CaseInsensitiveDict(dict):
+    """
+    A simple case insensitive dictionary.
+    """
     class Key(str):
         def __init__(self, key):
             str.__init__(key)

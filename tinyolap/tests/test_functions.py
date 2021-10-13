@@ -1,7 +1,11 @@
 from unittest import TestCase
+
+from decorators import rule
 from tinyolap.server import Server
-from tinyolap.cursor import Cursor
+from tinyolap.cell import Cell
 from tinyolap.slice import Slice
+from tinyolap.rules import RuleScope
+
 
 class TestBaseFunction(TestCase):
     pass
@@ -42,12 +46,12 @@ class TestBaseFunction(TestCase):
     def test_formula(self):
 
         # Order of rules matter
-        self.cube._register(lambda x: "hallo B", ["products:B"])
-        self.cube._register(self.calc_var, ["datatype:var"])
-        self.cube._register(self.calc_var_percent, ["datatype:var%"])
+        self.cube.add_rule(lambda x: "hallo B", ["products:B"], RuleScope.ALL_LEVELS)
+        self.cube.add_rule(self.calc_var, ["datatype:var"])
+        self.cube.add_rule(self.calc_var_percent, ["datatype:var%"])
 
         # write some values to the cube
-        c = self.cube.create_cursor("actual", "2021", "Jan", "A", "Sales")
+        c = self.cube.cell("actual", "2021", "Jan", "A", "Sales")
         c["actual"] = 250.0
         c["plan"] = 200.0
         c["actual", "2022"] = 300.0
@@ -59,15 +63,17 @@ class TestBaseFunction(TestCase):
         self.assertEqual(0.25, var_perc)
 
         s = {"columns": [{"dimension": "datatype"}, {"dimension": "years"}],
-                                   "rows": [{"dimension": "months"}, {"dimension": "products"}]}
-        s = {"columns": [{"dimension": "datatype"}], "rows": [{"dimension": "years"}, {"dimension": "products"}]}
+             "rows": [{"dimension": "months"}, {"dimension": "products"}]}
+        s = {"columns": [{"dimension": "datatype"}],
+             "rows": [{"dimension": "years"}, {"dimension": "products"}]}
         report = Slice(self.cube, s)
-        print(report)
+        # print(report)
 
-
-    def calc_var(self, c: Cursor):
+    @rule("sales", ["var"], RuleScope.ALL_LEVELS)
+    def calc_var(self, c: Cell):
         return c["actual"] - c["plan"]
 
+    @rule("sales", ["var%"], RuleScope.ALL_LEVELS)
     def calc_var_percent(self, c):
         plan = c["plan"]
         if plan != 0:

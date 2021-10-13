@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 from timeit import default_timer as timer
 from collections.abc import Iterable
-from tinyolap.custom_exceptions import *
+from tinyolap.custom_errors import *
 
 # noinspection SqlNoDataSourceInspection
 class Backend:
@@ -99,11 +99,11 @@ class Backend:
                 return True
         except sqlite3.Error as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
-            raise FatalException()
+            raise FatalError()
             return False
         except Exception as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
-            raise FatalException()
+            raise FatalError()
             return False
 
     def close(self):
@@ -131,8 +131,8 @@ class Backend:
 
     def cube_get(self, cube_name, address, measure) -> float:
         """Returns a single measure from a cube fact table.
-        If the address does not exist, value 0.0 will be returned.
-        Arguments 'address' and 'measure' are index values of typ <int>."""
+        If the idx_address does not exist, value 0.0 will be returned.
+        Arguments 'idx_address' and 'measure' are index values of typ <int>."""
         if not isinstance(measure, Iterable):
             measure = [measure]
         fields_clause = ', '.join(['m'+ str(m) for m in measure])
@@ -145,7 +145,7 @@ class Backend:
         return 0.0
 
     def cube_get_range(self, cube_name, member_lists: list[list[int]], measures, aggregate: bool =True) -> list:
-        """Executes a range query on the cube fact table """
+        """Executes a range idx_address on the cube fact table """
         if not isinstance(measures, Iterable):
             measures = [measures]
         member_list_text = []
@@ -163,8 +163,8 @@ class Backend:
 
     def cube_get_many(self, cube_name, address: list[int], measures: list[int]) -> list:
         """Returns multiple measures (given by a list of measure indexes) from a cube fact table.
-        If the address does not exist, a list of 0.0 values will be returned.
-        Arguments 'address' and 'measures' represent index values of typ list[int]."""
+        If the idx_address does not exist, a list of 0.0 values will be returned.
+        Arguments 'idx_address' and 'measures' represent index values of typ list[int]."""
         sql = f"SELECT m{', '.join(['m' + str(m) for m in measures])} " \
               f"FROM {Backend.CUB_PREFIX + cube_name} " \
               f"WHERE {' AND '.join(['d' + str(i + 1) + '=' + str(d) for i, d in enumerate(address)])};"
@@ -195,7 +195,7 @@ class Backend:
     def cube_set_many(self, cube_name, address, measures, values):
         """Sets multiple value for multiple measures in a cube table.
         This method executes an upsert (insert or update) on cube tables.
-        Arguments 'address' and 'measures' are index values of typ <int>."""
+        Arguments 'idx_address' and 'measures' are index values of typ <int>."""
         table = Backend.CUB_PREFIX + cube_name
         dim_col_list = ', '.join(['d' + str(i + 1) for i, d in enumerate(address)])
         dim_member_list = ', '.join([str(d) for d in address])
@@ -236,7 +236,7 @@ class Backend:
         self.__add_table(self.META_TABLE_DIM, self.META_TABLE_FIELDS)
         if not self.__table_exists(self.META_TABLE_DIM):
             self.logger.error(f"Failed to add meta tables.")
-            raise FatalException("Failed to add meta tables to database.")
+            raise FatalError("Failed to add meta tables to database.")
         self.logger.info(f"Initialization of new database finished.")
 
 
@@ -276,10 +276,10 @@ class Backend:
         try:
             return self.cursor.execute(sql).fetchone()[0] == 1
         except sqlite3.Error as err:
-            raise FatalException()
+            raise FatalError()
 
     def __execute(self, sql: str, data=None):
-        """Executes an SQL query without returning a result or resultset."""
+        """Executes an SQL idx_address without returning a result or resultset."""
         duration = 0.0
         if self.LOG_LEVEL == logging.DEBUG:
             duration = timer()
@@ -330,7 +330,7 @@ class Backend:
         return True
 
     def __fetchall(self, sql: str):
-        """Executes an SQL query statement and returns all records as the resultset."""
+        """Executes an SQL idx_address statement and returns all records as the resultset."""
         duration = 0.0
         if self.LOG_LEVEL == logging.DEBUG:
             duration = timer()
