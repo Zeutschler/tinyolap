@@ -5,6 +5,7 @@
 import itertools
 import math
 import time
+from art import *
 
 import tinyolap.cell
 from decorators import rule
@@ -14,7 +15,7 @@ from tinyolap.slice import Slice
 from random import uniform, randrange
 
 
-def load_tiny():
+def load_tiny(console_output: bool = True) -> Database:
     """
     Creates a very simple (tiny) database for 'actual sales figures',
     just by code. Although the database is super minimalistic, it
@@ -23,6 +24,9 @@ def load_tiny():
     :return: The **Tiny** sample data model as a tinyolap in-memory
     only Database object.
     """
+
+    if console_output:
+        print(f"Creating the 'tiny' data model. Please wait...")
 
     # ************************
     # 1. create a new database
@@ -127,14 +131,19 @@ def rule_profit_in_percent(c: tinyolap.cell.Cell):
     return None
 
 
-def play_tiny(database: Database = load_tiny(), console_output: bool = True):
+def play_tiny(console_output: bool = True):
     """ Demonstrates the usage TinyOlap and the Tiny database.
     It creates and print some simple reports to the console.
 
     :param console_output: Set to ``False``to suppress console output.
     :param database: The Tiny database generate by the ``load()`` function.
     """
+
+    if console_output:
+        tprint("TinyOlap", font="Slant")
+
     # 1. get the cube
+    database = load_tiny()
     cube = database.cubes["sales"]
     # Caching - to experience the raw speed of the database,
     # we'll switch it off. For real world use cases, caching

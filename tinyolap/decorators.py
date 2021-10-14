@@ -1,7 +1,8 @@
 import functools
 from tinyolap.rules import RuleScope
 
-def rule(cube: str, pattern: list[str], scope: RuleScope = RuleScope.ALL_LEVELS, volatile: bool = False):
+
+def rule(cube: str, pattern: list[str], scope: RuleScope = RuleScope.ALL_LEVELS, volatile: bool = False, command= None):
     """
     Decorator for TinyOlap rule functions.
 
@@ -11,16 +12,18 @@ def rule(cube: str, pattern: list[str], scope: RuleScope = RuleScope.ALL_LEVELS,
     :param scope: The scope of the rule. Please refer the documentation for further details.
     :param volatile: (optional, default = False) Identifies that the rule may or will return changing
                      results on identical input, e.g. if real-time data integration is used.
+    :param command: (optional, default = None) Identifies that this rule will only the triggered
+                     and executed by an explicit user command or call to the ``execute()``method of
+                     a Cell object.
     """
     def decorator_rule(func):
         @functools.wraps(func)
         def wrapper_rule(*args, **kwargs):
             return func(*args, **kwargs)
-        # wrapper_rule.server = Server()
-        # wrapper_rule.server._register(func, database, cube, pattern, scope)
         wrapper_rule.cube = cube
         wrapper_rule.pattern = pattern
         wrapper_rule.scope = scope
         wrapper_rule.volatile = volatile
+        wrapper_rule.command = command
         return wrapper_rule
     return decorator_rule

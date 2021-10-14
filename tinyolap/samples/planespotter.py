@@ -2,16 +2,16 @@
 # Copyright (c) Thomas Zeutschler (Germany).
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import itertools
-import math
 import time
+import os
+
+from art import *
 
 import tinyolap.cell
 from decorators import rule
 from tinyolap.database import Database
 from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
-from random import uniform, randrange
 from flight_data import FlightData, Location
 
 radius = 250
@@ -19,8 +19,11 @@ raster_size = 50  # 50 >>> creates a 10 x 10 raster from -250 to 250
 flight_data = FlightData(Location(52.5200, 13.4050), radius)  # Berlin (Germany) and 250 km around
 
 
-def load():
+def load(console_output: bool = True):
     """Creates a dynamic database with air plane data 200km around Frankfurt."""
+
+    if console_output:
+        print(f"Creating the 'plane-spotter' data model. Please wait...")
 
     # 1. create a new database
     db = Database("planespotter", in_memory=True)
@@ -76,7 +79,8 @@ def update_database_from_flight_data(db: Database):
     new_planes = list(plane[0] for plane in data)
     countries = list(plane[1] for plane in data)
     planes_to_remove = set(dim_planes.get_leave_members()).difference(set(new_planes))
-    dim_planes.remove_member(list(planes_to_remove))
+    if planes_to_remove:
+        dim_planes.remove_member(list(planes_to_remove))
     for idx, plane in enumerate(new_planes):
         if plane:  # Note: some planes have no name (e.g. military air-planes)
             dim_planes.add_member("All", countries[idx])
@@ -116,33 +120,52 @@ def update_database_from_flight_data(db: Database):
     return cube, duration_flight_data, duration_tinyolap
 
 
-def play(database: Database = load(), console_output: bool = True):
-    cube, duration_flight_data, duration_tinyolap = update_database_from_flight_data(database)
-    dim_planes = database.dimensions["planes"]
-    plane_list = ["All", ] + sorted(dim_planes.get_members_by_level(1)) + sorted(dim_planes.get_leave_members())
-
-    report_definition = {"title": "Planes around Berlin...",
-                         "header": [{"dimension": "planes", "member": "All"},
-                                    {"dimension": "data", "member": "count"}],
-                         "columns": [{"dimension": "vert"}],
-                         "rows": [{"dimension": "horz"}]}
-    report = Slice(cube, report_definition)
-    if console_output:
-        print(report)
-
-    report_definition = {"title": "Planes List...",
-                         "header": [{"dimension": "vert", "member": "Total"},
-                                    {"dimension": "horz", "member": "Total"}],
-                         "columns": [{"dimension": "data"}],
-                         "rows": [{"dimension": "planes", "member": plane_list}]}
-    report = Slice(cube, report_definition)
-    if console_output:
-        print(report)
+def play(console_output: bool = True):
 
     if console_output:
-        print(f"\tRetrieving data from 'OpenSky Flight Data' in {duration_flight_data:.3} sec.")
-        print(f"\tRebuild TinyOlap data model and import flight data in {duration_tinyolap:.3} sec.")
+        tprint("TinyOlap", font="Slant")
 
+    start = time.time()
+    end_of_show = start + 10 * 60
+
+    database = load(console_output)
+
+    while time.time() < end_of_show:
+
+        if console_output:
+            print(f"\tRetrieving real-time flight data from 'OpenSky'. Please wait...")
+
+        cube, duration_flight_data, duration_tinyolap = update_database_from_flight_data(database)
+
+        if console_output:
+            os.system('cls' if os.name == 'nt' else 'clear')
+
+        dim_planes = database.dimensions["planes"]
+        plane_list = ["All", ] + sorted(dim_planes.get_members_by_level(1)) + sorted(dim_planes.get_leave_members())
+
+        report_definition = {"title": f"Planes {radius:,} km around Berlin...",
+                             "header": [{"dimension": "planes", "member": "All"},
+                                        {"dimension": "data", "member": "count"}],
+                             "columns": [{"dimension": "vert"}],
+                             "rows": [{"dimension": "horz"}]}
+        report = Slice(cube, report_definition)
+        if console_output:
+            print(report)
+
+        report_definition = {"title": f"First 10 planes (out of {len(dim_planes)})...",
+                             "header": [{"dimension": "vert", "member": "Total"},
+                                        {"dimension": "horz", "member": "Total"}],
+                             "rows": [{"dimension": "data"}],
+                             "columns": [{"dimension": "planes", "member": plane_list}]}
+        report = Slice(cube, report_definition)
+        if console_output:
+            print(report)
+
+        if console_output:
+            print(f"\tRetrieving data from 'OpenSky Flight Data' in {duration_flight_data:.3} sec.")
+            print(f"\tRebuild TinyOlap data model and import flight data in {duration_tinyolap:.3} sec.")
+
+        time.sleep(5)
 
 def main():
     play()

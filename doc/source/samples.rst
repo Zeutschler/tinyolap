@@ -12,6 +12,8 @@ the **samples** folder.
 1. Tiny Database
 ----------------
 
+**Usage:** Open and/or start the script *...tinyolap/samples/tiny.py*
+
 Purpose of the Tiny data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The **Tiny** data model is a very small and simple demo database created with Python code.
@@ -22,9 +24,49 @@ And also how to create and print a simple report to the console.
 The data model contains 5 dimensions for years, months, products, regions and some sales
 figures.
 
+----------------
+2. Huge
+----------------
+
+**Usage:** Open and/or start the script *...tinyolap/samples/huge.py*
+
+Purpose of the Huge data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The **Huge** data model is - in contrast - larger demo database (at least for TinyOlap),
+created by some lines of Python code. It shows how TinyOlap behaves on larger data sets.
+You can play around with the parameters ``numbers_of_records``  (default = 1,000,000),
+``numbers_of_dimensions`` (default = 8) and ``members_per_dimension (default = 100) to
+check how the database behaves and perform.
+
+As a rule of thumb, TinyOlap databases consume ±1.5kb per record.
+
+.. warning::
+   Please be aware that your RAM is limited. **Don't overdo it!** Python will crash when
+   your running out of memory.
+
+----------------
+3. Plane Spotter
+----------------
+
+**Usage:** Open and/or start the script *...tinyolap/samples/planespotter.py*
+
+Purpose of the Plane Spotter data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The **Plane Spotter** data model is kind of a gimmick and creates a data model containing
+real-time flight data from the great `OpenSky online network <https://opensky-network.org>`_.
+
+The data model show cases how you can update the structure and content of database in
+more or less real time. Although the aquisition of the flight data will need some
+seconds, the update and import of the data model only takes a few milliseconds.
+
+The demo runs in an endless loop for 10 minutes with 5 second wait time between calls.
+So, you need to kill the stop/process when your getting bored...
+
 -----------------
-2. Tutor Database
+4. Tutor Database
 -----------------
+
+**Usage:** Open and/or start the script *...tinyolap/samples/tutor.py*
 
 Purpose of the Tutor data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,15 +97,3 @@ The Tutor database is in german language, but it should be understandable for ev
 The TXT files in the folder *tutor* are the original files ship with the database on a
 3½-inch disk at around 1995, they are single-byte **latin-1** encoded (ISO 8859-1).
 
-
-.. autoclass:: samples.tutor.Tutor
-    :members:
-
-.. autoclass:: tinyolap.samples.tutor.Tutor
-    :members:
-
-.. automodule:: samples.tutor
-    :members:
-
-.. automodule:: tutor
-    :members:

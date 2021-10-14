@@ -6,3 +6,4 @@ Faker
 sphinx-toolbox
 enum_tools
 psutil
+art

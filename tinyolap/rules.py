@@ -19,6 +19,9 @@ class RuleScope(enum.Enum):
     #: Indicates that these rules should be executed when cell values are set or changed.
     #: This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
     ON_ENTRY = 4
+    #: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command'
+    # to be specified.
+    COMMAND = 5
 
     def __eq__(self, other):
         return self.value == other.value

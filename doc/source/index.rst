@@ -1,29 +1,60 @@
 .. attention::
    TinyOlap is under active development and therefore subject of change.
+
    Please refer :ref:`feature backlog <backlog>` for a high-level status overview.
 
 =================
-Developer's Guide
+TinyOlap
 =================
 
-.. tip::
-   TinyOlap for financial data transformation !!! Coole Idee...
+TinyOlap is a light-weight [1]_ in-process [2]_ multi-dimensional [3]_ in-memory [4]_ **OLAP database**
+written in plain Python. TinyOlap follows the :ref:`model-driven approach <model_driven>`_ which is
+suitable for various use cases, but especially for planning, budgeting, forecasting, simulation
+and reporting.
 
-TinyOlap is a super-light-weight multi-dimensional **in-memory OLAP database** (often called a
-`MOLAP <https://en.wikipedia.org/wiki/Online_analytical_processing#Multidimensional_OLAP_(MOLAP)>`_
-Database) written in plain Python. TinyOlap follows the :ref:`model-driven approach <model_driven>`
-which is very suitable for business use cases such as planning, budgeting, forecasting, simulation
-and reporting. And there is :ref:`one thing that makes TinyOlap stunning and unique<what_makes_tinyolap_unique>`.
+.. [1] TinyOlap is standard Python, no external dependencies. You can spin up a database in milliseconds by code,
+       or you can spin up the included web api (based on `FastAPI <https://fastapi.tiangolo.com>`_) and build a web
+       or remote application on top.
+.. [2] TinyOlap is a simple library and running in your Python process, there is no server or external process.
+.. [3] TinyOlap allows to create low- to high-dimensional space, depending on the problem you want to solve, and
+       lets you read and write and calculate data within that space. This is suitable for many real world and
+       abstract problems.
+.. [4] TinyOlap is an in-memory database with (optional) persistence to an SQLite database.
 
 Use cases for TinyOlap
 ---------------------------
-TinyOlap is highly suitable for research and educational purposes in computer and business science, as well
-as in other disciplines. In addition TinyOlap is **perfect for prototyping and testing** in professional use cases,
-e.g., in business area like finance, controlling, sales, marketing and supply chain management.
+TinyOlap is suitable for a huge variety of use cases, where dealing with aggregation and calculation
+in multidimensional data space. Most business problems are multi-dimensional: If you sell 1. a product
+to 2. a customer over a certain 3. channel at 4. a specific date, you'll already a 4-dimensional
+business problem where TinyOlap will perfectly make sense.
 
-Although Tinyolap might be helpful for evaluation, testing and experimental purposes, **TinyOlap is neither intended
-nor recommend to be used for production purposes**. TinyOlap is provided AS-IS and without any warranty,
-please refer the :ref:`provided MIT license <license>` for further details.
+Some use case examples:
+
+- For research and educational purposes in computer and business science, as well other disciplines.
+  That's what is actually was build for.
+
+- TinyOlap is also for prototyping, testing and small use cases in enterprise performance management,
+  like in the areas of finance, controlling, sales, marketing, huma resource, supply chain or others.
+
+- TinyOlap can be also used as intelligent data processing engine, where a lot of business logic needs
+  to be applied. e.g. for any kind of financial data processing like legal consolidation.
+
+For such use cases, TinyOlap is much more intuitive and simpler to use than a relational database
+and building your business logic in SQL. Nice side effect, TinyOlap if most often by magnitudes
+faster on queries than relational databases.
+
+And there is also :ref:`one thing that makes TinyOlap really unique<what_makes_tinyolap_unique>`...
+
+But please keep in mind, that TinyOlap is simple interpreted Python code. Meaning, although
+Tinyolap is perfect for evaluation, testing, experimental purposes and smaller use cases,
+**TinyOlap is neither intended nor recommend to be used for any large scale production purposes**.
+If you want to experience how well or not well TinyOlap behaves on larger data volumes, then
+please try the 'huge' sample database and set the increase the ``numbers_of_records`` at the
+top of file 'huge.py'.
+
+TinyOlap is provided AS-IS and without any warranty, please refer the :ref:`provided license <license>`
+for further details.
+
 
 Basic Usage
 -----------

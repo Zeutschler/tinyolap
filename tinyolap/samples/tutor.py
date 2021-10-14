@@ -5,13 +5,13 @@
 import os
 import time
 import psutil
+from art import *
 
 from tinyolap.cell import Cell
 from tinyolap.decorators import rule
 from tinyolap.rules import RuleScope
 from tinyolap.database import Database
 from tinyolap.slice import Slice
-
 
 def load_tutor(console_output: bool = True):
     """
@@ -33,7 +33,8 @@ def load_tutor(console_output: bool = True):
     """
 
     if console_output:
-        print("Importing Tutor database from CSV file. Please wait...")
+        print("Creating the 'tutor' data model.")
+        print("Importing Tutor database from CSV file (1,000 records per dot). Please wait...")
 
     start = time.time()
     initially_used_memory = psutil.Process().memory_info().rss / (1024 * 1024)
@@ -105,6 +106,7 @@ def load_tutor(console_output: bool = True):
     # 4. Now it's time to import the data from a CSV file into the cube
     file_name = os.path.join(root_path, "tutor_files", cube_name.upper() + ".TXT")
     empty_rows = 0
+    r = 0
     with open(file_name, encoding='latin-1') as file:
         while line := [t.strip() for t in file.readline().rstrip().split("\t")]:
             if len(line) == 1:
@@ -117,9 +119,17 @@ def load_tutor(console_output: bool = True):
             # write a value to the database
             cube.set(address, value)
 
+            r = r + 1
+            if r > 0 and console_output and r % 1_000 == 0:
+                print(".", end="")
+                if console_output and r % 10_000 == 0:
+                    print(f" {r / 135_443:.0%} ", end="")
+
+
     # Some statistics...
     duration = time.time() - start
     if console_output:
+        print()
         memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
         print(f"Info: Importing Tutor database from CSV in {duration:.3} sec.")
         print(f"Info: Memory consumption of Tutor database containing {cube.cells_count:,} values "
@@ -150,7 +160,7 @@ def rule_price(c: Cell):
         return "-"
 
 
-def play_tutor(database: Database = load_tutor(), console_output: bool = True):
+def play_tutor(console_output: bool = True):
     """ Demonstrates the usage TinyOlap and the Tutor database.
     It create and print some simple reports to the console.
 
@@ -162,6 +172,12 @@ def play_tutor(database: Database = load_tutor(), console_output: bool = True):
     :param console_output: Set to ``False``to suppress console output.
     :param database: The Tutor database generate with the ``load()`` function.
     """
+
+    if console_output:
+        tprint("TinyOlap",font="Slant")
+
+    database: Database = load_tutor()
+
     # 1. get the cube
     cube = database.cubes["verkauf"]
     # Caching - to experience the raw speed of the database,
