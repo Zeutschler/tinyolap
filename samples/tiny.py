@@ -1,21 +1,22 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) Thomas Zeutschler (Germany).
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+
 import itertools
 import math
 import time
 from art import *
 
-import tinyolap.cell
-from decorators import rule
+import tinyolap.cell_context
+from tinyolap.decorators import rule
 from tinyolap.database import Database
 from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
 from random import uniform, randrange
 
 
-def load_tiny(console_output: bool = True) -> Database:
+def load_tiny(console_output: bool = False) -> Database:
     """
     Creates a very simple (tiny) database for 'actual sales figures',
     just by code. Although the database is super minimalistic, it
@@ -90,10 +91,10 @@ def load_tiny(console_output: bool = True) -> Database:
     dim_measures.commit()
 
     # You can also add some nice number formatting to dimension measures
-    # e.g. for number and percentage formatting. Member formatting follows
+    # e.g. for number and percentage formatting. MemberContext formatting follows
     # the standard Python formatting specification at
     # <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
-    dim_measures.member_set_format("Profit in %", "{:.2%}")  # e.g. this would format 0.864 as '86.40%'-
+    dim_measures.member_set_format("Profit in %", "{:.2%}")  # e.g. this would number_format 0.864 as '86.40%'-
 
     # ************************
     # 3. Now we can create our 'sales'*' cube, which is actually a 5-dimensional cube.
@@ -118,12 +119,12 @@ def load_tiny(console_output: bool = True) -> Database:
 
 
 @rule("sales", "Profit")
-def rule_profit(c: tinyolap.cell.Cell):
+def rule_profit(c: tinyolap.cell_context.CellContext):
     return c["Sales"] - c["Cost"]
 
 
 @rule("sales", ["Profit in %"], scope=tinyolap.rules.RuleScope.ALL_LEVELS, volatile=False)
-def rule_profit_in_percent(c: tinyolap.cell.Cell):
+def rule_profit_in_percent(c: tinyolap.cell_context.CellContext):
     sales = c["Sales"]
     profit = c["Profit"]
     if sales:
@@ -314,12 +315,12 @@ def play_advanced_business_logic(database: Database = load_tiny(), console_outpu
         cube.set(address, float(randrange(5, 100)))
 
     # *************************************************************************
-    # 2. Lets create a Cell and see how it basically works
+    # 2. Lets create a CellContext and see how it basically works
     c = cube.cell("2022", "Jan", "North", "trucks", "Sales")
 
     # Cursors behave (more or less) like float values,
     # ...but on direct assignment you need to be a bit careful:
-    a = c.value  # as 'a = c' would only copy the reference to the Cell object,
+    a = c.value  # as 'a = c' would only copy the reference to the CellContext object,
     # so we need to explicitly ask for .value
     a = float(c)  # ...would be an alternative approach to ask for the numeric value of 'c'
     a = c.numeric_value  # ...or this, in order to be sure to strictly get the numerical value.

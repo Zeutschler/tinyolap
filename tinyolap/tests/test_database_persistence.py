@@ -1,7 +1,6 @@
 from unittest import TestCase
 from tinyolap.database import Database
 from pathlib import Path
-import time
 
 
 class TestDatabasePersistence(TestCase):

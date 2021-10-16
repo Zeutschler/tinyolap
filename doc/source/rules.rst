@@ -4,6 +4,6 @@
 Rules
 ===============
 
-.. autoenum:: tinyolap.rules.RulesScope
+.. autoenum:: tinyolap.rules.RuleScope
     :members:
     :noindex:

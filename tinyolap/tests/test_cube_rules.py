@@ -1,8 +1,8 @@
 import itertools
-from random import randrange, random, uniform
+from random import uniform
 from unittest import TestCase
 
-from cell import Cell
+from cell_context import CellContext
 from database import Database
 from decorators import rule
 from rules import RuleScope
@@ -16,7 +16,7 @@ def create_database():
     dim_years.add_member(["2020", "2021", "2022", "2023"])
     dim_years.commit()
 
-    dim_currency = db.add_dimension("curreny")
+    dim_currency = db.add_dimension("currency")
     dim_currency.edit()
     dim_currency.add_member(["EUR", "USD"])
     dim_currency.commit()
@@ -107,7 +107,7 @@ class TestCubeRules(TestCase):
 
     # region Rules Functions
     @rule("sales", ["Price"], RuleScope.AGGREGATION_LEVEL)
-    def rule_price_aggregated(self, db: Database, c: Cell):
+    def rule_price_aggregated(self, db: Database, c: CellContext):
         sales = c["Sales"]
         quantity = c["Quantity"]
         if quantity != 0.0:
@@ -116,7 +116,7 @@ class TestCubeRules(TestCase):
             return 0.0
 
     @rule("sales", ["Profit%"], RuleScope.ALL_LEVELS)
-    def rule_profit_percent(self, db: Database, c: Cell):
+    def rule_profit_percent(self, db: Database, c: CellContext):
         sales = c["Sales"]
         profit = c["Profit"]
         if sales != 0.0:
@@ -125,15 +125,15 @@ class TestCubeRules(TestCase):
             return 0.0
 
     @rule("sales", ["Profit"], RuleScope.ALL_LEVELS)
-    def rule_profit(self, db: Database, c: Cell):
+    def rule_profit(self, db: Database, c: CellContext):
         return c["Sales"] - c["Cost"]
 
     @rule("sales", ["Sales"], RuleScope.ROLL_UP)
-    def rule_sales_from_quantity_mul_price(self, db: Database, c: Cell):
+    def rule_sales_from_quantity_mul_price(self, db: Database, c: CellContext):
         return c["Quantity"] * c["Price"]
 
     @rule("sales", ["USD"], RuleScope.ALL_LEVELS)
-    def rule_currency_conversion(self, db: Database, c: Cell):
+    def rule_currency_conversion(self, db: Database, c: CellContext):
         """Inter cube rule"""
         return c["EUR"] * db["exrates", c.member("years"), c.member("months"), "exrate"]
 

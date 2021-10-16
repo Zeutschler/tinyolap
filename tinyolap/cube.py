@@ -1,14 +1,18 @@
+# -*- coding: utf-8 -*-
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import collections
-from collections.abc import Iterable, Sized
+from collections.abc import Iterable
 from inspect import isroutine
 
-import tinyolap.rules
 from tinyolap.area import Area
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
-from tinyolap.cell import Cell
+from tinyolap.cell_context import CellContext
 from tinyolap.custom_errors import *
-from tinyolap.fact_table import FactTable
 from tinyolap.dimension import Dimension
+from tinyolap.fact_table import FactTable
 from tinyolap.rules import Rules, RuleScope
 
 
@@ -70,7 +74,6 @@ class Cube:
     def __repr__(self):
         return f"cube '{self.name}'"
 
-
     # region Rules
     def remove_rule(self, pattern: list[str]) -> bool:
         """
@@ -101,7 +104,8 @@ class Cube:
             if callable(function) and function.__name__ == "<lambda>":
                 offset = 1
             else:
-                raise RuleError(f"Argument 'function' does not seem to be a Python function, tpye id '{type(function)}'.")
+                raise RuleError(
+                    f"Argument 'function' does not seem to be a Python function, type id '{type(function)}'.")
 
         # validate function and decorator parameters
         function_name = str(function).split(" ")[1 + offset]
@@ -133,7 +137,7 @@ class Cube:
                 raise RuleError(f"Failed to add rule function. Argument 'scope' missing for "
                                 f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
 
-        if type(pattern) is str: # a lazy user forgot to put the apptern in brackets
+        if type(pattern) is str:  # a lazy user forgot to put the pattern in brackets
             pattern = [pattern, ]
 
         idx_pattern = self.__pattern_to_idx_pattern(pattern)
@@ -279,7 +283,7 @@ class Cube:
 
     # endregion
 
-    # region Cell access via indexing/slicing
+    # region CellContext access via indexing/slicing
     def __getitem__(self, item):
         bolt = self.__address_to_bolt(item)
         return self._get(bolt)
@@ -336,7 +340,7 @@ class Cube:
                     try:
                         self._rule_request_counter += 1
                         value = func(cursor)
-                        if value != Cell.CONTINUE:
+                        if value != CellContext.CONTINUE:
                             if self._caching:
                                 self._cache[bolt] = value  # save value to cache
                             return value
@@ -353,7 +357,7 @@ class Cube:
                         try:
                             self._rule_request_counter += 1
                             value = func(cursor)
-                            if value != Cell.CONTINUE:
+                            if value != CellContext.CONTINUE:
                                 if self._caching:
                                     self._cache[bolt] = value  # save value to cache
                                 return value
@@ -364,8 +368,8 @@ class Cube:
                 return self._facts.get(idx_address, idx_measures)
             else:
                 raise FatalError("Depreciated. Feature Needs to be removed")
-                self._cell_request_counter += len(idx_measures)
-                return [self._facts.get(idx_address, m) for m in idx_measures]
+                # self._cell_request_counter += len(idx_measures)
+                # return [self._facts.get(idx_address, m) for m in idx_measures]
 
         else:  # aggregated cells
             # if self._caching and bolt in self._cache:
@@ -381,7 +385,7 @@ class Cube:
                         try:
                             self._rule_request_counter += 1
                             value = func(cursor)
-                            if value != Cell.CONTINUE:
+                            if value != CellContext.CONTINUE:
                                 if self._caching:
                                     self._cache[bolt] = value  # save value to cache
                                 return value
@@ -413,20 +417,20 @@ class Cube:
                 return total
             else:
                 raise FatalError("Depreciated. Feature Needs to be removed")
-                if not rows:
-                    return [0.0] * len(idx_measures)
-                facts = self._facts.facts
-                totals = [] * len(idx_measures)
-                for idx, idx_m in idx_measures:
-                    for row in rows:
-                        if idx_m in facts[row]:
-                            value = facts[row][idx_m]
-                            if type(value) is float:
-                                totals[idx] += value
-
-                if self._caching:
-                    self._cache[bolt] = totals  # save value to cache
-                return totals
+                # if not rows:
+                #     return [0.0] * len(idx_measures)
+                # facts = self._facts.facts
+                # totals = [] * len(idx_measures)
+                # for idx, idx_m in idx_measures:
+                #     for row in rows:
+                #         if idx_m in facts[row]:
+                #             value = facts[row][idx_m]
+                #             if type(value) is float:
+                #                 totals[idx] += value
+                #
+                # if self._caching:
+                #     self._cache[bolt] = totals  # save value to cache
+                # return totals
 
     def _set(self, bolt, value):
         """Writes a value to the cube for the given bolt (idx_address and measures)."""
@@ -492,8 +496,8 @@ class Cube:
         idx_address = list(range(0, self._dim_count))
         super_level = 0
         for d in range(0, self._dim_count):
-            if address[d] in self._dimensions[d].member_idx_lookup:
-                idx_address[d] = self._dimensions[d].member_idx_lookup[address[d]]
+            if address[d] in self._dimensions[d]._member_idx_lookup:
+                idx_address[d] = self._dimensions[d]._member_idx_lookup[address[d]]
                 super_level += self._dimensions[d].members[idx_address[d]][self._dimensions[d].LEVEL]
             else:
                 raise ValueError(f"'{address[d]}' is not a member of dimension '{self._dimensions[d]._name}'.")
@@ -514,7 +518,7 @@ class Cube:
 
     def _idx_address_to_address(self, idx_address, include_cube_name: bool = False):
         """
-        Converts an address index to a adress with member names
+        Converts an address index to a address with member names
         :param idx_address:
         :return:
         """
@@ -541,8 +545,8 @@ class Cube:
         idx_address = [None] * dim_count
         super_level = 0
         for i, member in enumerate(keys[: dim_count]):
-            if member in dimensions[i].member_idx_lookup:
-                idx_address[i] = dimensions[i].member_idx_lookup[member]
+            if member in dimensions[i]._member_idx_lookup:
+                idx_address[i] = dimensions[i]._member_idx_lookup[member]
                 super_level += dimensions[i].members[idx_address[i]][6]
             else:
                 raise InvalidCellAddressError(f"Invalid idx_address. '{member}' is not a member of the {i}. "
@@ -568,20 +572,21 @@ class Cube:
     # endregion
 
     # region cells
-    def cell(self, *args) -> Cell:
-        """Returns a new Cell from the Cube."""
-        return Cell.create(self, self._dim_lookup, args, self.__address_to_bolt(args))
+    def cell(self, *args) -> CellContext:
+        """Returns a new CellContext from the Cube."""
+        return CellContext.create(self, self._dim_lookup, args, self.__address_to_bolt(args))
 
-    def _create_cell_from_bolt(self, address, bolt) -> Cell:
-        """Create a Cell for the Cube directly from an existing bolt."""
-        return Cell.create(self, self._dim_lookup, address, bolt)
+    def _create_cell_from_bolt(self, address, bolt) -> CellContext:
+        """Create a CellContext for the Cube directly from an existing bolt."""
+        return CellContext.create(self, self._dim_lookup, address, bolt)
 
     def _get_default_cell_address(self):
         address = []
         for dim in self._dimensions:
-            keys = list(dim.member_idx_lookup.keys())
+            keys = list(dim._member_idx_lookup.keys())
             address.append(keys[0])
         return tuple(address)
+
     # endregion
 
     # region areas
@@ -590,4 +595,3 @@ class Cube:
         return Area(self, args)
 
     # endregion
-

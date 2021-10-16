@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import enum
 import inspect
 
@@ -43,7 +48,7 @@ class Rules:
 
     .. information::
         Rules functions have to be implemented as a simple Python function with just one single parameter and
-        a return value. The single parameter should be called 'c' and will contain an TinyOlap Cell, representing
+        a return value. The single parameter should be called 'c' and will contain an TinyOlap CellContext, representing
         the current cell context the rule should be calculated for.
 
         What happens in a rule function, is up totally to the programmer. The value returned by rules function
@@ -114,7 +119,7 @@ class Rules:
         """
         Returns the first pattern match, if any, for a given cell address.
 
-        :param idx_address: The cell address in index format.
+        :param idx_address: The cell address in index number_format.
         :return: Returns a tuple (True, *function*) if at least one pattern matches,
         *function* is the actual rules function to call, or (False, None) if none
         of the patterns matches the given cell address.

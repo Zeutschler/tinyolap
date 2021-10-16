@@ -1,5 +1,9 @@
+# -*- coding: utf-8 -*-
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import enum
-import weakref
 from tinyolap.cube import Cube
 
 
@@ -7,7 +11,7 @@ class Slice:
     """Represents a slice from a cube. Slices can be seen as a report in Excel with filters on top,
      row- and column-headers and the requested data itself. See demo.py for sample usage."""
 
-    class Color_Schema():
+    class ColorSchema:
 
         class Colors(enum.Enum):
             none = ''
@@ -52,11 +56,11 @@ class Slice:
             self.names = ""
             self.members = ""
 
-    class ColorScheme_None(Color_Schema):
+    class ColorSchemeNone(ColorSchema):
         def __init__(self):
             super().__init__()
 
-    class Color_Scheme_Default(Color_Schema):
+    class ColorSchemaDefault(ColorSchema):
         def __init__(self):
             super().__init__()
             self.borders = self.colors.darkgrey
@@ -88,7 +92,7 @@ class Slice:
         self.refresh()
 
     def _experimental_refresh_grid(self, parallel_execution=True):
-        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+        from concurrent.futures import ThreadPoolExecutor
         from time import time
 
         results = list()
@@ -163,19 +167,19 @@ class Slice:
                         address[dim_ordinal] = col_member[1]
 
                 # check formats
-                format = None
+                number_format = None
                 for idx, member in enumerate(tuple(address)):
                     if member not in formats:
                         member_format = self.cube.get_dimension_by_index(idx).member_get_format(member)
                         if member_format:
-                            format = member_format
+                            number_format = member_format
                         formats[member] = member_format
                     else:
-                        format = formats[member]
+                        number_format = formats[member]
 
                 # now we have a valid idx_address to be evaluated
                 value = self.cube.get(tuple(address) + (measure,))
-                grid.append([col, row, value, col_members, row_members, tuple(address), measure, format])
+                grid.append([col, row, value, col_members, row_members, tuple(address), measure, number_format])
 
                 col += 1
             row += 1
@@ -185,7 +189,7 @@ class Slice:
         self.grid_rows_count = len(self.axis[2])
 
         # execute zero suppression
-        self.__zero_surpression()
+        self.__zero_suppression()
 
     def __validate(self):
         """Validates the definition and adds missing information"""
@@ -295,7 +299,7 @@ class Slice:
 
                     measure = member_def["measure"]
                     if (not measure) or (measure == "*"):
-                        self.definition[axis][position]["measure"] = self.cube.measures.keys()  # get all measures
+                        self.definition[axis][position]["measure"] = self.cube.measures  # get all measures
                     if type(measure) is str:
                         if measure not in self.cube.measures:
                             raise ValueError(
@@ -398,12 +402,12 @@ class Slice:
 
                 self.axis[axis_index] = members
 
-    def __zero_surpression(self):
+    def __zero_suppression(self):
         # todo: implement this
         self.zero_cols = None
         self.zero_rows = None
 
-    def as_console_output(self, color_shema: Color_Schema = Color_Schema) -> str:
+    def as_console_output(self, color_schema: ColorSchema = ColorSchema) -> str:
         """Renders an output suitable for printing to the console only. The output most probably contains
         control characters and color definitions and is therefore not suitable for other use cases."""
         # title, description
@@ -620,7 +624,7 @@ class Slice:
         return str(self)
 
     def __str__(self):
-        return self.as_console_output(color_shema=Slice.Color_Scheme_Default())
+        return self.as_console_output(color_schema=Slice.ColorSchemaDefault())
 
     def __repr__(self):
-        return self.as_console_output(color_shema=Slice.Color_Scheme_Default())
+        return self.as_console_output(color_schema=Slice.ColorSchemaDefault())

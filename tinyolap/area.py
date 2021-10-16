@@ -1,9 +1,14 @@
+# -*- coding: utf-8 -*-
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from __future__ import annotations
+
 import copy
 from collections import Iterable
 
-from tinyolap.custom_errors import InvalidCellAddressError
-from tinyolap.member import Member
+from tinyolap.member_context import MemberContext
 
 
 class Area:
@@ -23,7 +28,7 @@ class Area:
         cube.area("Plan", "2023") = cube.area("Actual", "2022") * 1,15
 
     The smallest possible subspace would be a single cube cell.
-    For such purposes it is recommended to use the Cell object.
+    For such purposes it is recommended to use the CellContext object.
     """
 
     def __init__(self, cube, args):
@@ -65,6 +70,7 @@ class Area:
     def __delitem__(self, args):
         item_area = self.clone().alter(args)
         item_area.clear()
+
     # endregion
 
     def records(self, include_cube_name: bool = False, as_list: bool = True):
@@ -144,7 +150,6 @@ class Area:
             for k in facts[row]:
                 facts[row][k] = value
 
-
     def multiply(self, factor: float):
         """
         Multiplies all existing cells holding numeric values with a certain factor.
@@ -157,7 +162,6 @@ class Area:
             for k, v in facts[row].items():
                 if type(v) is float:
                     facts[row][k] = v * factor
-
 
     def increment(self, value: float):
         """
@@ -176,35 +180,35 @@ class Area:
         """
         Returns the minimum value of all existing numeric cells in the data area.
         """
-        min = None
+        minimum = None
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
         for row in rows:
             for v in facts[row].values():
                 if type(v) is float:
-                    if not min:
-                        min = v
-                    if v < min:
-                        min = v
-        return min
+                    if not minimum:
+                        minimum = v
+                    if v < minimum:
+                        minimum = v
+        return minimum
 
     def max(self):
         """
         Returns the maximum value of all existing numeric cells in the data area.
         """
-        max = None
+        maximum = None
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
         for row in rows:
             for v in facts[row].values():
                 if type(v) is float:
-                    if not max:
-                        max = v
-                    if v > max:
-                        max = v
-        return max
+                    if not maximum:
+                        maximum = v
+                    if v > maximum:
+                        maximum = v
+        return maximum
 
     def avg(self):
         """
@@ -228,7 +232,7 @@ class Area:
         """
         Returns the sum of all existing numeric cells in the data area.
         """
-        sum = 0.0
+        total = 0.0
         z = 0
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
@@ -236,11 +240,11 @@ class Area:
         for row in rows:
             for v in facts[row].values():
                 if type(v) is float:
-                    sum += v
+                    total += v
                     z += 1
         if z == 0:
             return None
-        return sum
+        return total
 
     def to_json(self, compact: bool = True):
         """
@@ -360,6 +364,7 @@ class Area:
     def __rfloordiv__(self, other):  # // operator (returns an integer)
         self._func = lambda x: x // other
         return self
+
     # endregion
 
     def _validate(self, args, alter: bool = False):
@@ -390,7 +395,6 @@ class Area:
             self._idx_area_def[idx_dim] = idx_members
             self._levels_area_def[idx_dim] = level_members
 
-
     def __get_members(self, item):
         idx_dims = []
         members = []
@@ -402,7 +406,7 @@ class Area:
             item = (item,)
 
         for member in item:
-            if type(member) is Member:
+            if type(member) is MemberContext:
                 idx_dims.append(member._idx_dim)
                 members.append(member.name)
                 idx_members.append(member._idx_member)
@@ -440,29 +444,29 @@ class Area:
             # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
             if dim_name.isdigit():
                 ordinal = int(dim_name)
-                if ordinal >= 0 and ordinal < len(dim_names):
+                if 0 <= ordinal < len(dim_names):
                     # that's a valid dimension position number
                     idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
                     raise KeyError(f"Invalid member key. '{dim_name}' is not a dimension "
-                                                  f"in cube '{self._cube.name}. Found in '{member_name}'.")
+                                   f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member_name = member_name[pos + 1:].strip()
-            if member_name not in dimensions[idx_dim].member_idx_lookup:
+            if member_name not in dimensions[idx_dim]._member_idx_lookup:
                 raise KeyError(f"Invalid member key. '{member_name}'is not a member of "
-                                              f"dimension '{dim_name}' in cube '{self._cube.name}.")
-            idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
+                               f"dimension '{dim_name}' in cube '{self._cube.name}.")
+            idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
 
             member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]
             return idx_dim, idx_member, member_level
 
         # No dimension identifier in member name, search all dimensions
         for idx_dim in range(self._cube.dimensions_count):
-            if member_name in dimensions[idx_dim].member_idx_lookup:
-                idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
+            if member_name in dimensions[idx_dim]._member_idx_lookup:
+                idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
                 # adjust the super_level
                 member_level = dimensions[idx_dim].members[idx_member][level]
                 return idx_dim, idx_member, member_level
@@ -490,7 +494,7 @@ class Area:
                 self.clear()
 
             if not other._rows:
-               other.refresh()
+                other.refresh()
 
             facts = other._cube._facts
             for row in other._rows:

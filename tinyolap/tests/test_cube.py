@@ -5,8 +5,6 @@ import time
 
 from rules import RuleScope
 from tinyolap.database import Database
-from tinyolap.cube import Cube
-from tinyolap.dimension import Dimension
 from random import randrange
 
 

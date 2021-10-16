@@ -1,11 +1,18 @@
-import sqlite3
+# -*- coding: utf-8 -*-
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+import logging
 import os
+import sqlite3
+from collections.abc import Iterable
 from os import path
 from pathlib import Path
-import logging
 from timeit import default_timer as timer
-from collections.abc import Iterable
+
 from tinyolap.custom_errors import *
+
 
 # noinspection SqlNoDataSourceInspection
 class Backend:
@@ -30,13 +37,13 @@ class Backend:
             self.file_name, self.file_folder, self.file_path = "", "", ""
             self.log_file = ""
         else:
-            self.file_name, self.file_folder, self.file_path = self.__generate_path_from_database_name(self.database_name)
+            self.file_name, self.file_folder, self.file_path = \
+                self.__generate_path_from_database_name(self.database_name)
             self.log_file = os.path.join(self.file_folder, self.file_name + self.LOG_EXTENSION)
             self.__setup_logger()
             self.logger.info(f"Database backend initialization started.")
             self.open(self.file_path)
             self.logger.info(f"Database backend initialization finished.")
-
 
     def __setup_logger(self):
         if self._in_memory:
@@ -100,11 +107,9 @@ class Backend:
         except sqlite3.Error as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
             raise FatalError()
-            return False
         except Exception as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
             raise FatalError()
-            return False
 
     def close(self):
         if self._in_memory:
@@ -135,7 +140,7 @@ class Backend:
         Arguments 'idx_address' and 'measure' are index values of typ <int>."""
         if not isinstance(measure, Iterable):
             measure = [measure]
-        fields_clause = ', '.join(['m'+ str(m) for m in measure])
+        fields_clause = ', '.join(['m' + str(m) for m in measure])
         sql = f"SELECT {fields_clause} FROM {Backend.CUB_PREFIX + cube_name} " \
               f"WHERE {' AND '.join(['d' + str(i + 1) + '=' + str(d) for i, d in enumerate(address)])};"
         # records = self.cursor.execute(sql).fetchall()
@@ -144,7 +149,7 @@ class Backend:
             return records[0][0]
         return 0.0
 
-    def cube_get_range(self, cube_name, member_lists: list[list[int]], measures, aggregate: bool =True) -> list:
+    def cube_get_range(self, cube_name, member_lists: list[list[int]], measures, aggregate: bool = True) -> list:
         """Executes a range idx_address on the cube fact table """
         if not isinstance(measures, Iterable):
             measures = [measures]
@@ -153,9 +158,9 @@ class Backend:
             member_list_text.append(f"d{i + 1} in ({','.join([str(m) for m in ml])})")
         where_clause = ' AND '.join([m for m in member_list_text])
         if aggregate:
-            fields_clause = ', '.join(['SUM(m'+ str(m) + ')' for m in measures])
+            fields_clause = ', '.join(['SUM(m' + str(m) + ')' for m in measures])
         else:
-            fields_clause = ', '.join(['m'+ str(m) for m in measures])
+            fields_clause = ', '.join(['m' + str(m) for m in measures])
         sql = f"SELECT {fields_clause} " \
               f"FROM {Backend.CUB_PREFIX + cube_name} " \
               f"WHERE ({where_clause});"
@@ -178,11 +183,11 @@ class Backend:
         Note: This method executes an 'upsert' on a cube fact tables."""
         table = Backend.CUB_PREFIX + cube_name
         if value is None:
-            where_statement = ' AND '.join([('d' + str(i + 1) + '=' + str(d))for i, d in enumerate(address)])
+            where_statement = ' AND '.join([('d' + str(i + 1) + '=' + str(d)) for i, d in enumerate(address)])
             sql = f"DELETE FROM {table} WHERE {where_statement};"
         else:
             dim_col_list = ', '.join(['d' + str(i + 1) for i, d in enumerate(address)])
-            measure_col = f"m{measure[0]}"
+            measure_col = f"m{measure}"
             sql = f"INSERT INTO {table}({dim_col_list}, {measure_col})" \
                   f"VALUES({', '.join([str(d) for d in address])}, {value}) " \
                   f"ON CONFLICT({dim_col_list}) " \
@@ -238,7 +243,6 @@ class Backend:
             self.logger.error(f"Failed to add meta tables.")
             raise FatalError("Failed to add meta tables to database.")
         self.logger.info(f"Initialization of new database finished.")
-
 
     def __add_table(self, table_name, fields: list[tuple]):
         sql = f"DROP TABLE IF EXISTS {table_name};"

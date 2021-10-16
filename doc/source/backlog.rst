@@ -28,7 +28,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
   - **Members** - String keys to access data. by defining a multidimensional address of
     all dimensions of a cube.
 
-  - **Member Alias** - (1...N) Alias keys to access members. Helpful to provide access to
+  - **MemberContext Alias** - (1...N) Alias keys to access members. Helpful to provide access to
     members via multiple keys, e.g. a business keys and technical keys. Useful for data importing.
 
   - **Subsets** - (1...N) Lists of members. Useful for display or calculation purposes.
@@ -79,6 +79,16 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
 -----------------
 
+- **SQLite Backend** - Stores data model and data to a file.
+  Rework required: Simplified, faster and more compact persistence.
+
+  .. note::
+        Current persistence is much to complex (and slow) due to true multi-dimensional storage.
+        Should be replace by fixed column layout, encapsulating complexity through json objects.
+        This would also greatly help to provide simple string based encryption.
+
+-----------------
+
 - **Cubes** - Additional Cube features.
 
   - **Rules** - Additional rules variants.
@@ -106,7 +116,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
   - **Cursor** - A cell cursor, as in Excel, either by finger/mouse or keyboard, supporting
     instant editing (start typing to edit).
 
-  - **Cell Swiping** - The selected cell should have a small *gripper* attached (left or right).
+  - **CellContext Swiping** - The selected cell should have a small *gripper* attached (left or right).
     By taking and swiping or dragging the gripper up, down, left and right individual menus should
     appear that contain *drag targets* to invoke certain functionality. e.g.
 
@@ -123,7 +133,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
 - **Cubes** - Additional Cube features.
 
-  - **Cube/Cell Comments** - A minimalistic discussion thread over cubes and cells,
+  - **Cube/CellContext Comments** - A minimalistic discussion thread over cubes and cells,
     enabling users to discuss and exchange information. Maybe with attachments.
 
   - **Splashing** - The capability to enter values on aggregated cells to automatically
@@ -146,7 +156,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
       .. code:: python
 
             @rule(cube:"sales", pattern:"Profit", command:"Double")
-            def rule_profit(c: tinyolap.cell.Cell):
+            def rule_profit(c: tinyolap.cell.CellContext):
                 # 'profit' is defined as 'sales' - 'cost'
                 c["Sales"] *= 2
                 c["Cost"] *= 2
@@ -199,7 +209,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
             total_of_blue_cars = c["color:blue"]        # will work, if no conflicts occur
             total_of_blue_cars = c["blue"]              # will work, if no conflicts occur
 
-    - **Multi-Member Aggregations** - Aggregations based on a list of members.
+    - **Multi-MemberContext Aggregations** - Aggregations based on a list of members.
 
       .. code:: python
 

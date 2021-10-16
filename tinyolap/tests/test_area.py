@@ -79,10 +79,10 @@ class TestArea(TestCase):
 
         area = cube.area("2021", "Jan")
 
-        sum = 0.0
+        total = 0.0
         for record in area.records(include_cube_name=True, as_list=True):
-            sum += record[-1]
-        self.assertEqual(area.sum(), sum)
+            total += record[-1]
+        self.assertEqual(area.sum(), total)
 
         addresses = []
         for address in area.addresses():

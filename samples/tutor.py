@@ -1,23 +1,24 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) Thomas Zeutschler (Germany).
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+
 import os
 import time
 import psutil
 from art import *
 
-from tinyolap.cell import Cell
+from tinyolap.cell_context import CellContext
 from tinyolap.decorators import rule
 from tinyolap.rules import RuleScope
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 
-def load_tutor(console_output: bool = True):
+def load_tutor(console_output: bool = False):
     """
     Loads the **Tutor** data model from TXT source files (this may take
     a seconds or two). The source TXT files have an awkward and quite
-    old format (latin-1 encoded), as they are from a time where XML or
+    old number_format (latin-1 encoded), as they are from a time where XML or
     JSON not have been invented.
 
     The code in this ``load()`` function is a nice example how to import
@@ -26,7 +27,7 @@ def load_tutor(console_output: bool = True):
     Please review the ``play(database: Database)`` function in this
     module to see how to access data from the **Tutor** database and
     also create a slice. A slice is kind of a very simple report
-    format for console output.
+    number_format for console output.
 
     :return: The **Tutor** sample data model as a tinyolap in-memory
     only Database object.
@@ -141,17 +142,17 @@ def load_tutor(console_output: bool = True):
 
 
 @rule("verkauf", ["Abweichung"])
-def rule_delta(c: Cell):
+def rule_delta(c: CellContext):
     return c["Ist"] - c["Plan"]
 
 
 @rule("verkauf", ["DB1"], scope=RuleScope.ALL_LEVELS, volatile=False)
-def rule_profit_contribution(c: Cell):
+def rule_profit_contribution(c: CellContext):
     return c["Umsatz"] - c["variable Kosten"]
 
 
 @rule("verkauf", ["Preis"], scope=RuleScope.AGGREGATION_LEVEL)
-def rule_price(c: Cell):
+def rule_price(c: CellContext):
     umsatz = c["Umsatz"]
     menge = c["Menge"]
     if menge != 0.0:

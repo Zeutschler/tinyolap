@@ -1,8 +1,14 @@
+# -*- coding: utf-8 -*-
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import functools
+
 from tinyolap.rules import RuleScope
 
 
-def rule(cube: str, pattern: list[str], scope: RuleScope = RuleScope.ALL_LEVELS, volatile: bool = False, command= None):
+def rule(cube: str, pattern: list[str], scope: RuleScope = RuleScope.ALL_LEVELS, volatile: bool = False, command=None):
     """
     Decorator for TinyOlap rule functions.
 
@@ -14,16 +20,19 @@ def rule(cube: str, pattern: list[str], scope: RuleScope = RuleScope.ALL_LEVELS,
                      results on identical input, e.g. if real-time data integration is used.
     :param command: (optional, default = None) Identifies that this rule will only the triggered
                      and executed by an explicit user command or call to the ``execute()``method of
-                     a Cell object.
+                     a CellContext object.
     """
+
     def decorator_rule(func):
         @functools.wraps(func)
         def wrapper_rule(*args, **kwargs):
             return func(*args, **kwargs)
+
         wrapper_rule.cube = cube
         wrapper_rule.pattern = pattern
         wrapper_rule.scope = scope
         wrapper_rule.volatile = volatile
         wrapper_rule.command = command
         return wrapper_rule
+
     return decorator_rule

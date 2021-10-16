@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) Thomas Zeutschler (Germany).
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
 import os
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Tuple
-from collections.abc import Iterable
 
 import tinyolap.utils
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
-from tinyolap.custom_errors import *
-from tinyolap.cube import Cube
-from tinyolap.dimension import Dimension
 from tinyolap.backend import Backend
+from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.cube import Cube
+from tinyolap.custom_errors import *
+from tinyolap.dimension import Dimension
+
 
 class Database:
     """
@@ -23,7 +24,7 @@ class Database:
     MIN_DIMS = 1
     MAX_DIMS = 32  # This value can be changed. For the given purpose (planning), 32 is already too much.
     # max. 2000 columns and that dimensions and measure share the same space.
-    # Note: 32 dimensions is already huge for model-driven OLAP databases.
+    # Note: 32 dimensions is already huge for model-driven OLAP _databases.
     MAX_MEASURES = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS)
 
     def __init__(self, name: str = None, in_memory: bool = False):
@@ -46,8 +47,8 @@ class Database:
         """
         if name != tinyolap.utils.to_valid_key(name):
             raise InvalidKeyError(f"'{name}' is not a valid database name. "
-                                      f"alphanumeric characters and underscore supported only, "
-                                      f"no whitespaces, no special characters.")
+                                  f"alphanumeric characters and underscore supported only, "
+                                  f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
         self.name: str = name
@@ -162,7 +163,7 @@ class Database:
 
     # endregion
 
-    # region Cell access via indexing
+    # region CellContext access via indexing
     def __getitem__(self, item):
         cube = self.cubes[item[0]]
         return cube.get(item[1:])
@@ -189,8 +190,8 @@ class Database:
         """
         if not tinyolap.utils.is_valid_db_object_name(name):
             raise InvalidKeyError(f"'{name}' is not a valid dimension name. "
-                                      f"Lower case alphanumeric characters and underscore supported only, "
-                                      f"no whitespaces, no special characters.")
+                                  f"Lower case alphanumeric characters and underscore supported only, "
+                                  f"no whitespaces, no special characters.")
         if name in self.dimensions:
             raise DuplicateKeyError(f"Failed to add dimension. A dimension named '{name}' already exists.")
         dimension = Dimension._create(self._backend, name, description=description)
@@ -216,7 +217,7 @@ class Database:
         uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
             raise DimensionInUseError(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
-                                          f"and therefore can not be removed. Remove cubes first.")
+                                      f"and therefore can not be removed. Remove cubes first.")
 
         # todo: Check if the dimension can be removed safely (not in use by any cubes)
 
@@ -242,7 +243,7 @@ class Database:
         :param dimensions: A list of either names of existing dimensions of the database or
         :ref:`dimension <dimensions>` objects contained in the database.
         :param measures: (optional) a measure name or a list of measures names for the cube.
-        If argument 'measures' is not defined, that a dfault measure named 'value' will be created.
+        If argument 'measures' is not defined, that a default measure named 'value' will be created.
         :return: The added cube object.
         :raises CubeCreationError: Raised if the creation of the cubed failed due to one
         of the following reasons:
@@ -265,7 +266,7 @@ class Database:
         # validate cube name
         if not tinyolap.utils.is_valid_db_object_name(name):
             raise CubeCreationError(f"Invalid cube name '{name}'. Cube names must contain "
-                                        f"lower case alphanumeric characters only, no blanks or special characters.")
+                                    f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
             raise DuplicateKeyError(f"A cube named '{name}' already exists.")
 
@@ -274,23 +275,23 @@ class Database:
             raise CubeCreationError("List of dimensions to create cube is empty or undefined.")
         if len(dimensions) > self.MAX_DIMS:
             raise CubeCreationError(f"Too many dimensions ({len(dimensions)}). "
-                                        f"Maximum number dimensions per cube is {self.MAX_DIMS}.")
+                                    f"Maximum number dimensions per cube is {self.MAX_DIMS}.")
         dims = []
         for dimension in dimensions:
             if type(dimension) is str:
                 if dimension not in self.dimensions:
                     raise CubeCreationError(f"A dimension named '{str(dimension)}' is not defined in "
-                                                f"database '{self.name}'.")
+                                            f"database '{self.name}'.")
                 dims.append(self.dimensions[dimension])
             elif type(dimension) is Dimension:
                 if dimension.name not in self.dimensions:
                     raise CubeCreationError(f"Dimension '{str(dimension.name)}' is not defined in "
-                                                f"database '{self.name}'.")
+                                            f"database '{self.name}'.")
                 dim = self.dimensions[dimension.name]
                 if dim is not dimension:
                     raise CubeCreationError(f"Dimension '{str(dimension.name)}' is not the same dimension "
-                                                f"as the one defined in database '{self.name}'. You can only use "
-                                                f"dimensions from within a database to add cubes.")
+                                            f"as the one defined in database '{self.name}'. You can only use "
+                                            f"dimensions from within a database to add cubes.")
 
                 dims.append(dimension)
             else:
@@ -300,12 +301,12 @@ class Database:
             if type(measures) is str:
                 if not tinyolap.utils.is_valid_member_name(measures):
                     raise CubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
-                                                f"Please refer the documentation for further details.")
+                                            f"Please refer the documentation for further details.")
             elif isinstance(measures, Iterable):
                 for m in measures:
                     if not tinyolap.utils.is_valid_member_name(m):
                         raise CubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
-                                                    f"Please refer the documentation for further details.")
+                                                f"Please refer the documentation for further details.")
         # create and return the cube
         cube = Cube.create(self._backend, name, dims, measures)
         cube.caching = self.caching

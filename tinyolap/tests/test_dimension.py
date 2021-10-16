@@ -1,5 +1,4 @@
 from unittest import TestCase
-from tinyolap.dimension import Dimension
 from tinyolap.database import Database
 from tinyolap.custom_errors import *
 
@@ -83,9 +82,9 @@ class TestDimension(TestCase):
         self.execute_dimension_test(dim, members, parents, root_members)
 
     def execute_dimension_test(self, dim, members, parents, root_members):
-        all = set(members).union(set(parents).union(set(root_members)))
-        self.assertEqual(len(dim), len(all))
-        self.assertEqual(len(dim.get_members()), len(all))
+        all_members = set(members).union(set(parents).union(set(root_members)))
+        self.assertEqual(len(dim), len(all_members))
+        self.assertEqual(len(dim.get_members()), len(all_members))
         self.assertEqual(len(dim.get_leave_members()), len(members))
         if dim.get_top_level() > 0:
             self.assertEqual(len(dim.get_aggregated_members()), len(parents) + len(root_members))

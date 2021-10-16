@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) Thomas Zeutschler (Germany).
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+
 import time
 import psutil
 from random import randrange
@@ -10,13 +11,14 @@ from art import *
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 
+
 # adjust to your liking... and the abilities of your PC ;-)
 numbers_of_records = 1_000_000
 numbers_of_dimensions = 8
 members_per_dimension = 100
 
 
-def load_huge(console_output: bool =False):
+def load_huge(console_output: bool = False):
     """
     Creates a simple but huge TinyOlap database. The intended purpose
     is to see how well a huge database performs, how much memory is
@@ -91,7 +93,7 @@ def load_huge(console_output: bool =False):
     return db, cube, dimensions, member_lists
 
 
-def play_tiny(console_output: bool = True):
+def play_huge(console_output: bool = True):
     """ Demonstrates the creation and usage of a 'huge' database cube."""
 
     if console_output:
@@ -130,7 +132,7 @@ def play_tiny(console_output: bool = True):
 
 
 def main():
-    play_tiny()
+    play_huge()
 
 
 if __name__ == "__main__":

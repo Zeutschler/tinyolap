@@ -2,8 +2,7 @@ import math
 import unittest
 from unittest import TestCase
 
-from tinyolap.samples.tiny import load_tiny
-from tinyolap.cell import Cell
+from samples.tiny import load_tiny
 from tinyolap.custom_errors import InvalidCellAddressError
 
 
@@ -36,7 +35,7 @@ class TestCell(TestCase):
         value = c["Mar"]
         self.assertEqual(c, b)   # still, c will return 123.0
 
-        # Member object
+        # MemberContext object
         april = c.member("Apr")
         c[april] = 42
         c["2023", april] = 333.0
@@ -47,7 +46,7 @@ class TestCell(TestCase):
         self.assertEqual("Apr", april.name)   # still, c will return 123.0
         self.assertEqual("months:Apr", april.full_name)   # still, c will return 123.0
         self.assertEqual(42.0, c[april])
-        self.assertEqual(42.0, c["Jan"])
+        self.assertEqual(a.value, c["Jan"])
 
         c.value = 987.0  # sets a new value to "Feb", so b will show the same result,
         self.assertEqual(c, b)
