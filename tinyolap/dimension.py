@@ -569,7 +569,7 @@ class Dimension:
 
         :return: List of all members of the dimension.
         """
-        return list(self._member_idx_lookup.keys())
+        return list(str(key) for key in self._member_idx_lookup.keys())
 
     def get_members_idx(self) -> list[int]:
         """

@@ -4,6 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
+import time
+
 from tinyolap.cube import Cube
 
 
@@ -286,6 +288,7 @@ class Slice:
                                 raise ValueError(f"Slice axis '{axis}' contains unknown member '{member}' in "
                                                  f"definition '{member_def}'.")
                     else:
+                        type_name = type(member_def["member"])
                         raise ValueError(f"Slice axis '{axis}' contains an invalid definition '{member_def}'.")
 
                 # ******************************************
@@ -481,8 +484,7 @@ class Slice:
         # print col headers
         # print row headers and values
 
-        cell_width = 12
-        row_header_width = 12
+        start = time.time()
 
         row_dims = len(self.grid[0][4])
         col_dims = len(self.grid[0][3])
@@ -600,6 +602,8 @@ class Slice:
                  '}' \
                  'document.addEventListener("DOMContentLoaded", onLoad)'
 
+        duration = f'<div class="font-italic font-weight-light">HTML rendered in {time.time()- start:.6} sec.</div>'
+
         html = f'<!doctype html><html lang="en"><head><!-- Required meta tags --><meta charset="utf-8">' \
                f'<meta name="viewport" content="width=device-width, initial-scale=1">' \
                f'<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" ' \
@@ -614,6 +618,7 @@ class Slice:
                f'<div class="p-3">' \
                f'{text}' \
                f'</div>' \
+               f'{duration}' \
                f'<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" ' \
                f'integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" ' \
                f'crossorigin="anonymous"></script></body></html>'

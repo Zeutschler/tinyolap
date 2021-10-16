@@ -22,16 +22,21 @@ from tinyolap.server import Server
 from samples.tutor import load_tutor
 from samples.tiny import load_tiny
 
+# TinyOlap
 server = Server()
 server.add_database(load_tutor())
 server.add_database(load_tiny())
+server["tutor"].caching = False  # Change to True (default) to see impact of caching
 
+# FastAPI
 app = FastAPI(title="TinyOlap API")
 
 @app.get("/report", response_class=HTMLResponse)
 async def root():
-    cube = server["tutor"].cubes["Verkauf"]
 
+    # Create a sample report with random content
+    cube = server["tutor"].cubes["Verkauf"]
+    cube.reset_counters()
     dims = [{"dimension": "datenart", "member": "Ist"},
                           {"dimension": "jahre", "member": "1995"},
                           {"dimension": "monate", "member": "März"},
@@ -39,14 +44,19 @@ async def root():
                           {"dimension": "produkte", "member": "Produkte gesamt"},
                           {"dimension": "wertart", "member": "Umsatz"}]
     random.shuffle(dims)
-    report_definition = {"title": "Random report from Tutor",
+    for d in range(4):
+        members = server["tutor"].dimensions[dims[d]["dimension"]].get_members()
+        dims[d]["member"] = members[random.randrange(0, len(members))]
+    report_definition = {"title": "Random Report from Tutor Database (no caching)",
                          "header": [dims[0], dims[1], dims[2], dims[3]],
                          "columns": [{"dimension": dims[4]["dimension"]}],
                          "rows": [{"dimension": dims[5]["dimension"]}]}
+    # Execute report
     start = time.time()
     report = Slice(cube, report_definition)
     duration = time.time() - start
-    footer = f"\tReport updated in {duration:.3} sec."
+    footer = f"\tReport refreshed in {duration:.6} sec. {cube.counter_cell_requests:,}x cell requests" \
+             f"and {cube.counter_rule_requests:,}x rules executed."
     return report.as_html(footer=footer)
 
 

@@ -345,6 +345,7 @@ class Cube:
                                 self._cache[bolt] = value  # save value to cache
                             return value
                     except Exception as e:
+                        return "ERR"
                         raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
 
         if super_level == 0:  # base-level cells
