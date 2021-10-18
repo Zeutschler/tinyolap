@@ -54,8 +54,9 @@ def render_report(refresh_only: bool= False) -> str:
     start = time.time()
     report = Slice(cube, report_def)
     duration = time.time() - start
-    footer = f"\tReport refreshed in {duration:.6} sec. {cube.counter_cell_requests:,}x cell requests " \
-             f"and {cube.counter_rule_requests:,}x rules executed."
+    footer = f"\tReport refreshed in {duration:.6} sec. {cube.counter_cell_requests:,}x cell requests, " \
+             f"{cube.counter_aggregations:,}x aggregations calculated and " \
+             f"{cube.counter_rule_requests:,}x rules executed."
     return report.as_html(footer=footer)
 
 

@@ -9,11 +9,12 @@ import time
 from art import *
 
 import tinyolap.cell_context
+from area import Area
 from tinyolap.decorators import rule
 from tinyolap.database import Database
 from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
-from random import uniform, randrange
+from random import randrange
 
 
 def load_tiny(console_output: bool = False) -> Database:
@@ -110,7 +111,7 @@ def load_tiny(console_output: bool = False) -> Database:
     # decorator you need to specify for what cube the rule should be used and what member (e.g. ['Profit']) or
     # member combination (e.g. [..., 'Jan', 'Profit']) the rule should actually calculate.
     # For further detailed on how to define and write rules, please refer the TinyOlap documentation.
-    # Rules are a big and complex topic!!! Once you've understood the concept, it get's very easy.
+    # Rules are a big and complex topic!!! Once you've understood the concept, it gets very easy.
     cube.add_rule(rule_profit)
     cube.add_rule(rule_profit_in_percent)
 
@@ -118,7 +119,7 @@ def load_tiny(console_output: bool = False) -> Database:
     return db
 
 
-@rule("sales", "Profit")
+@rule("sales", ["Profit"])
 def rule_profit(c: tinyolap.cell_context.CellContext):
     return c["Sales"] - c["Cost"]
 
@@ -137,7 +138,6 @@ def play_tiny(console_output: bool = True):
     It creates and print some simple reports to the console.
 
     :param console_output: Set to ``False``to suppress console output.
-    :param database: The Tiny database generate by the ``load()`` function.
     """
 
     if console_output:
@@ -252,7 +252,7 @@ def play_tiny(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+              f"\n\t{cube.counter_aggregations:,} cell aggregations calculated")
 
     if console_output:
         print(f"\n...again, the same report, now with Caching On, but cold=empty cache...")
@@ -269,7 +269,7 @@ def play_tiny(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+              f"\n\t{cube.counter_aggregations:,} cell aggregations calculated")
 
     if console_output:
         print(f"\n...finally the same report, with Caching On and warm cache...")
@@ -285,7 +285,7 @@ def play_tiny(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+              f"\n\t{cube.counter_aggregations:,} cell aggregations calculated")
 
     if console_output:
         print(f"\nRecommendation: Leave Caching On, whenever possible!")
@@ -295,9 +295,8 @@ def play_tiny(console_output: bool = True):
         print(f"\t- Switch off caching only if you have rules are 'volatile'.'")
 
 
-def play_advanced_business_logic(database: Database = load_tiny(), console_output: bool = False):
+def play_advanced_business_logic(database: Database = load_tiny()):
     """ Demonstrates the implementation of advanced business logic in TinyOlap.
-    :param console_output: Set to ``False``to suppress console output.
     :param database: The Tiny database generate by the ``load()`` function.
     """
     cube = database.cubes["sales"]
@@ -349,7 +348,7 @@ def play_advanced_business_logic(database: Database = load_tiny(), console_outpu
     # RECOMMENDATION: Even if you want to access 'Jan'(what is defined by the cursor itself),
     #                 it is good practice to ALWAYS use slicers, even is you don need to.
     #                 This greatly improves the readability and consistency of your code.
-    # Both of the follwong staments are identical:
+    # Both of the following statements are identical:
     q1 = c + c["Feb"] + c["Mar"]  # Who knows what 'c' is about?
     q1 = c["Jan"] + c["Feb"] + c["Mar"]  # THIS IS GOOD PRACTISE !!!
 
@@ -364,7 +363,7 @@ def play_advanced_business_logic(database: Database = load_tiny(), console_outpu
 
     # Or you can build whatever ratios you want...
     sport_cars_in_percent = c["sports"] / c["Total"] * 100.0
-    # ALARM !!!! WARNING !!!! ERROR !!!!
+    # But wait...   ALARM !!!! WARNING !!!! ALARM !!!! WARNING !!!!
     # Here we might run into a problem: while 'sports' is a unique member key over all dimensions
     # of the cube, the member 'Total' is not. 'Total' is defined for two dimensions, for 'products'
     # and 'regions' dimension.
@@ -376,7 +375,53 @@ def play_advanced_business_logic(database: Database = load_tiny(), console_outpu
     sport_cars_in_percent = c["sports"] / c["products:Total"] * 100.0
 
     # *************************************************************************
-    # 4. Let's get down to business.
+    # 4. You can process many cells at once usisng the Area object
+    # Instead of a single cell you access a range of cells, defined by a
+    # multidimensional area. These areas only and always reflect the base-level
+    # cells of a cube (aggregations do not exists in the cube). By this you can
+    # easily do mass manipulation of data. Let's create an Area for 'Sales' '2022':
+    data: Area = cube.area("Sales", "2022")
+    # The above statement defines an area over ALL months, products and regions,
+    # but for the 'measure' dimension only for 'Sales' and for the years only '2022'
+
+    # Areas are super useful do delete data, meaning clearing an 'area of data' in a cube.
+    # e.g. when you accidentally imported wrong data into a cube and need to delete it.
+    data.clear()
+
+    # Now that the data are is empty, let's add 2 values in the cube that fall into the Area.
+    cube["2022", "Jan", "North", "trucks", "Sales"] = 45.0
+    cube["2022", "Feb", "North", "sedan", "Sales"] = 67.0
+
+    # Now you can get a list of ALL EXISTING records.
+    # Each record contains the address of each cell and its value as a list.
+    records = list(data.records())
+    # record and value can be seperated from each other easily as shown in the loop below
+    for record in data.records():
+        address = record[:-1]
+        value = record[-1]
+        # Such records can be used for whatever purpose, but especially
+        # to instantly write bike values back to the cube.
+        cube.set(address, 2.0 * value / (3.0 - 1.0))
+
+
+    # But, such loops can also be done more elegantly with 1 line of code only.
+    data *= 2.0  # ALL EXISTING values in the Area get multiplied by 2.0
+
+    # You can also set all values in the area to a specific value.
+    data.set_value(1.0)  # set ALL values (REALLY ALL VALUES) in the area to 1.0
+    # So, the above ``set_value()``statement should be handled with care on larger data models,
+    # as it enumerates the entire data space. 100 x 100 x 100 x 100 members over 4 dimensions
+    # already end up incl 100.000.000 that will be written - much too much for TinyOlap.
+
+    # And finally you have the same modifiers as with CellContext objects.
+    # This is a very powerful and essential feature of TinyOlap.
+    # The following statement copies all 'sales' data from 2022 to 2023,
+    # before copying, the target area will be cleared.()
+    # todo: implementation not yet ready. Go Bro, go ....
+    #data["2023"] = data["2022"] * 2
+
+    # *************************************************************************
+    # 5. Let's get down to business.
     # When you'll build a lot of business logic, often with dedicated functions
     # or classes (e.g. for calculation an amortization or a forecast using ML,
     # or to read/write data from a web service, a database or an ERP system),

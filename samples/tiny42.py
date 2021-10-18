@@ -18,6 +18,9 @@ from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
 
 
+number_of_machines = 42  # Change to see what happens...
+
+
 def load_tiny42(console_output: bool = False) -> Database:
     """Create a small (empty) template database for sensor data of our marmalade machines."""
     if console_output:
@@ -142,7 +145,6 @@ def play_tiny42(console_output: bool = True):
 
     # 1. create a template database
     template_db = load_tiny42()
-    number_of_machines = 42
 
     # 2. create 42 clones the template database - it's a clone army ;-)
     if console_output:

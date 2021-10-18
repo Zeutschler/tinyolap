@@ -44,7 +44,7 @@ class Area:
         self._levels_area_def = []
         self._validate(args)
         self._rows = set()
-        self._modifiers = None
+        self._modifiers = []
         self._func = None
 
     def __len__(self):
@@ -535,3 +535,8 @@ class Area:
             if len(idx_members_a) != len(idx_members_b):
                 return False
         return True
+
+    def merge_modifier_into(self, modifiers_a, modifiers_b) -> bool:
+        # todo: implement this...
+        raise NotImplementedError()
+

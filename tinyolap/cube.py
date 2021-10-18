@@ -188,13 +188,18 @@ class Cube:
 
     @property
     def counter_cell_requests(self) -> int:
-        """Returns the number"""
+        """Returns the number of cell requests executed."""
         return self._cell_request_counter
 
     @property
     def counter_rule_requests(self) -> int:
-        """Returns the number"""
+        """Returns the number of rules that have been executed."""
         return self._rule_request_counter
+
+    @property
+    def counter_aggregations(self) -> int:
+        """Returns the number aggregations that have been executed."""
+        return self._aggregation_counter
 
     def reset_counters(self):
         """Resets the internal counters for cell- and rule-requests and aggregations."""
