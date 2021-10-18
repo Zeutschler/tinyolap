@@ -121,3 +121,27 @@ The Tutor database is in german language, but it should be understandable for ev
 The TXT files in the folder *tutor* are the original files ship with the database on a
 3½-inch disk at around 1995, they are single-byte **latin-1** encoded (ISO 8859-1).
 
+------------------------------
+6. Tiny42
+------------------------------
+
+.. note::
+   Coming soon. Under development.
+
+**Usage:** Open and/or start the script *...tinyolap/samples/tiny42.py*
+
+Purpose of the Tiny42 data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This example show cases the cloning of databases and how to use multiprocessing
+(the cores of your CPU) to process multiple databases in parallel. The example
+works in-memory, in order to not flood you disk with database files.
+
+We create 1x database template, create 42x independent clones and process *them* in
+a distributed manner, whatever *them* might be, e.g., recipients, machines, locations
+or departments). The clones get adapted (by adding some new members) and
+filled with some data. When anything is recollected, we consolidate all the clones
+into one single databases.
+
+For illustration purposes we use an IoT sample for the *Tiny Marmalade Factory*,
+where 42x marmalade machines create some senor data. Each machines return their
+own machine and sensor ids.

@@ -26,38 +26,50 @@ from samples.tiny import load_tiny
 server = Server()
 server.add_database(load_tutor())
 server.add_database(load_tiny())
-server["tutor"].caching = False  # Change to True (default) to see impact of caching
+
+server["tutor"].caching = True  # Change to True (default) to see impact of caching
+server["tutor"].cubes["Verkauf"].caching = True
+report_def = None
+
+
+def render_report(refresh_only: bool= False) -> str:
+    # Renders a random report
+    cube = server["tutor"].cubes["Verkauf"]
+    cube.reset_counters()
+    global report_def
+    if not report_def or not refresh_only:
+        dims = [{"dimension": "datenart"}, {"dimension": "jahre"}, {"dimension": "monate"},
+                {"dimension": "regionen"}, {"dimension": "produkte"}, {"dimension": "wertart"}]
+        random.shuffle(dims)
+        for d in range(len(dims)):
+            members = server["tutor"].dimensions[dims[d]["dimension"]].get_members()
+            dims[d]["member"] = members[random.randrange(0, len(members))]
+        nested_dims_in_rows = random.randrange(1, 2)  # change 2 to 3 for nested row dimensions
+        header_dims = dims[: 6 - 1 - nested_dims_in_rows]
+        column_dims = [{"dimension": dims[len(header_dims)]["dimension"]}]
+        row_dims = [{"dimension": d["dimension"]} for d in dims[len(header_dims) + 1:]]
+        report_def = {"title": f"Random Report from Tutor Database (caching is {str(cube.caching)})",
+                             "header": header_dims, "columns": column_dims, "rows": row_dims}
+    # Execute the report
+    start = time.time()
+    report = Slice(cube, report_def)
+    duration = time.time() - start
+    footer = f"\tReport refreshed in {duration:.6} sec. {cube.counter_cell_requests:,}x cell requests " \
+             f"and {cube.counter_rule_requests:,}x rules executed."
+    return report.as_html(footer=footer)
+
 
 # FastAPI
 app = FastAPI(title="TinyOlap API")
 
-@app.get("/report", response_class=HTMLResponse)
-async def root():
 
-    # Create a sample report with random content
-    cube = server["tutor"].cubes["Verkauf"]
-    cube.reset_counters()
-    dims = [{"dimension": "datenart", "member": "Ist"},
-                          {"dimension": "jahre", "member": "1995"},
-                          {"dimension": "monate", "member": "März"},
-                          {"dimension": "regionen", "member": "Mitteleuropa"},
-                          {"dimension": "produkte", "member": "Produkte gesamt"},
-                          {"dimension": "wertart", "member": "Umsatz"}]
-    random.shuffle(dims)
-    for d in range(4):
-        members = server["tutor"].dimensions[dims[d]["dimension"]].get_members()
-        dims[d]["member"] = members[random.randrange(0, len(members))]
-    report_definition = {"title": "Random Report from Tutor Database (no caching)",
-                         "header": [dims[0], dims[1], dims[2], dims[3]],
-                         "columns": [{"dimension": dims[4]["dimension"]}],
-                         "rows": [{"dimension": dims[5]["dimension"]}]}
-    # Execute report
-    start = time.time()
-    report = Slice(cube, report_definition)
-    duration = time.time() - start
-    footer = f"\tReport refreshed in {duration:.6} sec. {cube.counter_cell_requests:,}x cell requests" \
-             f"and {cube.counter_rule_requests:,}x rules executed."
-    return report.as_html(footer=footer)
+@app.get("/report", response_class=HTMLResponse)
+async def report():
+    return render_report(True)
+
+@app.get("/nextreport", response_class=HTMLResponse)
+async def report():
+    return render_report(False)
 
 
 @app.get("/logo.png")
@@ -74,6 +86,7 @@ async def root():
             "databases": db_list,
             }
 
+
 @app.get("/databases/{database_id}/cubes")
 async def get_cubes(database_id):
     try:
@@ -88,6 +101,7 @@ async def get_cubes(database_id):
                 "version": str(server.Settings.version),
                 "error": str(err)
                 }
+
 
 @app.get("/databases/{database_id}/dimensions")
 async def get_dimensions(database_id):
@@ -104,6 +118,7 @@ async def get_dimensions(database_id):
                 "error": str(err)
                 }
 
+
 @app.get("/databases/{database_id}/dimensions/{dimension_id}")
 async def get_dimension(database_id, dimension_id):
     try:
@@ -114,6 +129,7 @@ async def get_dimension(database_id, dimension_id):
                 "version": str(server.Settings.version),
                 "error": str(err)
                 }
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

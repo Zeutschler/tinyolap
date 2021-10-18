@@ -54,4 +54,4 @@ class TestMember(TestCase):
         self.assertEqual("B", str(c.previous()))
 
     def test_various_tests_missing(self):
-        self.fail("Various tests on object MemberContext missing. Keep going bro... ;-)")
+        self.fail("Various tests on object MemberContext missing. Keep writing tests Bro... ;-)")

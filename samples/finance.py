@@ -4,11 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from enum import Enum
-
 from faker import Faker
 
 
-class TinySampleFactory:
+class TinySampleFinanceFactory:
     """
     A Factory to generate TinyOlap sample data models of various kind for various purposes.
     """
@@ -31,3 +30,14 @@ class TinySampleFactory:
     def create(self):
         # todo: Continue implementation of sample factory
         pass
+
+
+def play_finance(console_output = True):
+    pass
+
+def main():
+    play_finance(True)
+
+
+if __name__ == "__main__":
+    main()

@@ -5,6 +5,7 @@
 
 import os
 from collections.abc import Iterable
+from copy import deepcopy
 from pathlib import Path
 from typing import Tuple
 
@@ -117,6 +118,21 @@ class Database:
     # endregion
 
     # region Database related methods
+    def rename(self, new_name: str):
+        """Renames the database.
+        :param new_name: New name for the database.
+        :raise KeyError: Raised if the key is invalid.
+        """
+        if new_name != tinyolap.utils.to_valid_key(new_name):
+            raise KeyError(f"'{new_name}' is not a valid database name. "
+                                  f"alphanumeric characters and underscore supported only, "
+                                  f"no whitespaces, no special characters.")
+        self.name: str = new_name
+
+    def clone(self):
+        """Creates a clone (copy) of the database."""
+        return deepcopy(self)
+
     def open(self, file_name: str):
         """
         Opens a database from a file.
@@ -312,6 +328,13 @@ class Database:
         cube.caching = self.caching
         self.cubes[name] = cube
         return cube
+
+    def cube_exists(self, name: str):
+        """Checks if a cube exists.
+
+        :param name: Name of the cube to be checked.
+        :returns bool: Returns ``True`` if the cube exists, ``False`` otherwise."""
+        return name in self.cubes
 
     def set(self, cube: str, address: Tuple[str], measure: str, value: float):
         """

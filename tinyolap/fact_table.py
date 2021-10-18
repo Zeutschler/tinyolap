@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import weakref
 
 
 class FactTable:
@@ -83,14 +82,14 @@ class FactTable:
 
                     self._index[i][member_idx] = new_row_set
 
-    def __init__(self, dimensions: int, cube=None):
+    def __init__(self, dimensions: int, cube):
         self.row_lookup = {}
         self.facts = []
         self.addresses = []
         self.index = FactTable.FactTableIndex(dimensions)
         self.dims = dimensions
         # we need access to the parent cube. This is a garbage collection safe approach
-        self.cube = weakref.ref(cube) if cube else None
+        self.cube = cube
 
     def set(self, address: tuple, measure, value):
         record_hash = hash(address)
@@ -108,8 +107,8 @@ class FactTable:
             # update index
             self.index.set(address, row)
             if self.cube:
-                cube = self.cube()
-                cube._update_aggregation_index(self.index, address, row)
+                # cube = self.cube()
+                self.cube._update_aggregation_index(self.index, address, row)
             return True
 
     def get(self, address, measure):

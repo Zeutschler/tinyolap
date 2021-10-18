@@ -223,7 +223,7 @@ class Dimension:
         raise KeyError(f"Failed to create MemberContext for member '{member_name}'. The member does not exist.")
 
     # region add, remove, rename members
-    def add_member(self, member, children=None, description=None, number_format=None):
+    def add_member(self, member, children=None, description=None, number_format=None) -> Dimension:
         """Adds one or multiple members and (optionally) associated child-members to the dimension.
 
         :param member: A single string or an iterable of strings containing the members to be added.
@@ -235,7 +235,7 @@ class Dimension:
         :param number_format: A format string for output formatting, e.g. for numbers or percentages.
                Formatting follows the standard Python formatting specification at
                <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
-
+        :return Dimension: Returns the dimension itself.
         """
         if not self.edit_mode:
             raise DimensionEditModeError("Failed to add member. Dimension is not in edit mode.")
@@ -279,6 +279,8 @@ class Dimension:
                         raise KeyError(f"Failed to add member. Invalid member name '{child}'. "
                                        f"'\\t', '\\n' and '\\r' characters are not supported.")
                     self.__member_add_parent_child(member=child, parent=m, weight=1.0)
+
+        return self
 
     def rename_member(self, member: str, new_name: str, new_description: str = None):
         """Renames a member."""

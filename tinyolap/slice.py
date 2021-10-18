@@ -418,8 +418,8 @@ class Slice:
         # print col headers
         # print row headers and values
 
-        cell_width = 12
-        row_header_width = 12
+        cell_width = 14
+        row_header_width = 16
 
         row_dims = len(self.grid[0][4])
         col_dims = len(self.grid[0][3])
@@ -447,10 +447,14 @@ class Slice:
             for r in range(row_dims):
                 text += " ".ljust(row_header_width)
             for i in range(self.grid_cols_count):
-                text += self.grid[i][3][c].center(cell_width)
+                caption = self.grid[i][3][c]
+                if len(caption) > cell_width:
+                    caption = caption[:cell_width - 3].strip() + "..."
+                text += caption.center(cell_width)
             text += "\n"
 
         # row headers & cells
+        previous = {}
         for cell in self.grid:
             col = cell[0]
             row = cell[1]
@@ -469,8 +473,18 @@ class Slice:
             if col == 0:
                 if row > 0:
                     text += "\n"
-                for member in cell[4]:
-                    text += member.ljust(row_header_width)
+                for pos, member in enumerate(cell[4]):
+                    caption = member
+                    if len(caption) > row_header_width:
+                        caption = caption[:row_header_width - 3].strip + "..."
+                    if pos in previous:
+                        if previous[pos] != member:
+                            text += caption.ljust(row_header_width)
+                        else:
+                            text += " ".ljust(row_header_width)
+                    else:
+                        text += caption.ljust(row_header_width)
+                    previous[pos] = member
 
             text += value
 
@@ -533,6 +547,7 @@ class Slice:
         text += '</thead">\n'
 
         # row headers and cells
+        previous = {}
         text += tro
         for cell in self.grid:
             col = cell[0]
@@ -545,8 +560,18 @@ class Slice:
                 if row > 0:
                     text += trc
                     text += tro
-                for member in cell[4]:
-                    text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
+                for pos, member in enumerate(cell[4]):
+                    #text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
+                    if pos in previous:
+                        if previous[pos] != member:
+                            text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
+                        else:
+                            text += f'<th class="text-nowrap" scope="row"></th>\n'
+                    else:
+                        text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
+                    previous[pos] = member
+
+
 
             if type(value) is float:
                 if format:
@@ -582,8 +607,13 @@ class Slice:
                  '<li><a href="#" class="nav-link px-2 text-white">Baz</a></li>' \
                  '</ul>' \
                  '<form action="/report" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
-                 '<div class="text-end">' \
+                 '<div class="btn-toolbar">'\
                  '<button type="submit" class="btn btn-warning">Refresh</button>' \
+                 '</div>' \
+                 '</form>' \
+                 '<form action="/nextreport" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
+                 '<div class="btn-toolbar">'\
+                 '<button type="submit" class="btn btn-warning">Next</button>' \
                  '</div>' \
                  '</form>' \
                  '</div>' \
