@@ -2,47 +2,62 @@
 # TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from itertools import chain
+
+_RaiseKeyError = object() # singleton for no-default behavior
 
 class CaseInsensitiveDict(dict):
-    """
-    A simple case insensitive dictionary.
-    """
+    # dicts take a mapping or iterable as their optional first argument
+    __slots__ = ()  # no __dict__ - that would be redundant
 
-    class Key(str):
-        def __init__(self, key):
-            str.__init__(key)
+    @staticmethod  # because this doesn't make sense as a global function.
+    def _process_args(mapping=(), **kwargs):
+        if hasattr(mapping, 'items'):
+            mapping = getattr(mapping, 'items')()
+        return ((k.lower(), v) for k, v in chain(mapping, getattr(kwargs, 'items')()))
 
-        def __hash__(self):
-            return hash(self.lower())
+    def __init__(self, mapping=(), **kwargs):
+        super(CaseInsensitiveDict, self).__init__(self._process_args(mapping, **kwargs))
 
-        def __eq__(self, other):
-            return self.lower() == other.lower()
+    def __getitem__(self, k):
+        return super(CaseInsensitiveDict, self).__getitem__(k.lower())
+    def lookup(self, k):
+        return super(CaseInsensitiveDict, self).get(k.lower())
+    def lookuptry(self, k):
+        try:
+            return super(CaseInsensitiveDict, self).__getitem__(k.lower())
+        except:
+            return None
 
-    def __init__(self, data=None):
-        super(CaseInsensitiveDict, self).__init__()
-        if not data:
-            data = {}
-        else:
-            if isinstance(data, dict):
-                for key, val in data.items():
-                    self[key] = val
-            else:
-                for key, val in data:
-                    self[key] = val
+    def __setitem__(self, k, v):
+        return super(CaseInsensitiveDict, self).__setitem__(k.lower(), v)
 
-    def __contains__(self, key):
-        key = self.Key(key)
-        result = super(CaseInsensitiveDict, self).__contains__(key)
-        return result
+    def __delitem__(self, k):
+        return super(CaseInsensitiveDict, self).__delitem__(k.lower())
 
-    def __setitem__(self, key, value):
-        key = self.Key(key)
-        super(CaseInsensitiveDict, self).__setitem__(key, value)
+    def get(self, k, default=None):
+        return super(CaseInsensitiveDict, self).get(k.lower(), default)
 
-    def __getitem__(self, key):
-        key = self.Key(key)
-        return super(CaseInsensitiveDict, self).__getitem__(key)
+    def setdefault(self, k, default=None):
+        return super(CaseInsensitiveDict, self).setdefault(k.lower(), default)
 
-    def __delitem__(self, key):
-        key = self.Key(key)
-        return super(CaseInsensitiveDict, self).__delitem__(key)
+    def pop(self, k, v=_RaiseKeyError):
+        if v is _RaiseKeyError:
+            return super(CaseInsensitiveDict, self).pop(k.lower())
+        return super(CaseInsensitiveDict, self).pop(k.lower(), v)
+
+    def update(self, mapping=(), **kwargs):
+        super(CaseInsensitiveDict, self).update(self._process_args(mapping, **kwargs))
+
+    def __contains__(self, k):
+        return super(CaseInsensitiveDict, self).__contains__(k.lower())
+
+    def copy(self):  # don't delegate w/ super - dict.copy() -> dict :(
+        return type(self)(self)
+
+    @classmethod
+    def fromkeys(cls, keys, v=None):
+        return super(CaseInsensitiveDict, cls).fromkeys((k.lower() for k in keys), v)
+
+    def __repr__(self):
+        return '{0}({1})'.format(type(self).__name__, super(CaseInsensitiveDict, self).__repr__())

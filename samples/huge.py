@@ -72,7 +72,7 @@ def load_huge(console_output: bool = False):
             print(".", end="")
             if console_output and r % 100_000 == 0:
                 print(f" {r/numbers_of_records:.0%} ", end="")
-        # create a random cell address
+        # create a random cell idx_address
         idx = [randrange(members_per_dimension) for d in range(numbers_of_dimensions)]
         address = tuple(members[idx[i]] for i, members in enumerate(member_lists))
 

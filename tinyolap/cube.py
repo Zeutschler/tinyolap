@@ -96,7 +96,7 @@ class Cube:
         decorator or the arguments ``pattern`` and ``scope`` of the ``add_rules(...)`` function must be specified.
 
         :param function: The rules function to be called.
-        :param pattern: The cell address pattern that should trigger the rule.
+        :param pattern: The cell idx_address pattern that should trigger the rule.
         :param scope: The scope of the rule.
         """
         offset = 0
@@ -438,6 +438,10 @@ class Cube:
                 #     self._cache[bolt] = totals  # save value to cache
                 # return totals
 
+    def _set_base_level_cell(self, idx_address, idx_measure, value):
+        """Writes a base level value to the cube for the given idx_address (idx_address and measures)."""
+        self._facts.set(idx_address, idx_measure, value)
+
     def _set(self, bolt, value):
         """Writes a value to the cube for the given bolt (idx_address and measures)."""
         if self._caching and self._cache:
@@ -524,7 +528,7 @@ class Cube:
 
     def _idx_address_to_address(self, idx_address, include_cube_name: bool = False):
         """
-        Converts an address index to a address with member names
+        Converts an idx_address index to a idx_address with member names
         :param idx_address:
         :return:
         """
@@ -536,21 +540,30 @@ class Cube:
             address.append(self._dimensions[i].members[idx_address[i]][1])
         return address
 
-    def __address_to_bolt(self, keys):
-        """Converts a given idx_address, incl. member and (optional) measures, into a bolt.
-        A bolt is a tuple of integer keys, used for internal access of cells.
+    def _address_to_idx_address(self, address):
+        """
+        Converts an address to an idx_address index with member ids.
+        :param idx_address:
+        :return:
+        """
+        bolt = self.__address_to_bolt(address)
+        return bolt[1]
+
+    def __address_to_bolt(self, address):
+        """Converts a given address, incl. member and (optional) measures, into a bolt.
+        A bolt is a tuple of integer address, used for internal access of cells.
         """
 
         dim_count = self._dim_count
-        measures_count = len(keys) - dim_count
+        measures_count = len(address) - dim_count
         if measures_count < 0:
             raise InvalidCellAddressError(f"Invalid idx_address. At least {self._dim_count} members expected "
-                                          f"for cube '{self._name}, but only {len(keys)} where passed in.")
+                                          f"for cube '{self._name}, but only {len(address)} where passed in.")
         # Validate members
         dimensions = self._dimensions
         idx_address = [None] * dim_count
         super_level = 0
-        for i, member in enumerate(keys[: dim_count]):
+        for i, member in enumerate(address[: dim_count]):
             if member in dimensions[i]._member_idx_lookup:
                 idx_address[i] = dimensions[i]._member_idx_lookup[member]
                 super_level += dimensions[i].members[idx_address[i]][6]
@@ -564,7 +577,7 @@ class Cube:
             idx_measures = self._measures[self._default_measure]
         else:
             idx_measures = []
-            for measure in keys[self._dim_count:]:
+            for measure in address[self._dim_count:]:
                 if measure not in self._measures:
                     raise InvalidCellAddressError(f"'{measure}' is not a measure of cube '{self.name}'.")
                 idx_measures.append(self._measures[measure])

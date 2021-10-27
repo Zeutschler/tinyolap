@@ -26,7 +26,7 @@ def to_valid_key(s: str):
 
 
 def dict_keys_to_int(dictionary: dict):
-    """Converts all string keys in a dictionary containing numbers into integer keys.
+    """Converts all string address in a dictionary containing numbers into integer address.
     Note: This is not a general solutions and sufficient for a special purpose."""
     converted = {}
     for k, v in dictionary.items():

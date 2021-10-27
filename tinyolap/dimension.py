@@ -18,7 +18,7 @@ class Dimension:
     """
     Dimensions are used to define the axis of a multi-dimensional :ref:`cube <cubes>`.
     Dimensions contain a list or hierarchy of :ref:`members <members>`.
-    Members are string keys and representing the entities of the dimension. e.g.,
+    Members are string address and representing the entities of the dimension. e.g.,
     for a dimension called 'months' this would be the month names 'Jan' to 'Dec' or
     month aggregations like quarters or semesters.
 
@@ -367,7 +367,7 @@ class Dimension:
     def member_add_alias(self, member: str, alias: str):
         """
         Adds a member alias to the dimension. Aliases enable the access of members
-        by alternative names or keys (e.g. a technical key, or an abbreviation).
+        by alternative names or address (e.g. a technical key, or an abbreviation).
 
         :param member: Name of the member to add an alias for.
         :param alias: The alias to be set.
@@ -989,7 +989,7 @@ class Dimension:
             new_attributes = dim["attributes"]
             new_subsets = dim["subsets"]
 
-            # json does not allow non-string keys, but we use integer keys. Conversion is required.
+            # json does not allow non-string address, but we use integer address. Conversion is required.
             new_members = dict_keys_to_int(new_members)
 
             # second, apply everything (this should not fail)

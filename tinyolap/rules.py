@@ -117,12 +117,12 @@ class Rules:
 
     def first_match(self, idx_address) -> (bool, object):
         """
-        Returns the first pattern match, if any, for a given cell address.
+        Returns the first pattern match, if any, for a given cell idx_address.
 
-        :param idx_address: The cell address in index number_format.
+        :param idx_address: The cell idx_address in index number_format.
         :return: Returns a tuple (True, *function*) if at least one pattern matches,
         *function* is the actual rules function to call, or (False, None) if none
-        of the patterns matches the given cell address.
+        of the patterns matches the given cell idx_address.
         """
         for idx, function_pattern in enumerate(self.pattern_idx):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
             for dim_pattern in function_pattern:   # e.g. (0,3) >> dim0 = member3

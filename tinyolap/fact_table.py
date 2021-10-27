@@ -164,12 +164,14 @@ class FactTable:
             raise ValueError(f"Invalid query {idx_address}. At least one dimension needs to be specified.")
 
         # Execute intersection of sets
-        # Order matters most!!! order the sets by ascending number of items, this greatly
-        # improves the performance of intersection operations.
+        # Order matters most!!! So we order the sets ascending by number of items, process smaller sets first,
+        # this improves the performance of intersection quite nicely (±2x up to ±4x times on average).
         seq = sorted(((len(s), i) for i, s in enumerate(sets)))
         result = sets[seq[0][1]]
         for i in range(1, len(seq)):
             result = result.intersection(sets[seq[i][1]])
+            if not result:
+               break
         return result
 
     def query_area(self, idx_area_def):

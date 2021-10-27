@@ -177,7 +177,7 @@ def play_tutor(console_output: bool = True):
     if console_output:
         tprint("TinyOlap",font="Slant")
 
-    database: Database = load_tutor()
+    database: Database = load_tutor(console_output)
 
     # 1. get the cube
     cube = database.cubes["verkauf"]

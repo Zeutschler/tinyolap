@@ -393,7 +393,7 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     cube["2022", "Feb", "North", "sedan", "Sales"] = 67.0
 
     # Now you can get a list of ALL EXISTING records.
-    # Each record contains the address of each cell and its value as a list.
+    # Each record contains the idx_address of each cell and its value as a list.
     records = list(data.records())
     # record and value can be seperated from each other easily as shown in the loop below
     for record in data.records():
@@ -418,7 +418,7 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     # The following statement copies all 'sales' data from 2022 to 2023,
     # before copying, the target area will be cleared.()
     # todo: implementation not yet ready. Go Bro, go ....
-    #data["2023"] = data["2022"] * 2
+    # data["2023"] = data["2022"] * 2
 
     # *************************************************************************
     # 5. Let's get down to business.

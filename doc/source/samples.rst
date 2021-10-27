@@ -51,9 +51,9 @@ It provides the following features, leveraging many of TinyOlap's capabilities:
   and only the finance guy can see certain cost figures and EBIT. And the boss can see
   anything but is not allowed to change data.
 
-----------------
-3. Huge
-----------------
+------------------------------
+3. Huge (the opposite of tiny)
+------------------------------
 
 .. warning::
    Please be aware that your RAM is limited. **Don't overdo it!** Python will crash when
@@ -86,9 +86,9 @@ The data model show cases how you can update the structure and content of databa
 more or less real time. Although the request for flight data will need some time (sometimes
 seconds), the actual update and import of the data model only takes a few milliseconds.
 
------------------
-5. Tutor Database
------------------
+-------------------------------
+5. Tutor - A vintage data model
+-------------------------------
 
 **Usage:** Open and/or start the script *...tinyolap/samples/tutor.py*
 
@@ -121,19 +121,16 @@ The Tutor database is in german language, but it should be understandable for ev
 The TXT files in the folder *tutor* are the original files ship with the database on a
 3½-inch disk at around 1995, they are single-byte **latin-1** encoded (ISO 8859-1).
 
-------------------------------
-6. Tiny42
-------------------------------
-
-.. note::
-   Coming soon. Under development.
+--------------------------------------
+6. Tiny42 - TinyOlap multi-processsing
+--------------------------------------
 
 **Usage:** Open and/or start the script *...tinyolap/samples/tiny42.py*
 
 Purpose of the Tiny42 data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 This example show cases the cloning of databases and how to use multiprocessing
-(the cores of your CPU) to process multiple databases in parallel. The example
+(not multi-threading) to process multiple databases in parallel. The example
 works in-memory, in order to not flood you disk with database files.
 
 We create 1x database template, create 42x independent clones and process *them* in

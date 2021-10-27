@@ -23,7 +23,7 @@ class TestDimension(TestCase):
     def test_member_naming_conventions(self):
         dim = self.db.add_dimension("naming")
 
-        valid_names = ["we", "are", "all", "valid", "keys", "123","ððð➜₥ℌ℉≥∭♖☀︎☀⚽︎︎"]
+        valid_names = ["we", "are", "all", "valid", "address", "123","ððð➜₥ℌ℉≥∭♖☀︎☀⚽︎︎"]
         invalid_names = ["no \t tabs", "no \n new lines", "no \r carriage return"]
 
         dim.edit()

@@ -17,9 +17,8 @@ from tinyolap.dimension import Dimension
 from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
 
-
 number_of_machines = 42  # Change to see what happens...
-
+num_cores = 8  # adjust to the number of cores you have or want to use
 
 def load_tiny42(console_output: bool = False) -> Database:
     """Create a small (empty) template database for sensor data of our marmalade machines."""
@@ -136,9 +135,10 @@ def rule_average_temperature(c: CellContext):
 
 def play_tiny42(console_output: bool = True):
     """
-
-    :param console_output:
-    :return:
+    This example show cases the cloning of databases and how to use multiprocessing
+    (not multi-threading) to process multiple databases in parallel. The example
+    works in-memory, in order to not flood you disk with database files.
+    :param console_output: Ste to False for silent execution.
     """
     if console_output:
         tprint("TinyOlap", font="Slant")
@@ -156,9 +156,9 @@ def play_tiny42(console_output: bool = True):
     if console_output:
         print(f"Generating machine data for {number_of_machines}x machine in parallel. Please wait...")
     # https://stackoverflow.com/questions/43002766/apply-a-method-to-a-list-of-objects-in-parallel-using-multi-processing
-    NUM_CORES = 8  # adjust to the number of cores you want to use
-    pool = mp.Pool(NUM_CORES)
-    processed_dbs = pool.map(machine, ((db, id + 1, console_output) for id, db in enumerate(machine_dbs)))
+    pool = mp.Pool(num_cores)
+    processed_dbs = pool.map(machine, ((db, machine_id + 1, console_output)
+                                       for machine_id, db in enumerate(machine_dbs)))
     pool.close()
     pool.join()
 

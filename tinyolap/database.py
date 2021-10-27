@@ -15,6 +15,7 @@ from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cube import Cube
 from tinyolap.custom_errors import *
 from tinyolap.dimension import Dimension
+from tinyolap.history import History
 
 
 class Database:
@@ -52,7 +53,8 @@ class Database:
                                   f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
-        self.name: str = name
+        self._history: History = History(self)
+        self._name: str = name
         self._in_memory = in_memory
         self._backend = Backend(name, self._in_memory)
         self._database_file = self._backend.file_path
@@ -70,6 +72,17 @@ class Database:
         :return: Returns ``True`` if the database is in-memory mode, ``False`` otherwise.
         """
         return self._caching
+
+    @property
+    def history(self) -> History:
+        """Returns the history of the database."""
+        return self._history
+
+
+    @property
+    def name(self) -> str:
+        """Returns the name of the database."""
+        return self._name
 
     @property
     def caching(self) -> bool:
@@ -112,7 +125,7 @@ class Database:
         :param value: Set value to ``True`` to activate caching, ``False`` to deactivate caching.
         """
         self._caching = value
-        for cube in self.cubes:
+        for cube in self.cubes.values():
             cube.caching = value
 
     # endregion
@@ -127,7 +140,7 @@ class Database:
             raise KeyError(f"'{new_name}' is not a valid database name. "
                                   f"alphanumeric characters and underscore supported only, "
                                   f"no whitespaces, no special characters.")
-        self.name: str = new_name
+        self._name: str = new_name
 
     def clone(self):
         """Creates a clone (copy) of the database."""
@@ -336,7 +349,7 @@ class Database:
         :returns bool: Returns ``True`` if the cube exists, ``False`` otherwise."""
         return name in self.cubes
 
-    def set(self, cube: str, address: Tuple[str], measure: str, value: float):
+    def set(self, cube: str, address: Tuple[str], value: float):
         """
         Writes a value to the database for the given cube, idx_address and measure.
         Write back is supported for base level cells only.
@@ -349,10 +362,9 @@ class Database:
 
         :param cube: Name of the cube to write to.
         :param address: Address of the cube cell to write to.
-        :param measure: NAme of the measure to write to
         :param value: The value to be written to the database.
         """
-        self.cubes[cube].set(address, measure, value)
+        self.cubes[cube].set(address, value)
 
     def get(self, cube: str, address: Tuple[str], measure: str):
         """Returns a value from the database for a given cube, idx_address and measure.
