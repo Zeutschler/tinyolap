@@ -20,16 +20,17 @@ class Command(ABC):
         """Redo the command."""
 
 
-class CompoundCommand():
+class CompoundCommand(Command):
     """Command that represents a list of related commands,
      e.g. a multi-value transaction."""
-    def __init__(self, commands):
+    def __init__(self, commands = None):
         super().__init__()
         self.undone = False
+        self.commands: list[Command] = []
         if isinstance(commands, Iterable):
-            self.commands = commands
+            self.commands += commands
         else:
-            self.commands = [commands,]
+            self.commands.append(commands)
 
     def undo(self, database) -> bool:
         """Undo the command."""
@@ -47,6 +48,13 @@ class CompoundCommand():
         self.undone = False
         return result
 
+    def add(self, command:Command):
+        self.commands.append(command)
+
+    def __len__(self):
+        return len(self.commands)
+
+    
 
 class CubeSetCommand(Command):
     """Command to set a cube value."""

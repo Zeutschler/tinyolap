@@ -5,6 +5,7 @@
 
 import re
 import string
+import os
 
 MEMBER_NAME_CHARS = set(string.ascii_letters + string.digits + '.-_/#+-*:,;|{}()"')
 DB_OBJECT_NAME_CHARS = set(string.ascii_letters + string.digits + '_')
@@ -42,3 +43,29 @@ def dict_keys_to_int(dictionary: dict):
         converted[new_k] = new_v
     return converted
 
+
+def get_path(folder: str = "db", create_path: bool = True):
+    """
+    Returns the path to a folder relative to the current working directory.
+    :param folder: Name of the folder.
+    :param create_path: Flag if the folder should be created if it does not exist.
+    :return: The path of the folder.
+    """
+    folder = os.path.normpath(folder)
+    directory = os.path.join(os.getcwd(), folder)
+    if create_path:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    return directory
+
+
+def get_file_path(file_name: str, folder: str = "db", create_path: bool = True):
+    """
+    Returns the path to a file and folder relative to the current working directory.
+    :param file_name: Name of the file (incl. extensions).
+    :param folder: Name of the folder.
+    :param create_path: Flag if the folder should be created if it does not exist.
+    :return: The path of the file.
+    """
+    file_folder = get_path(folder, create_path)
+    return os.path.join(file_folder, file_name)
