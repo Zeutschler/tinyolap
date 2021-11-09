@@ -10,6 +10,7 @@ from pathlib import Path
 from timeit import default_timer as timer
 import tinyolap.utils
 from tinyolap.custom_errors import *
+from tinyolap.encryption import Encryptor
 
 
 class SqliteBackend:
@@ -30,11 +31,13 @@ class SqliteBackend:
 
     DATA_TABLE_PREFIX = "tiny_data_"
 
-    def __init__(self, name: str, database_folder: str = None, logging: bool = True, logger: logging.Logger = None):
+    def __init__(self, name: str, database_folder: str = None, logging: bool = True,
+                 logger: logging.Logger = None, encryptor: Encryptor = None):
         self.name = name.strip()
         self.database_folder = database_folder
         self.logging = logging
         self.logger = logger
+        self.encryptor = encryptor
         self.file_name = None
         self.folder = None
         self.file_path = None
@@ -244,6 +247,8 @@ class SqliteBackend:
         else:
             sql = f"INSERT INTO {table}(address, data) VALUES(?,?) " \
                   f"ON CONFLICT(address) DO UPDATE SET address=EXCLUDED.address;"
+            if self.encryptor:
+                data = self.encryptor.encrypt(data)
             self._execute(sql, (address, data))
         if instant_commit:
             self._commit()
@@ -264,7 +269,10 @@ class SqliteBackend:
         if del_records:
             sql = f"DELETE FROM {table} WHERE address = '?';"
             self._execute(sql, del_records)
-            upsert_records = [(address,) for address, data in records if data]
+            if self.encryptor:
+                upsert_records = [(address, self.encryptor.encrypt(data)) for address, data in records if data]
+            else:
+                upsert_records = [(address, data) for address, data in records if data]
         else:
             upsert_records = records
 
@@ -290,7 +298,10 @@ class SqliteBackend:
         sql = f"SELECT data FROM {table} WHERE address = {address};"
         records = self._fetchall(sql)
         if records:
-            return records[0][0]
+            if self.encryptor:
+                return self.encryptor.decrypt(records[0][0])
+            else:
+                return records[0][0]
         return None
     # endregion
 
