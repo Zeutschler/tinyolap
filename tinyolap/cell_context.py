@@ -106,7 +106,7 @@ class CellContext(SupportsFloat):
             MemberContext names can be in one of the ƒfollowing formats:
 
                {member_name} e.g.: clone = c.alter("Mar", ...)
-               {dimension_name:member_name} e.g.: clone = c.alter("months:Mar", ...)
+               {cube_name:member_name} e.g.: clone = c.alter("months:Mar", ...)
                {dimension_index:member_name} e.g.: clone = c.alter("1:Mar", ...)
 
             If multiple modifiers for a single dimension are defined, then the last of those will be used.
@@ -241,14 +241,14 @@ class CellContext(SupportsFloat):
                     idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressError(f"Invalid member key. '{dim_name}' is not a dimension "
+                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
                                                   f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member_name = member_name[pos + 1:].strip()
             if member_name not in dimensions[idx_dim]._member_idx_lookup:
-                raise InvalidCellAddressError(f"Invalid member key. '{member_name}'is not a member of "
+                raise InvalidCellAddressException(f"Invalid member key. '{member_name}'is not a member of "
                                               f"dimension '{dim_name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
 
@@ -276,7 +276,7 @@ class CellContext(SupportsFloat):
                 idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressError(f"Invalid member key. '{dim_name}' is not a dimension "
+                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
                                                   f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 

@@ -16,7 +16,7 @@ class TestDimension(TestCase):
 
     def test_duplicate_dimension(self):
         dim = self.db.add_dimension("doublet")
-        with self.assertRaises(DuplicateKeyError):
+        with self.assertRaises(DuplicateKeyException):
             self.db.add_dimension("doublet")
         self.db.dimension_remove("doublet")
 

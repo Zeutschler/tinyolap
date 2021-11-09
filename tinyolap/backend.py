@@ -106,10 +106,10 @@ class Backend:
                 return True
         except sqlite3.Error as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
-            raise FatalError()
+            raise FatalException()
         except Exception as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
-            raise FatalError()
+            raise FatalException()
 
     def close(self):
         if self._in_memory:
@@ -234,6 +234,7 @@ class Backend:
         self.__execute(sql)
         self.logger.info(f"Cube '{cube_name}' removed: {sql}")
 
+
     def __initialize_db(self):
         """Initializes a new and empty database by adding several meta tables."""
         self.logger.info(f"Initialization of new database started.")
@@ -241,19 +242,8 @@ class Backend:
         self.__add_table(self.META_TABLE_DIM, self.META_TABLE_FIELDS)
         if not self.__table_exists(self.META_TABLE_DIM):
             self.logger.error(f"Failed to add meta tables.")
-            raise FatalError("Failed to add meta tables to database.")
+            raise FatalException("Failed to add meta tables to database.")
         self.logger.info(f"Initialization of new database finished.")
-
-    def __add_table(self, table_name, fields: list[tuple]):
-        sql = f"DROP TABLE IF EXISTS {table_name};"
-        self.__execute(sql)
-        sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join([str(f[0]) + ' ' + str(f[1]) for f in fields])} );"
-        self.__execute(sql)
-        self.commit()
-        self.logger.info(f"New database table '{table_name}' added. {sql}")
-
-    def __generate_add_table_statement(self, table_name, fields: list[tuple]):
-        return f"CREATE TABLE IF NOT EXISTS {table_name} ({','.join([str(f[0]) + ' ' + str(f[1]) for f in fields])} );"
 
     def __validate_db(self) -> bool:
         """Checks that the database is equipped with all required meta tables."""
@@ -269,6 +259,17 @@ class Backend:
         # self.__execute('PRAGMA mmap_size = 30000000000;')
         self.commit()
 
+    def __add_table(self, table_name, fields: list[tuple]):
+        sql = f"DROP TABLE IF EXISTS {table_name};"
+        self.__execute(sql)
+        sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join([str(f[0]) + ' ' + str(f[1]) for f in fields])} );"
+        self.__execute(sql)
+        self.commit()
+        self.logger.info(f"New database table '{table_name}' added. {sql}")
+
+    # def __generate_add_table_statement(self, table_name, fields: list[tuple]):
+    #     return f"CREATE TABLE IF NOT EXISTS {table_name} ({','.join([str(f[0]) + ' ' + str(f[1]) for f in fields])} );"
+
     def __get_all_db_tables(self):
         return self.__fetchall(f"SELECT name, sql FROM sqlite_master WHERE type='table';")
 
@@ -280,7 +281,7 @@ class Backend:
         try:
             return self.cursor.execute(sql).fetchone()[0] == 1
         except sqlite3.Error as err:
-            raise FatalError()
+            raise FatalException()
 
     def __execute(self, sql: str, data=None):
         """Executes an SQL idx_address without returning a result or resultset."""

@@ -104,7 +104,7 @@ class Cube:
             if callable(function) and function.__name__ == "<lambda>":
                 offset = 1
             else:
-                raise RuleError(
+                raise RuleException(
                     f"Argument 'function' does not seem to be a Python function, type id '{type(function)}'.")
 
         # validate function and decorator parameters
@@ -113,7 +113,7 @@ class Cube:
         if hasattr(function, "cube"):
             cube_name = function.cube
             if cube_name.lower() != self.name.lower():
-                raise RuleError(
+                raise RuleException(
                     f"Failed to add rule function. Function '{function_name}' does not seem to be associated "
                     f"with this cube '{self.name}', but with cube '{cube_name}'.")
         if not pattern:
@@ -122,19 +122,19 @@ class Cube:
                 if type(pattern) is str:
                     pattern = [pattern, ]
                 if not type(pattern) is list:
-                    raise RuleError(f"Failed to add rule function. Argument 'pattern' is not of the expected "
+                    raise RuleException(f"Failed to add rule function. Argument 'pattern' is not of the expected "
                                     f"type 'list(str)' but of type '{type(pattern)}'.")
             else:
-                raise RuleError(f"Failed to add rule function. Argument 'pattern' missing for "
+                raise RuleException(f"Failed to add rule function. Argument 'pattern' missing for "
                                 f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
         if not scope:
             if hasattr(function, "scope"):
                 scope = function.scope
                 if not (str(type(scope)) == str(type(RuleScope.ROLL_UP))):
-                    raise RuleError(f"Failed to add rule function. Argument 'scope' is not of the expected "
+                    raise RuleException(f"Failed to add rule function. Argument 'scope' is not of the expected "
                                     f"type ''{type(RuleScope.ALL_LEVELS)}' but of type '{type(scope)}'.")
             else:
-                raise RuleError(f"Failed to add rule function. Argument 'scope' missing for "
+                raise RuleException(f"Failed to add rule function. Argument 'scope' missing for "
                                 f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
 
         if type(pattern) is str:  # a lazy user forgot to put the pattern in brackets
@@ -153,7 +153,7 @@ class Cube:
         elif scope == RuleScope.ON_ENTRY:
             self._rules_on_entry.register(function, function_name, pattern, idx_pattern, scope)
         else:
-            raise RuleError(f"Unexpected value '{str(scope)}' for argument 'scope'.")
+            raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope'.")
 
     def __pattern_to_idx_pattern(self, pattern):
         """
@@ -313,7 +313,7 @@ class Cube:
     def get(self, address: tuple):
         """Reads a value from the cube for a given idx_address.
         If no records exist for the given idx_address, then 0.0 will be returned.
-        :raises InvalidKeyError:
+        :raises InvalidKeyException:
         """
         bolt = self.__address_to_bolt(address)
         return self._get(bolt)
@@ -351,7 +351,7 @@ class Cube:
                             return value
                     except Exception as e:
                         return "ERR"
-                        raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
+                        raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
 
         if super_level == 0:  # base-level cells
             # BASE_LEVEL rules
@@ -368,12 +368,12 @@ class Cube:
                                     self._cache[bolt] = value  # save value to cache
                                 return value
                         except Exception as e:
-                            raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
+                            raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
 
             if type(idx_measures) is int:
                 return self._facts.get(idx_address, idx_measures)
             else:
-                raise FatalError("Depreciated. Feature Needs to be removed")
+                raise FatalException("Depreciated. Feature Needs to be removed")
                 # self._cell_request_counter += len(idx_measures)
                 # return [self._facts.get(idx_address, m) for m in idx_measures]
 
@@ -396,7 +396,7 @@ class Cube:
                                     self._cache[bolt] = value  # save value to cache
                                 return value
                         except Exception as e:
-                            raise RuleError(f"Rule function {func.__name__} failed. {str(e)}")
+                            raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
 
             # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address)
@@ -422,7 +422,7 @@ class Cube:
 
                 return total
             else:
-                raise FatalError("Depreciated. Feature Needs to be removed")
+                raise FatalException("Depreciated. Feature Needs to be removed")
                 # if not rows:
                 #     return [0.0] * len(idx_measures)
                 # facts = self._facts.facts
@@ -458,7 +458,7 @@ class Cube:
             elif isinstance(idx_measures, collections.abc.Sequence):
                 if isinstance(value, collections.abc.Sequence):
                     if len(idx_measures) != len(value):
-                        raise InvalidKeyError(f"Arguments for write back not aligned. The numbers of measures "
+                        raise InvalidKeyException(f"Arguments for write back not aligned. The numbers of measures "
                                               f"and the numbers of values handed in need to be identical.")
                     result = all([self._facts.set(idx_address, m, v) for m, v in zip(idx_measures, value)])
                 else:
@@ -473,7 +473,7 @@ class Cube:
 
             return True
         else:
-            raise InvalidOperationError(f"Write back to aggregated cells in not (yet) supported.")
+            raise InvalidOperationException(f"Write back to aggregated cells in not (yet) supported.")
 
     def _update_aggregation_index(self, fact_table_index, address, row):
         """Updates all fact table index for all aggregations over all dimensions. FOR INTERNAL USE ONLY!"""
@@ -557,7 +557,7 @@ class Cube:
         dim_count = self._dim_count
         measures_count = len(address) - dim_count
         if measures_count < 0:
-            raise InvalidCellAddressError(f"Invalid idx_address. At least {self._dim_count} members expected "
+            raise InvalidCellAddressException(f"Invalid idx_address. At least {self._dim_count} members expected "
                                           f"for cube '{self._name}, but only {len(address)} where passed in.")
         # Validate members
         dimensions = self._dimensions
@@ -568,7 +568,7 @@ class Cube:
                 idx_address[i] = dimensions[i]._member_idx_lookup[member]
                 super_level += dimensions[i].members[idx_address[i]][6]
             else:
-                raise InvalidCellAddressError(f"Invalid idx_address. '{member}' is not a member of the {i}. "
+                raise InvalidCellAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
                                               f"dimension '{dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
@@ -579,7 +579,7 @@ class Cube:
             idx_measures = []
             for measure in address[self._dim_count:]:
                 if measure not in self._measures:
-                    raise InvalidCellAddressError(f"'{measure}' is not a measure of cube '{self.name}'.")
+                    raise InvalidCellAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
                 idx_measures.append(self._measures[measure])
             if measures_count == 1:
                 idx_measures = idx_measures[0]

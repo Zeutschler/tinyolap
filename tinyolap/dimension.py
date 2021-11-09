@@ -174,7 +174,7 @@ class Dimension:
         :return: The dimension itself.
         """
         if self.edit_mode:
-            raise DimensionEditModeError("Failed to set edit mode. 'edit_begin()' was already called before.")
+            raise DimensionEditModeException("Failed to set edit mode. 'edit_begin()' was already called before.")
         self.edit_mode = True
         self.recovery_json = self.to_json()
         self.recovery_idx = set(self._member_idx_lookup.values())
@@ -238,7 +238,7 @@ class Dimension:
         :return Dimension: Returns the dimension itself.
         """
         if not self.edit_mode:
-            raise DimensionEditModeError("Failed to add member. Dimension is not in edit mode.")
+            raise DimensionEditModeException("Failed to add member. Dimension is not in edit mode.")
 
         member_list = member
         children_list = children
@@ -267,12 +267,12 @@ class Dimension:
                 if isinstance(c, str):
                     c = [c]
                 elif not (isinstance(c, collections.abc.Sequence) and not isinstance(c, str)):
-                    raise DimensionEditModeError(
+                    raise DimensionEditModeException(
                         f"Failed to member '{m}' to dimension '{self.name}'. Unexpected type "
                         f"'{type(c)}' of parameter 'children' found.")
                 for child in c:
                     if not isinstance(child, str):
-                        raise DimensionEditModeError(
+                        raise DimensionEditModeException(
                             f"Failed to add child to member '{m}' of dimension '{self.name}. Unexpected type "
                             f"'{type(c)}' of parameter 'children' found.")
                     if not self.__valid_member_name(child):
@@ -317,7 +317,7 @@ class Dimension:
         # Ensure all members exist
         for member in member_list:
             if member not in self._member_idx_lookup:
-                raise DimensionEditModeError(f"Failed to remove member(s). "
+                raise DimensionEditModeException(f"Failed to remove member(s). "
                                              f"At least 1 of {len(member_list)} member ('{member}') is not "
                                              f"a member of dimension {self.name}")
 
@@ -372,7 +372,7 @@ class Dimension:
         :param member: Name of the member to add an alias for.
         :param alias: The alias to be set.
         :raises KeyError: Raised if the member does not exist.
-        :raises DuplicateKeyError: Raised if the alias is already used by another member.
+        :raises DuplicateKeyException: Raised if the alias is already used by another member.
                 Individual aliases can only be assigned to one member.
 
         """
@@ -380,7 +380,7 @@ class Dimension:
             raise KeyError(f"{member}' is not member a of dimension'{self.name}'")
         idx_member = self._member_idx_lookup[member]
         if alias in self.alias_idx_lookup:
-            raise DuplicateKeyError(f"Duplicate alias. The alias '{alias}' is already used "
+            raise DuplicateKeyException(f"Duplicate alias. The alias '{alias}' is already used "
                                     f"by member '{self.members[idx_member][self.NAME]}' of dimension'{self.name}'")
         self.alias_idx_lookup[alias] = idx_member
 
@@ -741,15 +741,15 @@ class Dimension:
 
         :param attribute_name: Name of the attribute to be added.
         :param value_type: Type of value expected for the attribute. Default value is ``object`` to allow any data.
-        :raises InvalidKeyError: Raised when the name of the attribute is invalid.
-        :raises DuplicateKeyError: Raised when the name of the attribute already exists.
+        :raises InvalidKeyException: Raised when the name of the attribute is invalid.
+        :raises DuplicateKeyException: Raised when the name of the attribute already exists.
         """
         if not is_valid_db_object_name(attribute_name):
-            raise InvalidKeyError(f"'{attribute_name}' is not a valid dimension attribute name. "
+            raise InvalidKeyException(f"'{attribute_name}' is not a valid dimension attribute name. "
                                   f"Lower case alphanumeric characters and underscore supported only, "
                                   f"no whitespaces, no special characters.")
         if attribute_name in self.attributes:
-            raise DuplicateKeyError(f"Failed to add attribute to dimension. "
+            raise DuplicateKeyException(f"Failed to add attribute to dimension. "
                                     f"A dimension attribute named '{attribute_name}' already exists.")
         self.attributes[attribute_name] = value_type
 
@@ -759,11 +759,11 @@ class Dimension:
 
         :param attribute_name: The name of the attribute to be renamed.
         :param new_attribute_name: The new name of the attribute.
-        :raises InvalidKeyError: Raised when the new name of the attribute is invalid.
-        :raises DuplicateKeyError: Raised when the new name of the attribute already exists.
+        :raises InvalidKeyException: Raised when the new name of the attribute is invalid.
+        :raises DuplicateKeyException: Raised when the new name of the attribute already exists.
         """
         if not is_valid_db_object_name(new_attribute_name):
-            raise InvalidKeyError(f"Failed to rename dimension attribute. "
+            raise InvalidKeyException(f"Failed to rename dimension attribute. "
                                   f"'{new_attribute_name}' is not a valid dimension attribute name. "
                                   f"Lower case alphanumeric characters and underscore supported only, "
                                   f"no whitespaces, no special characters.")
@@ -830,17 +830,17 @@ class Dimension:
 
         :param subset_name: Name of the subset to be added.
         :param members: A list (iterable) containing the member to be added to the subset.
-        :raises InvalidKeyError: Raised when the name of the subset is invalid.
-        :raises DuplicateKeyError: Raised when the name of the subset already exists.
+        :raises InvalidKeyException: Raised when the name of the subset is invalid.
+        :raises DuplicateKeyException: Raised when the name of the subset already exists.
         :raises TypeError: Raised when members list is not of the expected type (list or tuple)
         :raises KeyError: Raised when a member from the members list is not contained in the dimension.
         """
         if not is_valid_db_object_name(subset_name):
-            raise InvalidKeyError(f"'{subset_name}' is not a valid dimension subset name. "
+            raise InvalidKeyException(f"'{subset_name}' is not a valid dimension subset name. "
                                   f"Lower case alphanumeric characters and underscore supported only, "
                                   f"no whitespaces, no special characters.")
         if subset_name in self.subsets:
-            raise DuplicateKeyError(f"Failed to add subset to dimension. "
+            raise DuplicateKeyException(f"Failed to add subset to dimension. "
                                     f"A dimension subset named '{subset_name}' already exists.")
 
         # validate members list
@@ -898,11 +898,11 @@ class Dimension:
 
         :param subset_name: Name of the subset to be added.
         :param new_subset_name: New name of the subset.
-        :raises InvalidKeyError: Raised when the new name for the subset is invalid.
+        :raises InvalidKeyException: Raised when the new name for the subset is invalid.
         :raises KeyError: Raised when the subset is not contained in the dimension.
         """
         if not is_valid_db_object_name(new_subset_name):
-            raise InvalidKeyError(f"'{new_subset_name}' is not a valid dimension subset name. "
+            raise InvalidKeyException(f"'{new_subset_name}' is not a valid dimension subset name. "
                                   f"Lower case alphanumeric characters and underscore supported only, "
                                   f"no whitespaces, no special characters.")
         if not subset_name in self.subsets:
@@ -973,7 +973,7 @@ class Dimension:
             **before** you create any cube. Handle with care.
 
         :param json_string: The json string containing the dimension definition.
-        :raises FatalError: Raised if an error occurred during the deserialization from json string.
+        :raises FatalException: Raised if an error occurred during the deserialization from json string.
         """
         if not self.edit_mode:
             self.edit()
@@ -1002,7 +1002,7 @@ class Dimension:
             self.subsets = new_subsets
             self.commit()
         except Exception as err:
-            raise FatalError(f"Failed to load json for dimension '{self.name}'. {str(err)}")
+            raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")
 
     # endregion
 
@@ -1075,7 +1075,7 @@ class Dimension:
             self.members[member_idx][self.PARENTS].remove(parent_idx)
             self.members[parent_idx][self.CHILDREN].remove(member_idx)
 
-            raise DimensionEditModeError(f"Circular reference detected on adding parent <-> child relation "
+            raise DimensionEditModeException(f"Circular reference detected on adding parent <-> child relation "
                                          f"'{self.members[parent_idx][self.NAME]}' <-> "
                                          f"'{self.members[member_idx][self.NAME]}' "
                                          f"to dimension {self.name}. Both members were added, "
@@ -1103,7 +1103,7 @@ class Dimension:
     def __check_circular_reference(self):
         for idx in self._member_idx_lookup.values():
             if self.__circular_reference_detection(idx, idx):
-                raise DimensionEditModeError(f"Failed to commit dimension. Circular reference detected "
+                raise DimensionEditModeException(f"Failed to commit dimension. Circular reference detected "
                                              f"for member {self.members[idx][self.NAME]}.")
 
     def __circular_reference_detection(self, start: int, current: int, visited=None):

@@ -370,7 +370,7 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     # WARNING: You have no guarantee and control on what dimension the cursor will actually modify.
 
     # But the solution to this problem is very easy, you just need to explicitly hand in the dimension name...
-    #   cursor[dimension_name:member_name]
+    #   cursor[cube_name:member_name]
     # BRAVO !!! Now your save, at least almost...
     sport_cars_in_percent = c["sports"] / c["products:Total"] * 100.0
 
