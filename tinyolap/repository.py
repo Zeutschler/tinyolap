@@ -276,6 +276,22 @@ class SqliteBackend:
         if instant_commit:
             self._commit()
         return True
+
+    def get_record(self, cube_name: str, address: str):
+        """
+        Returns data from a cubes data table.
+        :param cube_name: Name of the cube to get data from.
+        :param address: The requested address.
+        :return: The data stored for the given address.
+           If the address does not exist, ``None`` will be returned.
+        """
+        fields_clause = ', '.join(['m' + str(m) for m in measure])
+        table = self.DATA_TABLE_PREFIX + cube_name
+        sql = f"SELECT data FROM {table} WHERE address = {address};"
+        records = self._fetchall(sql)
+        if records:
+            return records[0][0]
+        return None
     # endregion
 
     # region Cube related methods
