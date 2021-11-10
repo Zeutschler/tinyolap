@@ -9,16 +9,18 @@ from os import path
 from pathlib import Path
 from timeit import default_timer as timer
 import tinyolap.utils
+from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.custom_errors import *
 from tinyolap.encryption import Encryptor
 
 
-class SqliteBackend:
+class SqliteStorage(StorageProvider):
+    """SQLite 3 storage provider. Default for persistence in TinyOlap."""
 
     # file related names
     DB_DEFAULT_FOLDER_NAME = "db"
-    DB_EXTENSION = ".db"
-    LOG_EXTENSION = ".log"
+    DB_EXTENSION = ".tinyolap.db"
+    LOG_EXTENSION = ".tinyolap.log"
     LOG_LEVEL = logging.INFO
 
     # database object names
@@ -43,8 +45,8 @@ class SqliteBackend:
         self.file_path = None
         self.log_file = None
         self.is_open = False
-        self.conn: sqlite3.Connection = sqlite3.Connection()
-        self.cursor: sqlite3.Cursor = sqlite3.Cursor()
+        self.conn: sqlite3.Connection = None
+        self.cursor: sqlite3.Cursor = None
 
     # region basic database handling - open , close, delete, ...
     def open(self, **kwargs) -> bool:
@@ -55,7 +57,7 @@ class SqliteBackend:
         :raises DatabaseBackendException: Raised when the opening of / connecting to the database file failed.
         """
         file_exists, self.folder, self.file_path, self.file_name = self._evaluate_path(self.name)
-        self.log_file = self.file_path + self.LOG_EXTENSION
+        self.log_file = str(self.file_path) + self.LOG_EXTENSION
         self._initialize_logger()
 
         self.close()
@@ -88,7 +90,7 @@ class SqliteBackend:
         :return: ``True`` if the database was successfully closed
             or was already closed, ``False``otherwise.
         """
-        if self.logging:
+        if self.logging and self.logger:
             self.logger.info(f"Attempt to close database '{self.file_path}'.")
             self.logger.handlers[0].flush()
         if self.conn or self.is_open:
@@ -127,7 +129,8 @@ class SqliteBackend:
         """
         file_exists, folder, file_path, file_name = self._evaluate_path(self.name)
         try:
-            self.close()
+            if self.is_open:
+                self.close()
             if path.exists(file_path):
                 os.remove(file_path)
             self.delete_log()
@@ -143,7 +146,7 @@ class SqliteBackend:
         :return: True if the log file was deleted successfully or if the log file not exist.
         """
         file_exists, folder, file_path, file_name = self._evaluate_path(self.name)
-        self.log_file = file_path + self.LOG_EXTENSION
+        self.log_file = str(file_path) + self.LOG_EXTENSION
         try:
             if path.exists(self.log_file):
                 os.remove(self.log_file)
@@ -246,7 +249,7 @@ class SqliteBackend:
             self._execute(sql)
         else:
             sql = f"INSERT INTO {table}(address, data) VALUES(?,?) " \
-                  f"ON CONFLICT(address) DO UPDATE SET address=EXCLUDED.address;"
+                  f"ON CONFLICT(address) DO UPDATE SET data=EXCLUDED.data;"
             if self.encryptor:
                 data = self.encryptor.encrypt(data)
             self._execute(sql, (address, data))
@@ -278,7 +281,7 @@ class SqliteBackend:
 
         if upsert_records:
             sql = f"INSERT INTO {table}(address, data) VALUES(?,?) " \
-                  f"ON CONFLICT(address) DO UPDATE SET address=EXCLUDED.address;"
+                  f"ON CONFLICT(address) DO UPDATE SET data=EXCLUDED.data;"
             self._execute(sql, upsert_records)
 
         if instant_commit:
@@ -293,9 +296,8 @@ class SqliteBackend:
         :return: The data stored for the given address.
            If the address does not exist, ``None`` will be returned.
         """
-        fields_clause = ', '.join(['m' + str(m) for m in measure])
         table = self.DATA_TABLE_PREFIX + cube_name
-        sql = f"SELECT data FROM {table} WHERE address = {address};"
+        sql = f"SELECT data FROM {table} WHERE address = '{address}';"
         records = self._fetchall(sql)
         if records:
             if self.encryptor:
@@ -315,12 +317,23 @@ class SqliteBackend:
         result = self._fetchall(f"SELECT * FROM {self.META_TABLE_CUBES}")
         return result
 
+    def get_cube_names(self) -> list[str]:
+        """
+        Returns a list of all cubes names available in the database.
+        :return: List of cube names.
+        """
+        names = []
+        result = self._fetchall(f"SELECT key FROM {self.META_TABLE_CUBES}")
+        for row in result:
+            names.append(row[0])
+        return names
+
     def count_cubes(self):
         """
         Returns the number of cubes defined in the database.
         :return: The number of cubes defined for the database.
         """
-        return self._fetchall(f"SELECT COUNT(*) FROM {self.META_TABLE_CUBES}")[0]
+        return self._fetchall(f"SELECT COUNT(*) FROM {self.META_TABLE_CUBES}")[0][0]
 
     def add_cube(self, cube_name: str, json: str) -> bool:
         """
@@ -334,7 +347,7 @@ class SqliteBackend:
         if self.logging:
             self.logger.info(f"Attempting to add or update cube '{cube_name}'.")
         # add cube to meta table
-        data = [cube_name, json]
+        data = (cube_name, json)
         sql = f"INSERT INTO {self.META_TABLE_CUBES} (key, config)" \
               f"VALUES(?, ?)  " \
               f"ON CONFLICT(key) DO UPDATE SET config=EXCLUDED.config;"
@@ -373,9 +386,18 @@ class SqliteBackend:
         :return:
         """
         table_name = self.DATA_TABLE_PREFIX + cube_name
-        self._execute(f"DELETE FROM {table_name};")
-        self._commit()
+        if self._table_exists(table_name):
+            self._execute(f"DELETE FROM {table_name};")
+            self._commit()
         return True
+
+    def count_cube_records(self, cube_name: str) -> int:
+        """
+        Returns the number of records contained in cube table.
+        :return: The number of records in cube table.
+        """
+        table_name = self.DATA_TABLE_PREFIX + cube_name
+        return self._fetchall(f"SELECT COUNT(*) FROM {table_name}")[0][0]
     # endregion
 
     # region Dimension related methods
@@ -386,14 +408,27 @@ class SqliteBackend:
         :return: A list of tuples of type (cube_name:str, json:str).
         """
         result = self._fetchall(f"SELECT * FROM {self.META_TABLE_DIMENSIONS}")
-        return result
+        if result:
+            return result[0]
+        return []
+
+    def get_dimension_names(self) -> list[str]:
+        """
+        Returns a list of all dimension names available in the database.
+        :return: List of database names.
+        """
+        names = []
+        result = self._fetchall(f"SELECT key FROM {self.META_TABLE_DIMENSIONS}")
+        for row in result:
+            names.append(row[0])
+        return names
 
     def count_dimensions(self):
         """
         Returns the number of dimensions defined in the database.
         :return: The number of dimension defined for the database.
         """
-        return self._fetchall(f"SELECT COUNT(*) FROM {self.META_TABLE_DIMENSIONS}")[0]
+        return self._fetchall(f"SELECT COUNT(*) FROM {self.META_TABLE_DIMENSIONS}")[0][0]
 
     def add_dimension(self, dimension_name: str, json: str) -> bool:
         """
@@ -404,7 +439,7 @@ class SqliteBackend:
         """
         if self.logging:
             self.logger.info(f"Attempting to add or update dimension '{dimension_name}'.")
-        data = [dimension_name, json]
+        data = (dimension_name, json)
         sql = f"INSERT INTO {self.META_TABLE_DIMENSIONS} (key, config)" \
               f"VALUES(?, ?)  " \
               f"ON CONFLICT(key) DO UPDATE SET config = EXCLUDED.config;"
@@ -420,7 +455,9 @@ class SqliteBackend:
         """
         if self.logging:
             self.logger.info(f"Attempting to remove cube '{dimension_name}'.")
-        self._execute(f"DELETE FROM {self.META_TABLE_DIMENSIONS} WHERE key = '{dimension_name}';")
+        sql = f"DELETE FROM {self.META_TABLE_DIMENSIONS} WHERE key = '{dimension_name}';"
+        self._execute(sql)
+        self._commit()
         if self.logging:
             self.logger.info(f"Dimension '{dimension_name}' has been removed from the database.")
     # endregion
@@ -451,7 +488,7 @@ class SqliteBackend:
                 raise DatabaseBackendException(msg)
 
         try:
-            if self.conn:
+            if self.conn and self.is_open:
                 self.conn.commit()
             return True
         except sqlite3.Error as err:
@@ -580,11 +617,12 @@ class SqliteBackend:
                 self.cursor = self.conn.cursor()
             if data:
                 if type(data) is list:
-                    self.cursor.executemany(sql, data)
+                    result = self.cursor.executemany(sql, data)
                 else:
-                    self.cursor.execute(sql, data)
+                    result = self.cursor.execute(sql, data)
             else:
-                self.cursor.execute(sql)
+                result = self.cursor.execute(sql)
+
         except (sqlite3.Error, Exception) as err:
             msg = f"Failed to execute SQL statement. {str(err)} SQL := {sql}"
             if self.logging:

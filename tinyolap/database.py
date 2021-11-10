@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Tuple
 
 import tinyolap.utils
-from tinyolap.backend import Backend
+from storage.sqlite import SqliteStorage
+from storage.storageprovider import StorageProvider
+from tinyolap.storage.backend import Backend
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cube import Cube
 from tinyolap.custom_errors import *
@@ -57,6 +59,7 @@ class Database:
         self._name: str = name
         self._in_memory = in_memory
         self._backend = Backend(name, self._in_memory)
+        self._storage_provider: StorageProvider = SqliteStorage(self._name)
         self._database_file = self._backend.file_path
         self.__load()
         self._caching = True
@@ -71,7 +74,7 @@ class Database:
 
         :return: Returns ``True`` if the database is in-memory mode, ``False`` otherwise.
         """
-        return self._caching
+        return self._in_memory
 
     @property
     def history(self) -> History:
@@ -151,7 +154,8 @@ class Database:
         Opens a database from a file.
         :param file_name: The database file path to be opened.
         """
-        return NotImplemented
+        self._storage_provider.open()
+        # todo: Implement a dedicated serializes/deserializer to initialize a database
 
     def close(self):
         """
@@ -161,9 +165,12 @@ class Database:
 
         The ``close()`` command will be ignored if the database is in-memory mode, ``in_memory == True`` .
         """
+        if self._storage_provider:
+            self._storage_provider.close()
+        # todo: old approach = to be deleted
         self._backend.close()
 
-    def delete(self, delete_log_file_too=True):
+    def delete(self):
         """
         Deletes the database file, if such exists and the database is already closed.
         The ``delete()`` command will be ignored if the database is in in-memory mode, ``in_memory == True`` .
@@ -172,6 +179,11 @@ class Database:
             Default value is ``True`` . Log files are not available if ``in_memory`` has been set to ``True`` on
             database initialization.
         """
+        if self._storage_provider:
+            self._storage_provider.close()
+            self._storage_provider.delete()
+
+        # todo: old approach = to be deleted
         if self._in_memory:
             return
 
@@ -186,7 +198,7 @@ class Database:
         except OSError as err:
             raise DatabaseBackendException(f"Failed to delete database file. {str(err)}")
 
-        if delete_log_file_too:
+        if True:  # delete_log_file_too:
             if not self._backend.delete_log_file():
                 raise DatabaseBackendException(f"Failed to delete database log file.")
 
