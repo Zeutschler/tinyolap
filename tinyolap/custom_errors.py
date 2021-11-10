@@ -34,7 +34,7 @@ class DimensionInUseException(TinyOlapException):
 
 
 class DatabaseBackendException(TinyOlapException):
-    """Raised when an error occurs while accessing or handling database backend or files."""
+    """Raised when an error occurs while accessing or handling database storage_provider or files."""
     pass
 
 

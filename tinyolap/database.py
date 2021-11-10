@@ -12,7 +12,6 @@ from typing import Tuple
 import tinyolap.utils
 from storage.sqlite import SqliteStorage
 from storage.storageprovider import StorageProvider
-from tinyolap.storage.backend import Backend
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cube import Cube
 from tinyolap.custom_errors import *
@@ -58,12 +57,13 @@ class Database:
         self._history: History = History(self)
         self._name: str = name
         self._in_memory = in_memory
-        self._backend = Backend(name, self._in_memory)
-        self._storage_provider: StorageProvider = SqliteStorage(self._name)
-        self._database_file = self._backend.file_path
-        self.__load()
+        if in_memory:
+            self._storage_provider: StorageProvider = None
+        else:
+            self._storage_provider: StorageProvider = SqliteStorage(self._name)
+            self._storage_provider.open()
+        self._load()
         self._caching = True
-        self.file_path = self._backend.file_path
 
     # region Properties
     @property
@@ -80,7 +80,6 @@ class Database:
     def history(self) -> History:
         """Returns the history of the database."""
         return self._history
-
 
     @property
     def name(self) -> str:
@@ -167,8 +166,6 @@ class Database:
         """
         if self._storage_provider:
             self._storage_provider.close()
-        # todo: old approach = to be deleted
-        self._backend.close()
 
     def delete(self):
         """
@@ -182,25 +179,6 @@ class Database:
         if self._storage_provider:
             self._storage_provider.close()
             self._storage_provider.delete()
-
-        # todo: old approach = to be deleted
-        if self._in_memory:
-            return
-
-        try:
-            if not self._backend.is_open:
-                if Path(self.file_path).exists():
-                    os.remove(self.file_path)
-                if Path(self.file_path + ".log").exists():
-                    os.remove(self.file_path + ".log")
-            else:
-                raise DatabaseBackendException("Failed to delete database file. Database connection is still open.")
-        except OSError as err:
-            raise DatabaseBackendException(f"Failed to delete database file. {str(err)}")
-
-        if True:  # delete_log_file_too:
-            if not self._backend.delete_log_file():
-                raise DatabaseBackendException(f"Failed to delete database log file.")
 
     # endregion
 
@@ -235,10 +213,8 @@ class Database:
                                   f"no whitespaces, no special characters.")
         if name in self.dimensions:
             raise DuplicateKeyException(f"Failed to add dimension. A dimension named '{name}' already exists.")
-        dimension = Dimension._create(self._backend, name, description=description)
-        dimension.backend = self._backend
+        dimension = Dimension._create(self._storage_provider, name, description=description)
         dimension.database = self
-        self._backend.dimension_update(dimension, dimension.to_json())
         self.dimensions[name] = dimension
         return dimension
 
@@ -260,9 +236,9 @@ class Database:
             raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                       f"and therefore can not be removed. Remove cubes first.")
 
-        # todo: Check if the dimension can be removed safely (not in use by any cubes)
+        if self._storage_provider and self._storage_provider.connected:
+            self._storage_provider.remove_dimension(name)
 
-        self._backend.dimension_remove(self.dimensions[name])
         del self.dimensions[name]
 
     def dimension_exists(self, name: str):
@@ -275,7 +251,7 @@ class Database:
     # endregion
 
     # region Cube related methods
-    def add_cube(self, name: str, dimensions: list, measures=None):
+    def add_cube(self, name: str, dimensions: list, measures=None, description: str = None):
         """
         Creates a new :ref:´cube<cubes>´ and adds it to the database.
 
@@ -285,6 +261,7 @@ class Database:
         :ref:`dimension <dimensions>` objects contained in the database.
         :param measures: (optional) a measure name or a list of measures names for the cube.
         If argument 'measures' is not defined, that a default measure named 'value' will be created.
+        :param description: (optional) description for the cube.
         :return: The added cube object.
         :raises CubeCreationException: Raised if the creation of the cubed failed due to one
         of the following reasons:
@@ -349,7 +326,7 @@ class Database:
                         raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
                                                 f"Please refer the documentation for further details.")
         # create and return the cube
-        cube = Cube.create(self._backend, name, dims, measures)
+        cube = Cube.create(self._storage_provider, name, dims, measures, description)
         cube.caching = self.caching
         self.cubes[name] = cube
         return cube
@@ -386,16 +363,27 @@ class Database:
     # endregion
 
     # region internal functions
-    def __load(self):
-        """Initialize objects from database."""
-        if self._in_memory:
-            return
-        dims = self._backend.meta_dim()
-        for dim in dims:
-            name = dim[0]
-            dimension = self.add_dimension(name)
-            json_string = dim[1]
-            dimension.from_json(json_string)
+    def _load(self):
+        """Initialize database from storage storage_provider."""
+
+        if self._storage_provider:
+            if not self._storage_provider.exists():
+                return
+            if not self._storage_provider.connected:
+                self._storage_provider.open()
+
+            # initialize dimensions
+            data = self._storage_provider.get_dimensions()
+            for dim_tuple in data:
+                dim_name, dim_json = dim_tuple
+                dimension = self.add_dimension(dim_name)
+                dimension.from_json(dim_json)
+
+            # initialize cubes
+            # todo: implementation missing
+
+            # import data
+            # todo: implementation missing
 
     def _remove_members(self, dimension, members):
         """Remove data for obsolete (deleted) members over all cubes.

@@ -13,7 +13,7 @@ class TestCube(TestCase):
     def setUp(self):
         # delete database if exists
         self.database_name = "test_cube"
-        self.clean_up = False
+        self.clean_up = True
 
         file = os.path.join(os.getcwd(), "db", self.database_name + ".db")
         if Path(file).exists():
@@ -28,7 +28,7 @@ class TestCube(TestCase):
 
     def test_create(self,  console_output: bool = False):
 
-        db = Database(self.database_name, in_memory=True)
+        db = Database(self.database_name, in_memory=False)
 
         dim_years = db.add_dimension("years")
         dim_years.edit()

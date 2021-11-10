@@ -8,6 +8,7 @@ from __future__ import annotations
 import collections.abc
 import json
 
+from storage.storageprovider import StorageProvider
 from tinyolap.member_context import MemberContext
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.custom_errors import *
@@ -76,17 +77,19 @@ class Dimension:
     __magic_key = object()
 
     @classmethod
-    def _create(cls, backend, name: str, description: str = ""):
+    def _create(cls, storage_provider: StorageProvider, name: str, description: str = ""):
         """
-        NOT INTENDED FOR EXTERNAL USE! Creates a new dimension, associated with a database backend.
+        NOT INTENDED FOR EXTERNAL USE! Creates a new dimension.
 
-        :param backend: The database backend.
+        :param storage_provider: The storage provider of the database.
         :param name: Name of the dimension to be created.
         :param description: Description of the dimension to be added.
         :return: The new dimension.
         """
         dimension = Dimension(Dimension.__magic_key, name, description)
-        dimension._backend = backend
+        dimension._storage_provider = storage_provider
+        if storage_provider and storage_provider.connected:
+            storage_provider.add_dimension(name, dimension.to_json())
         return dimension
 
     IDX = 0
@@ -126,7 +129,7 @@ class Dimension:
         self.highest_idx = 0
 
         self.database = None
-        self.backend = None
+        self._storage_provider: StorageProvider = None
         self.edit_mode: bool = False
         self.recovery_json = ""
         self.recovery_idx = set()
@@ -187,8 +190,9 @@ class Dimension:
         :return: The dimension itself.
         """
         self.__update_member_hierarchies()
-        if self.backend:
-            self.backend.dimension_update(self, self.to_json())
+        if self._storage_provider and self._storage_provider.connected:
+            self._storage_provider.add_dimension(self.name, self.to_json())
+
         # remove data for obsolete members (if any) from database
         obsolete = self.recovery_idx.difference(set(self._member_idx_lookup.values()))
         if obsolete:
@@ -948,7 +952,7 @@ class Dimension:
         """
         Returns the json representation of the dimension. Helpful for serialization
         and deserialization of a dimension. The json returned by this function is
-        the same as the one contained in the SQLite database backend (if available).
+        the same as the one contained in the SQLite database storage provider (if available).
 
         :param beautify: Identifies if the json code should be beautified (multiple rows + indentation).
         :return: A json string representing the dimension.

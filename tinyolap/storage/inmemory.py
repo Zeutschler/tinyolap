@@ -7,6 +7,14 @@ class InMemoryStorage(StorageProvider):
     """In-memory storage provider. Does not store anything, just for testing purposes."""
 
     # region basic database handling - open , close, delete, ...
+    @property
+    def connected(self) -> bool:
+        """
+        Identifies if the storage provider is connected or open.
+        :return: ``True`` if the storage provider is connected, ``False`` otherwise.
+        """
+        return True
+
     def open(self, **kwargs) -> bool:
         """
         Opens the database. If the database does not exist, a new database file will be created.

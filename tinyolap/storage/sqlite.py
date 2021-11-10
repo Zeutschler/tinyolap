@@ -49,6 +49,14 @@ class SqliteStorage(StorageProvider):
         self.cursor: sqlite3.Cursor = None
 
     # region basic database handling - open , close, delete, ...
+    @property
+    def connected(self) -> bool:
+        """
+        Identifies if the storage provider is connected or open.
+        :return: ``True`` if the storage provider is connected, ``False`` otherwise.
+        """
+        return self.is_open
+
     def open(self, **kwargs) -> bool:
         """
         Opens the database. If the database does not exist, a new database file will be created.
@@ -409,7 +417,7 @@ class SqliteStorage(StorageProvider):
         """
         result = self._fetchall(f"SELECT * FROM {self.META_TABLE_DIMENSIONS}")
         if result:
-            return result[0]
+            return result
         return []
 
     def get_dimension_names(self) -> list[str]:
@@ -504,7 +512,7 @@ class SqliteStorage(StorageProvider):
 
     def _prepare_database(self) -> bool:
         """
-        Validates and prepares a database to be used as a TinyOlap backend
+        Validates and prepares a database to be used as a TinyOlap storage_provider
         by adding some meta tables.
         :return: ``True`` if the database was successfully prepared, ``False`` otherwise.
         :raises DatabaseBackendException: Raised when the preparation of the database failed.
@@ -759,7 +767,7 @@ class SqliteStorage(StorageProvider):
         if not self.logging:  # logging not required.
             return
 
-        self.logger = logging.getLogger("tinyolap.backend.sqlite")
+        self.logger = logging.getLogger("tinyolap.storage_provider.sqlite")
         handler = logging.FileHandler(self.log_file, mode='w')
         formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)

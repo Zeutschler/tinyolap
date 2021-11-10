@@ -29,7 +29,7 @@ class Logger:
 
 
     def __setup_logger(self):
-        self.logger = logging.getLogger("backend")
+        self.logger = logging.getLogger("storage_provider")
         handler = logging.FileHandler(self.file_path, mode='w')
         formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)

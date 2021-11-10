@@ -7,6 +7,15 @@ class StorageProvider(ABC):
     """Abstract base class for storage providers."""
 
     # region basic database handling - open , close, delete, ...
+    @property
+    @abstractmethod
+    def connected(self) -> bool:
+        """
+        Identifies if the storage provider is connected or open.
+        :return: ``True`` if the storage provider is connected, ``False`` otherwise.
+        """
+        pass
+
     @abstractmethod
     def open(self, **kwargs):
         """

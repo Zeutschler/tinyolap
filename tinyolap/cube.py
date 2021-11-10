@@ -6,7 +6,11 @@
 import collections
 from collections.abc import Iterable
 from inspect import isroutine
+import collections.abc
+import json
 
+from storage.storageprovider import StorageProvider
+from tinyolap.utils import *
 from tinyolap.area import Area
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell_context import CellContext
@@ -21,30 +25,38 @@ class Cube:
     __magic_key = object()
 
     @classmethod
-    def create(cls, backend, name: str, dimensions: list[Dimension], measures: list[str]):
-        cube = Cube(Cube.__magic_key, name, dimensions, measures)
-        cube._backend = backend
-        cube._backend_table = backend.add_cube(name, dimensions, cube._measures.values())
+    def create(cls, storage_provider: StorageProvider, name: str,
+               dimensions: list[Dimension], measures: list[str],
+               description: str = None):
+        cube = Cube(Cube.__magic_key, name, dimensions, measures, description)
+        cube._storage_provider = storage_provider
+        if storage_provider and storage_provider.connected:
+            storage_provider.add_cube(name, cube.to_json())
         return cube
 
-    def __init__(self, cub_creation_key, name: str, dimensions, measures):
+    def __init__(self, cub_creation_key, name: str, dimensions, measures, description: str = None):
         """
         NOT INTENDED FOR DIRECT USE! Cubes and dimensions always need to be managed by a Database.
         Use method 'Database.add_cube(...)' to create objects type Cube.
 
-        :param name:
-        :param dimensions:
-        :param measures:
+        :param name: NAme of the cube
+        :param dimensions: A list of dimensions that defines the cube axis.
+        :param measures: A list if measures.
+        :param description: (optional) description for the cube.
         """
         assert (cub_creation_key == Cube.__magic_key), \
             "Objects of type Cube can only be created through the method 'Database.add_cube()'."
 
         self._name = name
+        self._description = description
         self._dim_count = len(dimensions)
         self._dimensions = tuple(dimensions)
         self._dim_names = []
         self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(dimensions)])
         self._facts = FactTable(self._dim_count, self)
+
+        self._database = None
+        self._storage_provider: StorageProvider = None
 
         self._rules_all_levels = Rules()
         self._rules_base_level = Rules()
@@ -441,6 +453,11 @@ class Cube:
     def _set_base_level_cell(self, idx_address, idx_measure, value):
         """Writes a base level value to the cube for the given idx_address (idx_address and measures)."""
         self._facts.set(idx_address, idx_measure, value)
+        if self._storage_provider and self._storage_provider.connected:
+            if value:
+                self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"v": value}))
+            else:
+                self._storage_provider.set_record(self._name, str(idx_address))
 
     def _set(self, bolt, value):
         """Writes a value to the cube for the given bolt (idx_address and measures)."""
@@ -455,6 +472,13 @@ class Cube:
         if super_level == 0:  # for base-level cells...
             if type(idx_measures) is int:
                 result = self._facts.set(idx_address, idx_measures, value)
+                if self._storage_provider and self._storage_provider.connected:
+                    if value:
+                        self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"v": value}) )
+                    else:
+                        self._storage_provider.set_record(self._name, str(idx_address))
+
+            # todo: rework or remove measures
             elif isinstance(idx_measures, collections.abc.Sequence):
                 if isinstance(value, collections.abc.Sequence):
                     if len(idx_measures) != len(value):
@@ -605,6 +629,57 @@ class Cube:
             keys = list(dim._member_idx_lookup.keys())
             address.append(keys[0])
         return tuple(address)
+
+    # endregion
+
+    # region serialization
+    # todo: adjust to fully support cube (e.g. rules)
+    def to_json(self, beautify: bool = False):
+        """
+        Returns the json representation of the cube. Helpful for serialization
+        and deserialization of cubes. The json returned by this function is
+        the same as the one used by storage providers (if available).
+
+        :param beautify: Identifies if the json code should be beautified (multiple rows + indentation).
+        :return: A json string representing the cube.
+        """
+        dim_names = [dim.name for dim in self._dimensions]
+        data = ['{', f'"content": "cube",', f'"name": "{self.name}",',
+                f'"description": "{self._description}",',
+                f'"dimensions": {dim_names},',
+                ]
+        json_string = ''.join(data)
+        if beautify:
+            parsed = json.loads(json_string)
+            json_string = json.dumps(parsed, indent=4)
+        return json_string
+
+    # todo: adjust to fully support cube (e.g. rules)
+    def from_json(self, json_string: str):
+        """
+        Initializes the cube from a json string.
+
+        .. warning::
+            Calling this method for cubes which are already in use (contain data)
+            will very likely **corrupt your database!** Calling this method is only save
+            **before** you write any data to a cube. Handle with care.
+
+        :param json_string: The json string containing the cube definition.
+        :raises FatalException: Raised if an error occurred during the deserialization from json string.
+        """
+        try:
+            # first, read everything
+            dim = json.loads(json_string)
+            new_name = dim["name"]
+            new_description = dim["description"]
+            new_dim_names = dim["dimensions"]
+
+            # second, apply everything (this should not fail)
+            self._name = new_name
+            self._description = new_description
+            self._dimensions = tuple([ self._database.dimension[dim_name] for dim_name in new_dim_names])
+        except Exception as err:
+            raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")
 
     # endregion
 

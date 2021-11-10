@@ -16,7 +16,7 @@ from tinyolap.custom_errors import *
 
 # noinspection SqlNoDataSourceInspection
 class Backend:
-    """SQLite storage backend"""
+    """SQLite storage storage_provider"""
     META_TABLE_CUB = "meta_cub"
     META_TABLE_DIM = "meta_dim"
     META_TABLE_FIELDS = [("key", "TEXT PRIMARY KEY"), ("config", "TEXT")]
@@ -41,14 +41,14 @@ class Backend:
                 self.__generate_path_from_database_name(self.database_name)
             self.log_file = os.path.join(self.file_folder, self.file_name + self.LOG_EXTENSION)
             self.__setup_logger()
-            self.logger.info(f"Database backend initialization started.")
+            self.logger.info(f"Database storage_provider initialization started.")
             self.open(self.file_path)
-            self.logger.info(f"Database backend initialization finished.")
+            self.logger.info(f"Database storage_provider initialization finished.")
 
     def __setup_logger(self):
         if self._in_memory:
             return
-        self.logger = logging.getLogger("backend")
+        self.logger = logging.getLogger("storage_provider")
         handler = logging.FileHandler(self.log_file, mode='w')
         formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)

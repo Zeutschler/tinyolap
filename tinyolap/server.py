@@ -91,7 +91,7 @@ class Server:
         Special characters are not supported for database names.
         :param in_memory: Defines if the database should operate in-memory only,
         without persistence (all data will be lost after your application will shut down)
-        or, if set to ``False``, with an SQLite file backend.
+        or, if set to ``False``, with an SQLite file storage_provider.
         """
         if not name in self._databases:
             database = Database(name, in_memory)
