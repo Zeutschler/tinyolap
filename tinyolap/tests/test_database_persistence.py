@@ -36,7 +36,7 @@ class TestDatabasePersistence(TestCase):
         file_path = db.file_path
         db.close()
         # check if file exists
-        self.assertEqual(Path(file_path).exists(), True, "Database file exists.")
+        self.assertTrue(Path(file_path).exists(), "Database file exists.")
 
         # (re)open the database
         db = Database(self.db_name)

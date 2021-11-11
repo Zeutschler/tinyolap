@@ -5,7 +5,7 @@ from unittest import TestCase
 import string
 import random
 from storage.sqlite import SqliteStorage
-from storage.inmemory import InMemoryStorage
+from storage.mock import MockStorage
 from storage.storageprovider import StorageProvider
 
 

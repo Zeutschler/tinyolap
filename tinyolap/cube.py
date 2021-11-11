@@ -178,7 +178,7 @@ class Cube:
             pattern = list((pattern,))
         # Sorry, miss-use of cursor. maybe some refactoring required...
         address = self._get_default_cell_address()
-        c = self._create_cell_from_bolt(address, self.__address_to_bolt(address))
+        c = self._create_cell_from_bolt(address, self._address_to_bolt(address))
         # create something like this: idx_pattern = [(0, 3)]
         idx_pattern = []
         for p in pattern:
@@ -302,15 +302,15 @@ class Cube:
 
     # region CellContext access via indexing/slicing
     def __getitem__(self, item):
-        bolt = self.__address_to_bolt(item)
+        bolt = self._address_to_bolt(item)
         return self._get(bolt)
 
     def __setitem__(self, item, value):
-        bolt = self.__address_to_bolt(item)
+        bolt = self._address_to_bolt(item)
         self._set(bolt, value)
 
     def __delitem__(self, item):
-        bolt = self.__address_to_bolt(item)
+        bolt = self._address_to_bolt(item)
         self._set(bolt, None)
 
     # endregion
@@ -327,12 +327,12 @@ class Cube:
         If no records exist for the given idx_address, then 0.0 will be returned.
         :raises InvalidKeyException:
         """
-        bolt = self.__address_to_bolt(address)
+        bolt = self._address_to_bolt(address)
         return self._get(bolt)
 
     def set(self, address: tuple, value):
         """Writes a value to the cube for the given bolt (idx_address and measures)."""
-        bolt = self.__address_to_bolt(address)
+        bolt = self._address_to_bolt(address)
         return self._set(bolt, value)
 
     def _get(self, bolt, bypass_rules=False):
@@ -570,10 +570,10 @@ class Cube:
         :param idx_address:
         :return:
         """
-        bolt = self.__address_to_bolt(address)
+        bolt = self._address_to_bolt(address)
         return bolt[1]
 
-    def __address_to_bolt(self, address):
+    def _address_to_bolt(self, address):
         """Converts a given address, incl. member and (optional) measures, into a bolt.
         A bolt is a tuple of integer address, used for internal access of cells.
         """
@@ -617,18 +617,30 @@ class Cube:
     # region cells
     def cell(self, *args) -> CellContext:
         """Returns a new CellContext from the Cube."""
-        return CellContext.create(self, self._dim_lookup, args, self.__address_to_bolt(args))
+        return CellContext.create(self, self._dim_lookup, args, self._address_to_bolt(args))
 
     def _create_cell_from_bolt(self, address, bolt) -> CellContext:
         """Create a CellContext for the Cube directly from an existing bolt."""
         return CellContext.create(self, self._dim_lookup, address, bolt)
 
     def _get_default_cell_address(self):
+        """Generates a default address. This is the first member from all dimensions."""
         address = []
         for dim in self._dimensions:
-            keys = list(dim._member_idx_lookup.keys())
-            address.append(keys[0])
+            # keys = list(dim._member_idx_lookup.keys())
+            # address.append(keys[0])
+            address.append(dim.get_first_member())
         return tuple(address)
+
+    def _get_records(self):
+        """
+        Returns all records and values from the cube as a list[tuple[address:str, value_as_json:str].
+        Useful for database serialization.
+        """
+        records = []
+        for address, data in zip(self._facts.addresses, self._facts.facts):
+            records.append((str(address), json.dumps(data)))
+        return records
 
     # endregion
 

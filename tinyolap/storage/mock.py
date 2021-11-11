@@ -3,8 +3,8 @@ import datetime
 from tinyolap.storage.storageprovider import StorageProvider
 
 
-class InMemoryStorage(StorageProvider):
-    """In-memory storage provider. Does not store anything, just for testing purposes."""
+class MockStorage(StorageProvider):
+    """Storage provider mock up. Does not store anything, just for testing purposes."""
 
     # region basic database handling - open , close, delete, ...
     @property
@@ -14,6 +14,14 @@ class InMemoryStorage(StorageProvider):
         :return: ``True`` if the storage provider is connected, ``False`` otherwise.
         """
         return True
+
+    @property
+    def uri(self) -> str:
+        """
+        Returns the uri (uniform resource identifier) of the current database.
+        :return: The uri of the databse.
+        """
+        return ""
 
     def open(self, **kwargs) -> bool:
         """

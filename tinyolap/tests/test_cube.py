@@ -122,6 +122,9 @@ class TestCube(TestCase):
         if console_output:
             print(f"read {loops} formula records in {duration:.3}sec, total = {total}")
 
+        # export database
+        db.export(db.name + "_export")
+
         # clean up
         if self.clean_up:
             db.close()

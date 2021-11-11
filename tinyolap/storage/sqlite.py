@@ -57,6 +57,14 @@ class SqliteStorage(StorageProvider):
         """
         return self.is_open
 
+    @property
+    def uri(self) -> str:
+        """
+        Returns the uri (uniform resource identifier) of the current database.
+        :return: The uri of the database.
+        """
+        return self.file_path.as_uri()
+
     def open(self, **kwargs) -> bool:
         """
         Opens the database. If the database does not exist, a new database file will be created.

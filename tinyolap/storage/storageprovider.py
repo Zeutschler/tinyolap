@@ -16,6 +16,15 @@ class StorageProvider(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def uri(self) -> str:
+        """
+        Returns the uri (uniform resource identifier) of the current database.
+        :return: The uri of the databse.
+        """
+        pass
+
     @abstractmethod
     def open(self, **kwargs):
         """

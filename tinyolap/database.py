@@ -87,6 +87,23 @@ class Database:
         return self._name
 
     @property
+    def uri(self) -> str:
+        """Returns the uri of the database."""
+        if self._storage_provider:
+            return self._storage_provider.uri
+        return None
+
+    @property
+    def file_path(self) -> str:
+        """Returns the file path of the database."""
+        if self._storage_provider:
+            file = self._storage_provider.uri
+            if file.startswith("file://"):
+                file = file[7:]
+            return file
+        return None
+
+    @property
     def caching(self) -> bool:
         """
         Identifies if caching is activated for the database.
@@ -162,23 +179,63 @@ class Database:
         then all pending changes to the database file will be committed and
         the connection to the underlying database will be be closed.
 
-        The ``close()`` command will be ignored if the database is in-memory mode, ``in_memory == True`` .
+        The ``close()`` command has no effect if the database is in-memory mode
+        ``in_memory == True``.
         """
         if self._storage_provider:
             self._storage_provider.close()
 
     def delete(self):
         """
-        Deletes the database file, if such exists and the database is already closed.
-        The ``delete()`` command will be ignored if the database is in in-memory mode, ``in_memory == True`` .
-
-        :param delete_log_file_too: If set to ``True`` , also the database log file will be deleted, if such exits.
-            Default value is ``True`` . Log files are not available if ``in_memory`` has been set to ``True`` on
-            database initialization.
+        Deletes the database file and log file, if such exists. If the database is
+        open, it will be closed beforehand. You should handle this method with care.
+        The ``delete()`` command has no effect if the database is in in-memory mode
+        ``in_memory == True``.
         """
         if self._storage_provider:
             self._storage_provider.close()
             self._storage_provider.delete()
+
+    def export(self, name: str, overwrite_if_exists: bool = False):
+        """
+        Exports the database to a new database file. This method is useful e.g.
+        for creating backups and especially to persist databases that run in
+        in-memory mode.
+
+        .. note::
+            When **TinyOlap** is used for data processing purposes, rather than
+            as for planning or other data-entry focussed tasks, it is a clever
+            idea to spin up the database first in in-memory mode, do all your
+            processing and then persists the result using the ``export(...)``
+            method. This approach is presumably much faster than constantly
+            writing to the database file.
+
+        :param name: Either a simple name or a fully qualified file path. If
+           the name does not represent a path, then the databse file will be
+           created in the default location '/db' or whatever is specified in
+           the config file for ``database_folder``.
+        :param overwrite_if_exists: Defines if an already existing file should
+           be overwritten or not. If set to ``False`` and the file already exist,
+           an FileExistsError will be raised.
+        :return:
+        """
+        if name.lower() == self.name.lower():
+            raise DatabaseBackendException(f"Failed to export database '{self.name}'. "
+                                           f"You cannot export a database under it's current name.")
+
+        exporter: StorageProvider = SqliteStorage(name)
+        if exporter.exists() and not overwrite_if_exists:
+            raise FileExistsError(f"Failed to export database '{self.name}'. "
+                                  f"The database file '{exporter.uri}' already exists.")
+
+        # Export the database
+        exporter.open()
+        for dimension in self.dimensions.values():
+            exporter.add_dimension(dimension.name, dimension.to_json())
+        for cube in self.cubes.values():
+            exporter.add_cube(cube.name, cube.to_json())
+            exporter.set_records(cube.name, cube._get_records())
+        exporter.close()
 
     # endregion
 

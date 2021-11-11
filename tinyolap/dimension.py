@@ -638,6 +638,16 @@ class Dimension:
                 members.append(self.members[idx_member][self.NAME])
         return members
 
+    def get_first_member(self) -> str:
+        """
+        Returns the first member of the dimension.
+
+        :return: Returns the first members of the dimension.
+        """
+        for idx_member in self.members:
+            return self.members[idx_member][self.NAME]
+        return None
+
     # endregion
 
     # region attributes
