@@ -4,20 +4,20 @@
 # LICENSE file in the root directory of this source tree.
 
 import collections
-from collections.abc import Iterable
-from inspect import isroutine
 import collections.abc
+# from inspect import isroutine, getsource, getfile, getsourcefile
+import inspect
 import json
+from collections.abc import Iterable
 
 from storage.storageprovider import StorageProvider
-from tinyolap.utils import *
 from tinyolap.area import Area
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell_context import CellContext
 from tinyolap.custom_errors import *
 from tinyolap.dimension import Dimension
 from tinyolap.fact_table import FactTable
-from tinyolap.rules import Rules, RuleScope
+from tinyolap.rules import Rules, RuleScope, RuleInjectionStrategy
 
 
 class Cube:
@@ -91,8 +91,8 @@ class Cube:
         """
         Removes (unregisters) a rule function from the cube.
 
-        :param pattern: The pattern of the rule to be removed.
-        :return: ``True``, if a function with the given pattern was found and removed, ``False`` otherwise.
+        :param pattern: The trigger of the rule to be removed.
+        :return: ``True``, if a function with the given trigger was found and removed, ``False`` otherwise.
         """
         return NotImplemented
 
@@ -102,17 +102,18 @@ class Cube:
         """
         return NotImplemented
 
-    def add_rule(self, function, pattern: list[str] = None, scope: RuleScope = None):
+    def add_rule(self, function, trigger: list[str] = None,
+                 scope: RuleScope = None, injection: RuleInjectionStrategy = None):
         """
         Registers a rule function for the cube. Rules function either need to be decorated with the ``@rules(...)``
-        decorator or the arguments ``pattern`` and ``scope`` of the ``add_rules(...)`` function must be specified.
+        decorator or the arguments ``trigger`` and ``scope`` of the ``add_rules(...)`` function must be specified.
 
         :param function: The rules function to be called.
-        :param pattern: The cell idx_address pattern that should trigger the rule.
+        :param trigger: The cell idx_address trigger that should trigger the rule.
         :param scope: The scope of the rule.
         """
         offset = 0
-        if not isroutine(function):
+        if not inspect.isroutine(function):
             if callable(function) and function.__name__ == "<lambda>":
                 offset = 1
             else:
@@ -128,51 +129,57 @@ class Cube:
                 raise RuleException(
                     f"Failed to add rule function. Function '{function_name}' does not seem to be associated "
                     f"with this cube '{self.name}', but with cube '{cube_name}'.")
-        if not pattern:
-            if hasattr(function, "pattern"):
-                pattern = function.pattern
-                if type(pattern) is str:
-                    pattern = [pattern, ]
-                if not type(pattern) is list:
-                    raise RuleException(f"Failed to add rule function. Argument 'pattern' is not of the expected "
-                                    f"type 'list(str)' but of type '{type(pattern)}'.")
+        if not trigger:
+            if hasattr(function, "trigger"):
+                trigger = function.pattern
+                if type(trigger) is str:
+                    trigger = [trigger, ]
+                if not type(trigger) is list:
+                    raise RuleException(f"Failed to add rule function. Argument 'trigger' is not of the expected "
+                                        f"type 'list(str)' but of type '{type(trigger)}'.")
             else:
-                raise RuleException(f"Failed to add rule function. Argument 'pattern' missing for "
-                                f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+                raise RuleException(f"Failed to add rule function. Argument 'trigger' missing for "
+                                    f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+
         if not scope:
             if hasattr(function, "scope"):
                 scope = function.scope
                 if not (str(type(scope)) == str(type(RuleScope.ROLL_UP))):
                     raise RuleException(f"Failed to add rule function. Argument 'scope' is not of the expected "
-                                    f"type ''{type(RuleScope.ALL_LEVELS)}' but of type '{type(scope)}'.")
+                                        f"type ''{type(RuleScope.ALL_LEVELS)}' but of type '{type(scope)}'.")
             else:
                 raise RuleException(f"Failed to add rule function. Argument 'scope' missing for "
-                                f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+                                    f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+        if not injection:
+            if hasattr(function, "injection"):
+                injection = function.injection
+            else:
+                injection = RuleInjectionStrategy.NO_INJECTION
 
-        if type(pattern) is str:  # a lazy user forgot to put the pattern in brackets
-            pattern = [pattern, ]
+        if type(trigger) is str:  # a lazy user forgot to put the trigger in brackets
+            trigger = [trigger, ]
 
-        idx_pattern = self.__pattern_to_idx_pattern(pattern)
+        idx_pattern = self.__pattern_to_idx_pattern(trigger)
 
         if scope == RuleScope.ALL_LEVELS:
-            self._rules_all_levels.register(function, function_name, pattern, idx_pattern, scope)
+            self._rules_all_levels.register(function, function_name, trigger, idx_pattern, scope, injection)
         elif scope == RuleScope.AGGREGATION_LEVEL:
-            self._rules_aggr_level.register(function, function_name, pattern, idx_pattern, scope)
+            self._rules_aggr_level.register(function, function_name, trigger, idx_pattern, scope, injection)
         elif scope == RuleScope.BASE_LEVEL:
-            self._rules_base_level.register(function, function_name, pattern, idx_pattern, scope)
+            self._rules_base_level.register(function, function_name, trigger, idx_pattern, scope, injection)
         elif scope == RuleScope.ROLL_UP:
-            self._rules_roll_up.register(function, function_name, pattern, idx_pattern, scope)
+            self._rules_roll_up.register(function, function_name, trigger, idx_pattern, scope, injection)
         elif scope == RuleScope.ON_ENTRY:
-            self._rules_on_entry.register(function, function_name, pattern, idx_pattern, scope)
+            self._rules_on_entry.register(function, function_name, trigger, idx_pattern, scope, injection)
         else:
             raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope'.")
 
     def __pattern_to_idx_pattern(self, pattern):
         """
-        Converts a pattern into it's index representation.
+        Converts a trigger into it's index representation.
 
-        :param pattern: The pattern to be converted.
-        :return: The index pattern.
+        :param pattern: The trigger to be converted.
+        :return: The index trigger.
         """
         if type(pattern) is str:
             pattern = list((pattern,))
@@ -474,7 +481,7 @@ class Cube:
                 result = self._facts.set(idx_address, idx_measures, value)
                 if self._storage_provider and self._storage_provider.connected:
                     if value:
-                        self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"v": value}) )
+                        self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"v": value}))
                     else:
                         self._storage_provider.set_record(self._name, str(idx_address))
 
@@ -483,7 +490,7 @@ class Cube:
                 if isinstance(value, collections.abc.Sequence):
                     if len(idx_measures) != len(value):
                         raise InvalidKeyException(f"Arguments for write back not aligned. The numbers of measures "
-                                              f"and the numbers of values handed in need to be identical.")
+                                                  f"and the numbers of values handed in need to be identical.")
                     result = all([self._facts.set(idx_address, m, v) for m, v in zip(idx_measures, value)])
                 else:
                     result = all([self._facts.set(idx_address, m, value) for m in idx_measures])
@@ -582,7 +589,7 @@ class Cube:
         measures_count = len(address) - dim_count
         if measures_count < 0:
             raise InvalidCellAddressException(f"Invalid idx_address. At least {self._dim_count} members expected "
-                                          f"for cube '{self._name}, but only {len(address)} where passed in.")
+                                              f"for cube '{self._name}, but only {len(address)} where passed in.")
         # Validate members
         dimensions = self._dimensions
         idx_address = [None] * dim_count
@@ -593,7 +600,7 @@ class Cube:
                 super_level += dimensions[i].members[idx_address[i]][6]
             else:
                 raise InvalidCellAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
-                                              f"dimension '{dimensions[i].name}' in cube {self._name}.")
+                                                  f"dimension '{dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
         # validate measures (if defined)
@@ -689,7 +696,7 @@ class Cube:
             # second, apply everything (this should not fail)
             self._name = new_name
             self._description = new_description
-            self._dimensions = tuple([ self._database.dimension[dim_name] for dim_name in new_dim_names])
+            self._dimensions = tuple([self._database.dimension[dim_name] for dim_name in new_dim_names])
         except Exception as err:
             raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")
 

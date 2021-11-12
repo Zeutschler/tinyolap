@@ -1,12 +1,12 @@
 from __future__ import annotations
 import datetime
 import bisect
-from enum import Enum
+from enum import IntEnum
 
 from tinyolap.commands import *
 
 
-class HistoryMode(Enum):
+class HistoryMode(IntEnum):
     OFF = 0
     SESSION = 1
     PERSIST = 2

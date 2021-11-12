@@ -12,7 +12,7 @@ import tinyolap.cell_context
 from area import Area
 from tinyolap.decorators import rule
 from tinyolap.database import Database
-from tinyolap.rules import RuleScope
+from tinyolap.rules import RuleScope, RuleInjectionStrategy
 from tinyolap.slice import Slice
 from random import randrange
 
@@ -124,7 +124,7 @@ def rule_profit(c: tinyolap.cell_context.CellContext):
     return c["Sales"] - c["Cost"]
 
 
-@rule("sales", ["Profit in %"], scope=tinyolap.rules.RuleScope.ALL_LEVELS, volatile=False)
+@rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS, volatile=False)
 def rule_profit_in_percent(c: tinyolap.cell_context.CellContext):
     sales = c["Sales"]
     profit = c["Profit"]

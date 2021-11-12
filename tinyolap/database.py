@@ -3,10 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import os
 from collections.abc import Iterable
 from copy import deepcopy
-from pathlib import Path
 from typing import Tuple
 
 import tinyolap.utils
@@ -50,8 +48,8 @@ class Database:
         """
         if name != tinyolap.utils.to_valid_key(name):
             raise InvalidKeyException(f"'{name}' is not a valid database name. "
-                                  f"alphanumeric characters and underscore supported only, "
-                                  f"no whitespaces, no special characters.")
+                                      f"alphanumeric characters and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
         self._history: History = History(self)
@@ -157,8 +155,8 @@ class Database:
         """
         if new_name != tinyolap.utils.to_valid_key(new_name):
             raise KeyError(f"'{new_name}' is not a valid database name. "
-                                  f"alphanumeric characters and underscore supported only, "
-                                  f"no whitespaces, no special characters.")
+                           f"alphanumeric characters and underscore supported only, "
+                           f"no whitespaces, no special characters.")
         self._name: str = new_name
 
     def clone(self):
@@ -224,9 +222,12 @@ class Database:
                                            f"You cannot export a database under it's current name.")
 
         exporter: StorageProvider = SqliteStorage(name)
-        if exporter.exists() and not overwrite_if_exists:
-            raise FileExistsError(f"Failed to export database '{self.name}'. "
-                                  f"The database file '{exporter.uri}' already exists.")
+        if exporter.exists():
+            if not overwrite_if_exists:
+                raise FileExistsError(f"Failed to export database '{self.name}'. "
+                                      f"The database file '{exporter.uri}' already exists.")
+            else:
+                exporter.delete()
 
         # Export the database
         exporter.open()
@@ -266,8 +267,8 @@ class Database:
         """
         if not tinyolap.utils.is_valid_db_object_name(name):
             raise InvalidKeyException(f"'{name}' is not a valid dimension name. "
-                                  f"Lower case alphanumeric characters and underscore supported only, "
-                                  f"no whitespaces, no special characters.")
+                                      f"Lower case alphanumeric characters and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
         if name in self.dimensions:
             raise DuplicateKeyException(f"Failed to add dimension. A dimension named '{name}' already exists.")
         dimension = Dimension._create(self._storage_provider, name, description=description)
@@ -291,7 +292,7 @@ class Database:
         uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
             raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
-                                      f"and therefore can not be removed. Remove cubes first.")
+                                          f"and therefore can not be removed. Remove cubes first.")
 
         if self._storage_provider and self._storage_provider.connected:
             self._storage_provider.remove_dimension(name)
@@ -341,7 +342,7 @@ class Database:
         # validate cube name
         if not tinyolap.utils.is_valid_db_object_name(name):
             raise CubeCreationException(f"Invalid cube name '{name}'. Cube names must contain "
-                                    f"lower case alphanumeric characters only, no blanks or special characters.")
+                                        f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
             raise DuplicateKeyException(f"A cube named '{name}' already exists.")
 
@@ -350,23 +351,23 @@ class Database:
             raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
         if len(dimensions) > self.MAX_DIMS:
             raise CubeCreationException(f"Too many dimensions ({len(dimensions)}). "
-                                    f"Maximum number dimensions per cube is {self.MAX_DIMS}.")
+                                        f"Maximum number dimensions per cube is {self.MAX_DIMS}.")
         dims = []
         for dimension in dimensions:
             if type(dimension) is str:
                 if dimension not in self.dimensions:
                     raise CubeCreationException(f"A dimension named '{str(dimension)}' is not defined in "
-                                            f"database '{self.name}'.")
+                                                f"database '{self.name}'.")
                 dims.append(self.dimensions[dimension])
             elif type(dimension) is Dimension:
                 if dimension.name not in self.dimensions:
                     raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not defined in "
-                                            f"database '{self.name}'.")
+                                                f"database '{self.name}'.")
                 dim = self.dimensions[dimension.name]
                 if dim is not dimension:
                     raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not the same dimension "
-                                            f"as the one defined in database '{self.name}'. You can only use "
-                                            f"dimensions from within a database to add cubes.")
+                                                f"as the one defined in database '{self.name}'. You can only use "
+                                                f"dimensions from within a database to add cubes.")
 
                 dims.append(dimension)
             else:
@@ -376,12 +377,12 @@ class Database:
             if type(measures) is str:
                 if not tinyolap.utils.is_valid_member_name(measures):
                     raise CubeCreationException(f"Measure name '{str(measures)}' is not a valid measure name. "
-                                            f"Please refer the documentation for further details.")
+                                                f"Please refer the documentation for further details.")
             elif isinstance(measures, Iterable):
                 for m in measures:
                     if not tinyolap.utils.is_valid_member_name(m):
                         raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
-                                                f"Please refer the documentation for further details.")
+                                                    f"Please refer the documentation for further details.")
         # create and return the cube
         cube = Cube.create(self._storage_provider, name, dims, measures, description)
         cube.caching = self.caching

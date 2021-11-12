@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from enum import Enum
+from enum import IntEnum
 from faker import Faker
 
 
@@ -11,13 +11,13 @@ class TinySampleFinanceFactory:
     """
     A Factory to generate TinyOlap sample data models of various kind for various purposes.
     """
-    class ModelType(Enum):
+    class ModelType(IntEnum):
         Sales = 1
         Finance = 2
         HR = 3
         All = 4
 
-    class ModelSize(Enum):
+    class ModelSize(IntEnum):
         Local = 1
         Small = 2
         Medium = 3

@@ -63,7 +63,11 @@ class SqliteStorage(StorageProvider):
         Returns the uri (uniform resource identifier) of the current database.
         :return: The uri of the database.
         """
-        return self.file_path.as_uri()
+        if not self.file_path:
+            file_exists, folder, self.file_path, self.file_name = self._evaluate_path(self.name)
+        if file_exists:
+            return self.file_path.as_uri()
+
 
     def open(self, **kwargs) -> bool:
         """
@@ -711,7 +715,7 @@ class SqliteStorage(StorageProvider):
     # endregion
 
     # region file handling & naming
-    def _evaluate_path(self, name: str) -> tuple:
+    def _evaluate_path(self, name: str) -> tuple[bool, str, Path, str]:
         """
         Tries to evaluate a valid file path from a given name or file path.
         :param name: The name or file path to be evaluated.

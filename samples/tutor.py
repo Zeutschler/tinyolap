@@ -138,6 +138,9 @@ def load_tutor(console_output: bool = False):
               f"±{round(memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
 
     # That's it...
+    duration = time.time()
+    db.export(db.name + "_export", True)
+    print(f"export database in {time.time() - duration:.3} sec")
     return db
 
 
