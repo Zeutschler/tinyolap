@@ -11,7 +11,7 @@ from os import path
 from pathlib import Path
 from timeit import default_timer as timer
 
-from tinyolap.custom_errors import *
+from tinyolap.exceptions import *
 
 
 # noinspection SqlNoDataSourceInspection

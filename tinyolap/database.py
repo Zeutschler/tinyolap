@@ -2,17 +2,18 @@
 # TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
+import json
 from collections.abc import Iterable
 from copy import deepcopy
 from typing import Tuple
 
 import tinyolap.utils
+from codemanager import CodeManager
 from storage.sqlite import SqliteStorage
 from storage.storageprovider import StorageProvider
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cube import Cube
-from tinyolap.custom_errors import *
+from tinyolap.exceptions import *
 from tinyolap.dimension import Dimension
 from tinyolap.history import History
 
@@ -22,11 +23,10 @@ class Database:
     Databases are the root objects that should be use to create **TinyOlap** data model or database.
     The Database object provides methods to create :ref:`dimensions <dimensions>` and :ref:`cubes <cubes>`.
     """
-    MIN_DIMS = 1
-    MAX_DIMS = 32  # This value can be changed. For the given purpose (planning), 32 is already too much.
-    # max. 2000 columns and that dimensions and measure share the same space.
-    # Note: 32 dimensions is already huge for model-driven OLAP _databases.
-    MAX_MEASURES = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS)
+    MIN_DIMS_PER_CUBE = 1
+    MAX_DIMS_PER_CUBE = 32  # This value can be changed.
+                            # Note: 32 dimensions is already huge for a model-driven OLAP database.
+    MAX_MEASURES_PER_CUBE = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS_PER_CUBE)
 
     def __init__(self, name: str = None, in_memory: bool = False):
         """
@@ -52,6 +52,7 @@ class Database:
                                       f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
+        self._code_manager: CodeManager = CodeManager()
         self._history: History = History(self)
         self._name: str = name
         self._in_memory = in_memory
@@ -62,6 +63,9 @@ class Database:
             self._storage_provider.open()
         self._load()
         self._caching = True
+
+    def __del__(self):
+        self.close()
 
     # region Properties
     @property
@@ -78,6 +82,11 @@ class Database:
     def history(self) -> History:
         """Returns the history of the database."""
         return self._history
+
+    @property
+    def code_manager(self) -> CodeManager:
+        """Returns the code manager of the database."""
+        return self._code_manager
 
     @property
     def name(self) -> str:
@@ -159,17 +168,43 @@ class Database:
                            f"no whitespaces, no special characters.")
         self._name: str = new_name
 
+        if self._storage_provider:
+            self._storage_provider.add_meta("db", self._to_json())
+
     def clone(self):
-        """Creates a clone (copy) of the database."""
+        """Creates a clone of the database."""
         return deepcopy(self)
 
     def open(self, file_name: str):
         """
         Opens a database from a file.
-        :param file_name: The database file path to be opened.
+
+        .. Note::
+            Please note that an already defined database name will be overwritten by
+            the name defined in the dabase file.
+
+        .. caution::
+            If the database is set to ``in_memory == True``, then the requested database file
+            will be opened and used only to initialize the database (like a template).
+            But it will NOT be connected and write back change to that database file.
+            So, any subsequent change, after opening a database file, will happen in-memory
+            only and not be persisted. Please remember, that you can use the ``export()``
+            method to save an in-memory databases at any time.
+
+        :param file_name: The database file to open.
         """
-        self._storage_provider.open()
-        # todo: Implement a dedicated serializes/deserializer to initialize a database
+        self._load(file_name)
+
+    def save(self):
+        """
+        Saves pending changes to the database. The ``save()`` command has no effect
+        if the database is in-memory mode, meaning ``in_memory == True``.
+
+        :return:
+        """
+        if self._storage_provider:
+            self._storage_provider.add_meta("db", self._to_json())
+            self._storage_provider.add_meta("code", self._code_manager.to_json())
 
     def close(self):
         """
@@ -177,10 +212,12 @@ class Database:
         then all pending changes to the database file will be committed and
         the connection to the underlying database will be be closed.
 
-        The ``close()`` command has no effect if the database is in-memory mode
-        ``in_memory == True``.
+        The ``close()`` command has no effect if the database is in-memory mode,
+        meaning ``in_memory == True``.
         """
         if self._storage_provider:
+            if self._code_manager.pending_changes:
+                self._storage_provider.add_meta("code", self._code_manager.to_json())
             self._storage_provider.close()
 
     def delete(self):
@@ -231,6 +268,8 @@ class Database:
 
         # Export the database
         exporter.open()
+        exporter.add_meta("db", self._to_json())
+        exporter.add_meta("code", self._code_manager.to_json())
         for dimension in self.dimensions.values():
             exporter.add_dimension(dimension.name, dimension.to_json())
         for cube in self.cubes.values():
@@ -238,6 +277,28 @@ class Database:
             exporter.set_records(cube.name, cube._get_records())
         exporter.close()
 
+    def _to_json(self) -> str:
+        """
+        Returns the database configuration as a json string.
+        :return: A json string.
+        """
+        config = {"name": self._name,
+                  "caching": self._caching,
+                  "dimensions": len(self.dimensions),
+                  "cubes": len(self.cubes),
+                  "contains_code": len(self._code_manager.functions) > 0,
+                  "max_dims_per_cube": self.MAX_DIMS_PER_CUBE,
+                  "max_measures_per_cube": self.MAX_MEASURES_PER_CUBE}
+        return json.dumps(config)
+
+    def _from_json(self, data: str):
+        """
+        Initializes the database meta data from a configuration in json format.
+        :return: A json string.
+        """
+        config = json.loads(data)
+        self._name = config["name"]
+        self._caching = config["caching"]
     # endregion
 
     # region CellContext access via indexing
@@ -333,7 +394,7 @@ class Database:
 
           .. note::
              The default upper limit for cube creation is 32 dimensions, but this limit can be
-             adjusted at any time by changing the value for ``MAX_DIMS`` in the source file
+             adjusted at any time by changing the value for ``MAX_DIMS_PER_CUBE`` in the source file
              'database.py'.
 
         :raises DuplicateKeyException: Raised if the cube already exists.")
@@ -349,9 +410,9 @@ class Database:
         # validate dimensions
         if not dimensions:
             raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
-        if len(dimensions) > self.MAX_DIMS:
+        if len(dimensions) > self.MAX_DIMS_PER_CUBE:
             raise CubeCreationException(f"Too many dimensions ({len(dimensions)}). "
-                                        f"Maximum number dimensions per cube is {self.MAX_DIMS}.")
+                                        f"Maximum number dimensions per cube is {self.MAX_DIMS_PER_CUBE}.")
         dims = []
         for dimension in dimensions:
             if type(dimension) is str:
@@ -421,24 +482,38 @@ class Database:
     # endregion
 
     # region internal functions
-    def _load(self):
+    def _load(self, file_name: str = None):
         """Initialize database from storage storage_provider."""
 
         if self._storage_provider:
-            if not self._storage_provider.exists():
+            provider = self._storage_provider
+            if not provider.exists():
                 return
-            if not self._storage_provider.connected:
-                self._storage_provider.open()
+            if not provider.connected:
+                if file_name:
+                    provider.open(file_name=file_name)
+                else:
+                    provider.open()
+
+            # initialize meta information
+            self._from_json(provider.get_meta("db"))
+            self._code_manager.from_json(provider.get_meta("code"))
 
             # initialize dimensions
-            data = self._storage_provider.get_dimensions()
+            data = provider.get_dimensions()
             for dim_tuple in data:
                 dim_name, dim_json = dim_tuple
                 dimension = self.add_dimension(dim_name)
                 dimension.from_json(dim_json)
 
             # initialize cubes
-            # todo: implementation missing
+            data = provider.get_cubes()
+            for cube_tuple in data:
+                cube_name, cube_json = cube_tuple
+                cube = Cube.create(provider, cube_name, None, None, None)
+                cube._database = self
+                cube.from_json(cube_json)
+                self.cubes[cube_name] = cube
 
             # import data
             # todo: implementation missing

@@ -9,3 +9,4 @@ from tinyolap.rules import *
 def tinyolap_info():
     return "TinyOlap"
 
+

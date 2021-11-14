@@ -61,8 +61,8 @@ class TestCube(TestCase):
         dim_measures.commit()
 
         cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products, dim_measures])
-        cube.add_rule(lambda x: x["Sales"] - x["Cost"], "Profit", RuleScope.ALL_LEVELS )
-        cube.add_rule(lambda x: x["jan"] - x["FEB"], "q1", RuleScope.ALL_LEVELS)
+        cube.register_rule(lambda x: x["Sales"] - x["Cost"], "Profit", RuleScope.ALL_LEVELS)
+        cube.register_rule(lambda x: x["jan"] - x["FEB"], "q1", RuleScope.ALL_LEVELS)
 
         # disable caching
         cube.caching = False

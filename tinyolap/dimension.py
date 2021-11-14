@@ -11,7 +11,7 @@ import json
 from storage.storageprovider import StorageProvider
 from tinyolap.member_context import MemberContext
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
-from tinyolap.custom_errors import *
+from tinyolap.exceptions import *
 from tinyolap.utils import *
 
 

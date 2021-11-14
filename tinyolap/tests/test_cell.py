@@ -3,7 +3,7 @@ import unittest
 from unittest import TestCase
 
 from samples.tiny import load_tiny
-from tinyolap.custom_errors import InvalidCellAddressException
+from tinyolap.exceptions import InvalidCellAddressException
 
 
 class TestCell(TestCase):

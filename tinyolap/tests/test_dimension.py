@@ -1,6 +1,6 @@
 from unittest import TestCase
 from tinyolap.database import Database
-from tinyolap.custom_errors import *
+from tinyolap.exceptions import *
 
 
 class TestDimension(TestCase):

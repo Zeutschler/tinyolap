@@ -35,7 +35,7 @@ def rule(cube: str, trigger: list[str], scope: RuleScope = RuleScope.ALL_LEVELS,
             return func(*args, **kwargs)
 
         wrapper_rule.cube = cube
-        wrapper_rule.pattern = trigger
+        wrapper_rule.trigger = trigger
         wrapper_rule.scope = scope
         wrapper_rule.injection = injection
         wrapper_rule.volatile = volatile

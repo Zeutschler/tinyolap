@@ -46,9 +46,9 @@ class TestBaseFunction(TestCase):
     def test_formula(self):
 
         # Order of rules matter
-        self.cube.add_rule(lambda x: "hallo B", ["products:B"], RuleScope.ALL_LEVELS)
-        self.cube.add_rule(self.calc_var, ["datatype:var"])
-        self.cube.add_rule(self.calc_var_percent, ["datatype:var%"])
+        self.cube.register_rule(lambda x: "hallo B", ["products:B"], RuleScope.ALL_LEVELS)
+        self.cube.register_rule(self.calc_var, ["datatype:var"])
+        self.cube.register_rule(self.calc_var_percent, ["datatype:var%"])
 
         # write some values to the cube
         c = self.cube.cell("actual", "2021", "Jan", "A", "Sales")

@@ -64,15 +64,15 @@ class RuleInjectionStrategy(IntEnum):
     """
 
     NO_INJECTION = 0  # doc: (default) Indicates that the rule should not be injected into the database.
-    METHOD_INJECTION = 1  # doc: Indicates that **only** the rule function itself will be injected into the database. All surrounding code of the module or project where the rule function is defined, will be ignored. This requires your rule function to be **autonomous**. Meaning, without any dependencies to functions or classes from within your code. By default, TinyOlap will only reference the following built-in Python modules using the ``from [module name] import *`` trigger, when running your code: math, cmath, statistics, decimal, fractions, random, datetime, time, re, json. ``METHOD_INJECTION`` should be the preferred strategy for simple business logic that acts upon the data from a TinyOlap database only.
+    FUNCTION_INJECTION = 1  # doc: Indicates that **only** the rule function itself will be injected into the database. All surrounding code of the module or project where the rule function is defined, will be ignored. This requires your rule function to be **autonomous**. Meaning, without any dependencies to functions or classes from within your code. By default, TinyOlap will only reference the following built-in Python modules using the ``from [module name] import *`` trigger, when running your code: math, cmath, statistics, decimal, fractions, random, datetime, time, re, json. ``FUNCTION_INJECTION`` should be the preferred strategy for simple business logic that acts upon the data from a TinyOlap database only.
     MODULE_INJECTION = 2  # doc: Indicates that the **entire** module in which the rule function is defined will be injected doc: into the database. Code from other modules of your project will be ignored. If your rules are spread or multiple modules, all these modules will be injected. This requires that all modules and Python packages referenced from within your module must also be installed on the target system. TinyOlap will raise an appropriate error if the instantiation of your code module in the target environment will fail. ``MODULE_INJECTION`` should be the preferred strategy for more complex business logic or business logic that requires certain initialization (e.g. read exchange rates from a service)
     PROJECT_INJECTION = 3  # doc: **NOT YET SUPPORTED** Indicates that the **entire** project in which the rule function is defined will be injected into the database. This
 
     def __eq__(self, other):
-        return self.value == other.value
+        return self.value == other
 
     def __ne__(self, other):
-        return self.value != other.value
+        return self.value != other
 
     def __hash__(self):
         return hash(self.value)

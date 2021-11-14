@@ -50,7 +50,7 @@ def load(console_output: bool = False):
 
     # 3. Add a plane data cube
     cube = db.add_cube("planes", [dim_horz, dim_vert, dim_plane, dim_data])
-    cube.add_rule(rule_average_altitude)
+    cube.register_rule(rule_average_altitude)
 
     # That's it! Database is ready to get loaded
     return db

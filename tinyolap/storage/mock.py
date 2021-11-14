@@ -171,6 +171,33 @@ class MockStorage(StorageProvider):
            If the address does not exist, ``None`` will be returned.
         """
         return None
+
+    def get_records(self, cube_name: str):
+        """
+        Returns all records from a cubes data table.
+        :param cube_name: Name of the cube to get data from.
+        :return: All records of the cube.
+        """
+        pass
+    # endregion
+
+    # region meta data related methods
+    @abstractmethod
+    def add_meta(self, key: str, json: str):
+        """
+        Adds or updates a meta configuration.
+        :param key: The name of the meta item.
+        :param json: The configuration of the meta item in json format.
+        """
+        pass
+
+    @abstractmethod
+    def get_meta(self, key: str) -> str:
+        """
+        Returns the configuration of a meta item in json format.
+        :return: A json string.
+        """
+        return None
     # endregion
 
     # region Cube related methods

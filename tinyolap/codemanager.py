@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import inspect
-import types
+import io
 import json
-from enum import IntEnum
+import random
+import string
+import tokenize
+import types
 
 import tinyolap.rule_module_template
+from tinyolap.exceptions import RuleException
 from tinyolap.rules import RuleScope, RuleInjectionStrategy
-from tinyolap.rule_module_template import tinyolap_info
+
 
 class ModuleCode:
     def __init__(self, module, name: str, code: str, is_custom_module: bool = True):
@@ -54,6 +60,7 @@ class FunctionCode:
     """
     Represents a code fragment for a single (Rule) function.
     """
+
     def __init__(self, function, name: str, module, code: str, cube: str = None, trigger=None,
                  scope: RuleScope = None, injection: RuleInjectionStrategy = None):
         self._name = name
@@ -147,16 +154,31 @@ class FunctionCode:
         """
         if self._function:
             args = str(inspect.signature(self._function))
-            args = args[1: len(args) -1].split(",")
-            return bool(self._cube) and bool( self._trigger) and (len(args) > 0)
+            args = args[1: len(args) - 1].split(",")
+            return bool(self._cube) and bool(self._trigger) and (len(args) > 0)
         return False
 
 
 class CodeManager:
+    """
+    Manages code fragments (from functions or modules) used for TinyOlap rules.
+    Mainly serialization, deserialization and loading (instantiation) of code.
+    """
 
     def __init__(self):
-        self._functions: dict[str, FunctionCode] = {}
-        self._modules: dict[str, ModuleCode] = {}
+        self.functions: dict[str, FunctionCode] = {}
+        self.modules: dict[str, ModuleCode] = {}
+        self._save_pending: bool = False
+
+    @property
+    def pending_changes(self) -> bool:
+        """Identifies if the code manager conatins pending changes. Used for database persistence."""
+        return self._save_pending
+
+    @pending_changes.setter
+    def pending_changes(self, value: bool):
+        """Identifies if the code manager conatins pending changes. Used for database persistence."""
+        self._save_pending = value
 
     def clear(self):
         """
@@ -170,13 +192,26 @@ class CodeManager:
             be handled instead of the new code.
         :return:
         """
-        self._functions = {}
-        self._modules = {}
+        self.functions = {}
+        self.modules = {}
+        self._save_pending = True
+
+    def get_functions(self, cube: str, scope: RuleScope = None) -> list[FunctionCode]:
+        """
+        Returns a list of FunctionCode objects matching the given parameters.
+        :param cube: The cube name to be filtered.
+        :param scope: (optional) the rulescope to be filtered.
+        :return: a list of FunctionCode object matching the cube name and rule scope.
+        """
+        if scope:
+            return [f for f in self.functions.values() if f.cube == cube and f.scope == scope]
+        else:
+            return [f for f in self.functions.values() if f.cube == cube]
 
     def register_function(self, function, cube: str = None, trigger: list[str] = None,
                           scope: RuleScope = None, injection: RuleInjectionStrategy = None) -> FunctionCode:
         """
-        Registers a function.
+        Registers a Python function.
         :param function: The function to be registed.
         :param cube: (optional) the cube the function is assigned to.
         :param trigger: (optional) the trigger the function is assigned to.
@@ -186,19 +221,16 @@ class CodeManager:
         """
         is_valid = True
 
-        offset = 0
+        is_lambda = repr(function).find("<lambda>") != -1
         if not inspect.isroutine(function):
-            if callable(function) and function.__name__ == "<lambda>":
-                offset = 1
-            else:
-                raise TypeError(f"Argument 'function' is not a Python function, type id '{type(function)}'.")
+            raise TypeError(f"Argument 'function' is not a Python function, type id '{type(function)}'.")
 
         # validate settings from @rule decorator (if available)
         # todo: refactoring required > the following code should be moved to the FunctionCode class.
         if hasattr(function, "cube"):
             cube = function.cube
         if hasattr(function, "trigger"):
-            trigger = function.pattern
+            trigger = function.trigger
             if trigger:
                 if type(trigger) is str:
                     trigger = [trigger, ]
@@ -224,63 +256,196 @@ class CodeManager:
             injection = RuleInjectionStrategy.NO_INJECTION
 
         # setup the function code object
-        name = str(function).split(" ")[1 + offset]
+        if is_lambda:
+            name = self._generate_unique_name("tinyolap_lambda_rule_")
+            code = self._lambda_to_function_code(function, name, cube, trigger, scope, injection)
+        else:
+            name = str(function).split(" ")[1]
+            code = inspect.getsource(function)
         module = inspect.getmodule(function)
         module_name = module.__name__
-        code = inspect.getsource(function)
-        fc = FunctionCode(function, name=name, module= module_name, code=code, cube=cube,
+        fc = FunctionCode(function, name=name, module=module_name, code=code, cube=cube,
                           trigger=trigger, scope=scope, injection=injection)
 
-        if injection > RuleInjectionStrategy.METHOD_INJECTION:
+        if injection > RuleInjectionStrategy.FUNCTION_INJECTION:
             # We need to remember (persists) the entire module, so...
             module_code = inspect.getsource(module)
             # setup and register (or override) the module code object
             mc = ModuleCode(module=module, name=module_name, code=module_code)
-            self._modules[module_name] = mc
+            self.modules[module_name] = mc
 
         # register (or override) the function
-        self._functions[fc.signature()] = fc
+        self.functions[fc.signature()] = fc
+
+        self._save_pending = True
         return fc
+
+    def _lambda_to_function_code(self, function, name: str, cube: str, trigger: list[str],
+                                 scope: RuleScope, injection: RuleInjectionStrategy) -> str:
+        """Converts a lambda expression into a function body."""
+
+        # get source and extract the 'lambda' expression by tokenization
+        source = " ".join([line.strip().removesuffix("\\").strip()
+                           for line in inspect.getsource(function).splitlines()])
+        tokens = [token for token in tokenize.generate_tokens(io.StringIO(source).readline)]
+        lambda_token = None
+        end_of_signature_token = None
+        terminal_token = None
+        for i in range(len(tokens)):
+            if tokens[i].string == "lambda" and tokens[i].type == 1:  # type 1 := NAME
+                lambda_token = tokens[i]
+                # from here we need beyond the next ':' token
+                for j in range(i + 1, len(tokens)):
+                    if tokens[j].string == ":" and tokens[j].type == 54:  # type 54 := OP
+                        end_of_signature_token = tokens[j]
+                        # from here we need go up the 'cube' NAME token followed by the '=' OP tpken.
+                        for k in range(j + 1, len(tokens)):
+                            if tokens[k].string == "cube" and tokens[k].type == 1 and \
+                                    tokens[k + 1].string == "=" and tokens[k + 1].type == 54:
+                                terminal_token = tokens[k - 1]
+                                break
+                        break
+                break
+
+        if not lambda_token or not end_of_signature_token or not terminal_token:
+            raise RuleException("Unable to extract rule from 'lambda' expression.")
+
+        arguments = source[lambda_token.end[1] + 1: end_of_signature_token.start[1]].strip()
+        lambda_source = source[end_of_signature_token.end[1] + 1: terminal_token.start[1]].strip()
+        source = lambda_source
+
+        indentation = " " * 4
+        code = f'@rule(cube="{cube}", trigger={str(trigger)}, scope={str(scope)}, injection={str(injection)})\n'
+        code += f'def {name}({arguments}):\n'
+        code += f'{indentation}return {source}\n'
+        return code
 
     def build(self):
         """
-        Builds or rebuilds (compiles and instantiates) the all functions available
-        in the code manager.
+        Builds (loads and instantiates) all functions available in the code manager.
         :return:
         """
-        # collect all modules that need to be instantiated (no doublets please)
+        # todo: Take care about unloading (reloading) module to not
+        #      see: https://stackoverflow.com/questions/437589/how-do-i-unload-reload-a-python-module
+
+        # 1. collect all 'modules' that need to be instantiated (no doublets please)
         modules_code = {}
-        some_module = list(self._modules.values())[0].module
-        for key, fc in [(key, value) for key, value in self._functions.items()
-                        if value.injection >= RuleInjectionStrategy.MODULE_INJECTION]:
-            modules_code[self._modules[fc.module].code] = self._modules[fc.module]
+        some_module = list(self.modules.values())[0].module
+        for key, function in [(key, value) for key, value in self.functions.items()
+                              if value.injection >= RuleInjectionStrategy.MODULE_INJECTION]:
+            modules_code[self.modules[function.module].code] = self.modules[function.module]
         # instantiate the code for all distinct modules
         for module_code in modules_code.values():
-            self._modules[module_code.name].module = self._code_to_module("tiny" + module_code.name, module_code.code)
-        # get reference of functions from instatiated modules and assign them to the function code objects.
-        for key, fc in [(key, value) for key, value in self._functions.items()
-                        if value.injection >= RuleInjectionStrategy.MODULE_INJECTION]:
-            module = self._modules[fc.module].module
-            module = some_module
-            code = inspect.getsource(module)
-            print(module.__dict__)
-            fc.function = getattr(module, fc.name)
+            name = module_code.name
+            source = module_code.code
+            self.modules[module_code.name].module = self._code_to_module(name, source)
+        # get reference of 'functions' from newly instatiated modules and assign them to the function code objects.
+        for key, function in [(key, value) for key, value in self.functions.items()
+                              if value.injection >= RuleInjectionStrategy.MODULE_INJECTION]:
+            module = self.modules[function.module].module
+            function.function = getattr(module, function.name)
 
-            # Lets try to call the function
-            result = fc.function("Hello World!")
-            print(f"We expect 'Hello World!' and got this := '{result}'")
+        # 2. collect all 'isolated function' that need to be add to a default menu.
+        #    ...those that have injection set to RuleInjectionStrategy.FUNCTION_INJECTION
+        isolated_function_keys = [key for key, value in self.functions.items()
+                                  if value.injection == RuleInjectionStrategy.FUNCTION_INJECTION]
+        if isolated_function_keys:
+            # generate 1 Python module containing all isolated rule functions
+            module_source = self._default_rule_module_source()
+            for key in isolated_function_keys:
+                module_source += "\n\n" + self.functions[key].code
+            module_source += "\n"
 
+            # instantiate code and assign functions
+            module_name = self._generate_unique_name("tinyolap_rules_module_")
+            module = self._code_to_module(name=module_name, code=module_source)
+            for key in isolated_function_keys:
+                self.functions[key]._module = module_name
+                function_name = self.functions[key].name
+                self.functions[key]._function = getattr(module, function_name)
 
-    def _code_to_module(self, name: str,  code: str):
-        # create new module
+    def to_json(self) -> str:
+        """
+        Returns a string in json format containing all registered code fragments.
+        :return: Json representing the code fragements contained in the code manager.
+        """
+        code = {}
+        modules = []
+        for module in self.modules.values():
+            mod = {"name": module.name,
+                   "is_custom": module.is_custom_module,
+                   "code": module.code}
+            modules.append(mod)
+        code["modules"] = modules
+        functions = []
+        for function in self.functions.values():
+            mod = {"name": function.name,
+                   "function": None,
+                   "module": function.module,
+                   "cube": function.cube,
+                   "trigger": function.trigger,
+                   "scope": function.scope,
+                   "injection": function.injection,
+                   "code": function.code}
+            functions.append(mod)
+        code["functions"] = functions
+
+        return json.dumps(code, indent=4)
+
+    def from_json(self, data: str, build_code: bool = True) -> CodeManager:
+        """
+        Inititializes the code manager from code fragements supplied in json format.
+        :param data: The json data to read from.
+        :param build_code: Flag that defines is the code should be directly build and instantiated.
+        """
+        self.modules = {}
+        self.functions = {}
+        config = json.loads(data)
+        for function in config["functions"]:
+            self.functions[function["name"]] = FunctionCode(
+                function=None,
+                name=function["name"],
+                module=function["module"],
+                cube=function["cube"],
+                trigger=function["function"],
+                scope=function["scope"],
+                injection=function["injection"],
+                code=function["code"])
+        for module in config["modules"]:
+            self.modules[module["name"]] = ModuleCode(
+                module=None,
+                name=module["name"],
+                code=module["code"],
+                is_custom_module=module["is_custom"])
+
+        if build_code:
+            self.build()
+
+        return self
+
+    @staticmethod
+    def _generate_unique_name(prefix: str = "tinolap_", length: int = 8):
+        """Generate a somehow unique module name, like this 'tinyolap_gwef65lg'"""
+        return prefix + ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+
+    @staticmethod
+    def _code_to_module(name: str, code: str):
+        """
+        Create a new Python code module instance.
+        :param name: name of the code module to instantiate.
+        :param code: Source code of the code module (UTF-8).
+        :return: A python code modul.
+        """
         module = types.ModuleType(name)
-        # populate the module with the code
         exec(code, module.__dict__)
         return module
 
-    def _default_module_code(self):
-        # Returns a default module body for rules that are injected on method level (METHOD_INJECTION = 1).
+    @staticmethod
+    def _default_rule_module_source() -> str:
+        """
+        Returns a default module body (mainly imports) for rules
+        that are injected on method level (FUNCTION_INJECTION = 1).
+        """
         module = inspect.getmodule(tinyolap.rule_module_template.tinyolap_info)
         module_code = inspect.getsource(module)
         return module_code
-

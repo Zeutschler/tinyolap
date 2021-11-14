@@ -14,8 +14,8 @@ from storage.storageprovider import StorageProvider
 from tinyolap.area import Area
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell_context import CellContext
-from tinyolap.custom_errors import *
 from tinyolap.dimension import Dimension
+from tinyolap.exceptions import *
 from tinyolap.fact_table import FactTable
 from tinyolap.rules import Rules, RuleScope, RuleInjectionStrategy
 
@@ -25,16 +25,17 @@ class Cube:
     __magic_key = object()
 
     @classmethod
-    def create(cls, storage_provider: StorageProvider, name: str,
-               dimensions: list[Dimension], measures: list[str],
+    def create(cls, storage_provider: StorageProvider, name: str = None,
+               dimensions: list[Dimension] = None, measures: list[str] = None,
                description: str = None):
         cube = Cube(Cube.__magic_key, name, dimensions, measures, description)
         cube._storage_provider = storage_provider
-        if storage_provider and storage_provider.connected:
-            storage_provider.add_cube(name, cube.to_json())
+        if name:
+            if storage_provider and storage_provider.connected:
+                storage_provider.add_cube(name, cube.to_json())
         return cube
 
-    def __init__(self, cub_creation_key, name: str, dimensions, measures, description: str = None):
+    def __init__(self, cub_creation_key, name: str, dimensions=None, measures=None, description: str = None):
         """
         NOT INTENDED FOR DIRECT USE! Cubes and dimensions always need to be managed by a Database.
         Use method 'Database.add_cube(...)' to create objects type Cube.
@@ -102,8 +103,8 @@ class Cube:
         """
         return NotImplemented
 
-    def add_rule(self, function, trigger: list[str] = None,
-                 scope: RuleScope = None, injection: RuleInjectionStrategy = None):
+    def register_rule(self, function, trigger: list[str] = None,
+                      scope: RuleScope = None, injection: RuleInjectionStrategy = None):
         """
         Registers a rule function for the cube. Rules function either need to be decorated with the ``@rules(...)``
         decorator or the arguments ``trigger`` and ``scope`` of the ``add_rules(...)`` function must be specified.
@@ -172,7 +173,32 @@ class Cube:
         elif scope == RuleScope.ON_ENTRY:
             self._rules_on_entry.register(function, function_name, trigger, idx_pattern, scope, injection)
         else:
-            raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope'.")
+            raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope: RuleScope'.")
+
+        # add function to code manager
+        self._database._code_manager.register_function(
+            function=function, cube=cube_name, trigger=trigger,
+            scope=scope, injection=injection)
+
+    def validate_rules(self, save_on_validation: bool = True) -> bool:
+        """
+        Validates all registered rules by calling each with a random cell matching the defined
+        rule trigger and rule scope. Calling this methods (maybe even multiple times) can be
+        usefull for highlevel testing of your rules.
+
+        .. warning::
+            Calling this method does not replace proper rule testing. Escpecially when your
+            database should be used by other users or for serious purposes you need to ensure
+            that your rule calculations ideally never (or only for explicit purposes) thows an
+            error.
+
+        :return: ``True`` if all rules returned a result with throwing an error.
+        """
+        # todo: to be implemented
+
+        # update the database
+        self._database.save()
+        return True
 
     def __pattern_to_idx_pattern(self, pattern):
         """
@@ -653,7 +679,7 @@ class Cube:
 
     # region serialization
     # todo: adjust to fully support cube (e.g. rules)
-    def to_json(self, beautify: bool = False):
+    def to_json(self):
         """
         Returns the json representation of the cube. Helpful for serialization
         and deserialization of cubes. The json returned by this function is
@@ -663,14 +689,17 @@ class Cube:
         :return: A json string representing the cube.
         """
         dim_names = [dim.name for dim in self._dimensions]
-        data = ['{', f'"content": "cube",', f'"name": "{self.name}",',
-                f'"description": "{self._description}",',
-                f'"dimensions": {dim_names},',
-                ]
-        json_string = ''.join(data)
-        if beautify:
-            parsed = json.loads(json_string)
-            json_string = json.dumps(parsed, indent=4)
+        rules_count = len(self._rules_roll_up) + len(self._rules_on_entry) \
+                      + len(self._rules_all_levels) + len(self._rules_base_level) + len(self._rules_aggr_level)
+        config = {"content": "cube",
+                  "name": self.name,
+                  "description": self._description,
+                  "dimensions": dim_names,
+                  "caching": self._caching,
+                  "rules": rules_count,
+                  }
+
+        json_string = json.dumps(config, indent=4)
         return json_string
 
     # todo: adjust to fully support cube (e.g. rules)
@@ -687,16 +716,36 @@ class Cube:
         :raises FatalException: Raised if an error occurred during the deserialization from json string.
         """
         try:
-            # first, read everything
-            dim = json.loads(json_string)
-            new_name = dim["name"]
-            new_description = dim["description"]
-            new_dim_names = dim["dimensions"]
-
-            # second, apply everything (this should not fail)
-            self._name = new_name
-            self._description = new_description
+            # read configuration
+            config = json.loads(json_string)
+            self._name  = config["name"]
+            self._description = config["description"]
+            new_dim_names = config["dimensions"]
             self._dimensions = tuple([self._database.dimension[dim_name] for dim_name in new_dim_names])
+            self._caching = config["caching"]
+
+            # load data
+            if self._storage_provider:
+                records = self._storage_provider.get_records(self._name)
+                for record in records:
+                    address = str(record[0])
+                    idx_address = list(map(int, address[1:-1].split(sep=",")))
+
+                    data = json.loads(record[1])
+                    for key, value in data.items:
+                        idx_measure = self._measures[key]
+                        self._set_base_level_cell(idx_address, idx_measure, value)
+
+            # initialize rules
+            # Note: This should to be done after loading the data, as otherwise push rules
+            #       might be triggered and recalcluated although the data is already consistent.
+            if config["rules"] > 0:
+                functions = self._database._code_manager.get_functions(self._name)
+                for f in functions:
+                    self.register_rule(function=f.function, trigger=f.trigger, scope= f.scope, injection=f.injection)
+
+
+
         except Exception as err:
             raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")
 

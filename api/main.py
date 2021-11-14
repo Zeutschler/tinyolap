@@ -125,7 +125,7 @@ async def get_dimensions(database_id):
 async def get_dimension(database_id, dimension_id):
     try:
         dim_list = list({"name": dim.name} for dim in server[database_id].dimensions.values())
-        return server[database_id].dimensions[dimension_id].to_json()
+        return server[database_id].dimensions[dimension_id]._to_json()
     except Exception as err:
         return {"service": "TinyOlap",
                 "version": str(server.Settings.version),

@@ -117,7 +117,7 @@ def consolidate(template: Database, machine_dbs: list[Database]) -> Database:
                 target.set(record[:3], record[3])
 
     # add some business logic
-    target.add_rule(rule_average_temperature)
+    target.register_rule(rule_average_temperature)
 
     # where done already...
     return consolidated_db

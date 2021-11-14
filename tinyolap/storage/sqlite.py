@@ -10,7 +10,7 @@ from pathlib import Path
 from timeit import default_timer as timer
 import tinyolap.utils
 from tinyolap.storage.storageprovider import StorageProvider
-from tinyolap.custom_errors import *
+from tinyolap.exceptions import *
 from tinyolap.encryption import Encryptor
 
 
@@ -24,14 +24,15 @@ class SqliteStorage(StorageProvider):
     LOG_LEVEL = logging.INFO
 
     # database object names
-    META_TABLE_CUBES = "tine_meta_cubes"
-    META_TABLE_DIMENSIONS = "tiny_meta_dimensions"
+    META_TABLE_META = "tinyolap_meta"
+    META_TABLE_CUBES = "tinyolap_cubes"
+    META_TABLE_DIMENSIONS = "tinyolap_dimensions"
     META_TABLE_FIELDS = [("key", "TEXT PRIMARY KEY"), ("config", "TEXT")]
 
-    HISTORY_TABLE = "tiny_history"
+    HISTORY_TABLE = "tinyolap_history"
     HISTORY_TABLE_FIELDS = [("timestamp", "TEXT"), ("user", "TEXT"), ("action", "TEXT"), ("data", "TEXT")]
 
-    DATA_TABLE_PREFIX = "tiny_data_"
+    DATA_TABLE_PREFIX = "tinyolap_data_"
 
     def __init__(self, name: str, database_folder: str = None, logging: bool = True,
                  logger: logging.Logger = None, encryptor: Encryptor = None):
@@ -60,14 +61,22 @@ class SqliteStorage(StorageProvider):
     @property
     def uri(self) -> str:
         """
-        Returns the uri (uniform resource identifier) of the current database.
+        Returns or sets the uri (uniform resource identifier) of the current database.
         :return: The uri of the database.
         """
         if not self.file_path:
             file_exists, folder, self.file_path, self.file_name = self._evaluate_path(self.name)
-        if file_exists:
-            return self.file_path.as_uri()
+            if file_exists:
+                return self.file_path.as_uri()
+        return self.file_path.as_uri()
 
+    @uri.setter
+    def uri(self, value: str):
+        """
+        Returns or sets the uri (uniform resource identifier) of the current database.
+        :return: The uri of the database.
+        """
+        file_exists, self.folder, self.file_path, self.file_name = self._evaluate_path(value)
 
     def open(self, **kwargs) -> bool:
         """
@@ -76,6 +85,10 @@ class SqliteStorage(StorageProvider):
         :return: Returns ``True``if the database has been opened successfully.
         :raises DatabaseBackendException: Raised when the opening of / connecting to the database file failed.
         """
+        file_name = kwargs["file_name"]
+        if file_name:
+            self.name = file_name
+
         file_exists, self.folder, self.file_path, self.file_name = self._evaluate_path(self.name)
         self.log_file = str(self.file_path) + self.LOG_EXTENSION
         self._initialize_logger()
@@ -110,25 +123,26 @@ class SqliteStorage(StorageProvider):
         :return: ``True`` if the database was successfully closed
             or was already closed, ``False``otherwise.
         """
-        if self.logging and self.logger:
-            self.logger.info(f"Attempt to close database '{self.file_path}'.")
-            self.logger.handlers[0].flush()
-        if self.conn or self.is_open:
-            try:
-                self._commit()
-                self.conn.close()
-                if self.logging:
-                    self.logger.info(f"Database '{self.file_path}' successfully closed.")
-            except sqlite3.Error as err:
-                msg = f"Failed to close database '{self.file_path}'. SQLite exception: {str(err)}"
-                if self.logging:
-                    self.logger.error(msg)
-                raise DatabaseBackendException(msg)
-            except Exception as err:
-                msg = f"Failed to close database '{self.file_path}'. {str(err)}"
-                if self.logging:
-                    self.logger.error(msg)
-                raise DatabaseBackendException(msg)
+        if self.is_open:
+            if self.logging and self.logger:
+                self.logger.info(f"Attempt to close database '{self.file_path}'.")
+                self.logger.handlers[0].flush()
+            if self.conn or self.is_open:
+                try:
+                    self._commit()
+                    self.conn.close()
+                    if self.logging:
+                        self.logger.info(f"Database '{self.file_path}' successfully closed.")
+                except sqlite3.Error as err:
+                    msg = f"Failed to close database '{self.file_path}'. SQLite exception: {str(err)}"
+                    if self.logging:
+                        self.logger.error(msg)
+                    raise DatabaseBackendException(msg)
+                except Exception as err:
+                    msg = f"Failed to close database '{self.file_path}'. {str(err)}"
+                    if self.logging:
+                        self.logger.error(msg)
+                    raise DatabaseBackendException(msg)
 
         self.is_open = False
         return True
@@ -173,6 +187,7 @@ class SqliteStorage(StorageProvider):
             return True
         except OSError:
             return False
+
     # endregion
 
     # region History related methods
@@ -184,34 +199,39 @@ class SqliteStorage(StorageProvider):
         :param action: The name of action executed through the event.
         :param data: The data related to the event. Defines what and how to undo or redo the event.
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def add_many_to_history(self, records: list[tuple[datetime.datetime, str, str, str]]):
         """
         Add multiple events to the database history.
         :param records: A list of tuples of format (time_stamp:datetime, user:str, action:str, data:str)
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def clear_history(self):
         """
         Clears the entire history.
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def delete_history_earlier_than(self, time_stamp: datetime.datetime):
         """
         Deletes all events from the history earlier than a specific timestamp.
         :param time_stamp: The timestamp to apply.
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def delete_history_later_than(self, time_stamp: datetime.datetime):
         """
         Deletes all events from the history later than a specific timestamp.
         :param time_stamp: The timestamp to apply.
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def delete_history_by_rowid(self, rowid):
         """
@@ -219,10 +239,11 @@ class SqliteStorage(StorageProvider):
         int value or an iterable of int.
         :param rowid: Either a single int value, or an iterable of int.
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def get_history_from_time_window(self, from_time_stamp: datetime.datetime = datetime.datetime.min,
-                                     to_time_stamp: datetime.datetime = datetime.datetime.max)\
+                                     to_time_stamp: datetime.datetime = datetime.datetime.max) \
             -> list[tuple[datetime.datetime, str, str, str, int]]:
         """
         Returns the history records for a given time window.
@@ -231,7 +252,8 @@ class SqliteStorage(StorageProvider):
         :return: A list of tuples of format (time_stamp:datetime, user:str, action:str, data:str, rowid:int)
         sorted in ascending order by the timestamp.
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def get_history(self, count: int = 1) -> list[tuple[datetime.datetime, str, str, str, int]]:
         """
@@ -240,14 +262,16 @@ class SqliteStorage(StorageProvider):
         :return: A list of tuples of format (time_stamp:datetime, user:str, action:str, data:str, rowid:int)
         sorted in ascending order by the timestamp.
         """
-        a = f"SELECT * FROM  ContentMaster WHERE ContentAddedByUserID = '%@' ORDER BY rowid DESC LIMIT {count}"
-        pass
+        a = f"SELECT * FROM ContentMaster WHERE ContentAddedByUserID = '%@' ORDER BY rowid DESC LIMIT {count}"
+        # todo: implementation missing
+        raise NotImplementedError()
 
     def count_history(self):
         """
         Returns the number of records in the history.
         """
-        pass
+        # todo: implementation missing
+        raise NotImplementedError()
 
     # endregion
 
@@ -325,6 +349,53 @@ class SqliteStorage(StorageProvider):
             else:
                 return records[0][0]
         return None
+
+    def get_records(self, cube_name: str):
+        """
+        Returns all records from a cubes data table.
+        :param cube_name: Name of the cube to get data from.
+        :return: All records of the cube.
+        """
+        table = self.DATA_TABLE_PREFIX + cube_name
+        sql = f"SELECT * FROM {table};"
+        records = self._fetchall(sql)
+        if records:
+            if self.encryptor:
+                return self.encryptor.decrypt(records[0][0])
+            else:
+                return records
+        return None
+
+    # endregion
+
+    # region meta data related methods
+    def add_meta(self, key: str, json: str):
+        """
+        Adds or updates a meta configuration.
+        :param key: The name of the meta item.
+        :param json: The configuration of the meta item in json format.
+        """
+        if self.logging:
+            self.logger.info(f"Attempting to add or update meta config '{key}'.")
+        data = (key, json)
+        sql = f"INSERT INTO {self.META_TABLE_META} (key, config)" \
+              f"VALUES(?, ?)  " \
+              f"ON CONFLICT(key) DO UPDATE SET config = EXCLUDED.config;"
+        self._execute(sql, data)
+        self._commit()
+        if self.logging:
+            self.logger.info(f"Meta config '{key}' added or updated successfully.")
+
+    def get_meta(self, key: str) -> str:
+        """
+        Returns the configuration of a meta item in json format.
+        :return: A json string.
+        """
+        result = self._fetchall(f"SELECT config FROM {self.META_TABLE_META} WHERE key = '{key}'")
+        if result:
+            return result[0][0]
+        return None
+
     # endregion
 
     # region Cube related methods
@@ -418,6 +489,7 @@ class SqliteStorage(StorageProvider):
         """
         table_name = self.DATA_TABLE_PREFIX + cube_name
         return self._fetchall(f"SELECT COUNT(*) FROM {table_name}")[0][0]
+
     # endregion
 
     # region Dimension related methods
@@ -480,6 +552,7 @@ class SqliteStorage(StorageProvider):
         self._commit()
         if self.logging:
             self.logger.info(f"Dimension '{dimension_name}' has been removed from the database.")
+
     # endregion
 
     # region database related internal methods
@@ -542,17 +615,29 @@ class SqliteStorage(StorageProvider):
                 self._execute('PRAGMA journal_mode=MEMORY;')
                 self._commit()
 
-                # add meta tables
-                if not self._table_exists(self.META_TABLE_CUBES):
-                    self._add_table(self.META_TABLE_CUBES, self.META_TABLE_FIELDS)
-                if not self._table_exists(self.META_TABLE_DIMENSIONS):
-                    self._add_table(self.META_TABLE_DIMENSIONS, self.META_TABLE_FIELDS)
-                if not self._table_exists(self.META_TABLE_DIMENSIONS):
-                    if self.logging:
-                        self.logger.info(f"Failed to prepare database for use with TinyOlap.")
-                    raise DatabaseBackendException("Failed to add meta tables to database.")
+                # add meta tables (old)
+                # if not self._table_exists(self.META_TABLE_META):
+                #     self._add_table(self.META_TABLE_META, self.META_TABLE_FIELDS)
+                # if not self._table_exists(self.META_TABLE_CUBES):
+                #     self._add_table(self.META_TABLE_CUBES, self.META_TABLE_FIELDS)
+                # if not self._table_exists(self.META_TABLE_DIMENSIONS):
+                #     self._add_table(self.META_TABLE_DIMENSIONS, self.META_TABLE_FIELDS)
+                # if not self._table_exists(self.META_TABLE_DIMENSIONS):
+                #     if self.logging:
+                #         self.logger.info(f"Failed to prepare database for use with TinyOlap.")
+                #     raise DatabaseBackendException("Failed to add meta tables to database.")
 
-                # add history table
+                # add meta tables
+                metas = [self.META_TABLE_META, self.META_TABLE_CUBES, self.META_TABLE_DIMENSIONS]
+                for meta in metas:
+                    if not self._table_exists(meta):
+                        self._add_table(meta, self.META_TABLE_FIELDS)
+                    if not self._table_exists(meta):  # ensure the table has been created.
+                        if self.logging:
+                            self.logger.info(f"Failed to prepare database for use with TinyOlap.")
+                        raise DatabaseBackendException("Failed to add meta tables to database.")
+
+                # add and prepare history table
                 if not self._table_exists(self.HISTORY_TABLE):
                     self._add_table(self.HISTORY_TABLE, self.HISTORY_TABLE_FIELDS)
                     self._execute(f"CREATE INDEX IF NOT EXISTS {self.HISTORY_TABLE}_timestamp_index "
@@ -675,8 +760,8 @@ class SqliteStorage(StorageProvider):
                 self.cursor.execute(statement)
             self.cursor.execute("commit")
         except (sqlite3.Error, Exception) as err:
-            msg = f"Failed to execute transaction containing {len(sql)} statements."\
-                              f" {str(err)} Failed SQL := {current_statement}"
+            msg = f"Failed to execute transaction containing {len(sql)} statements." \
+                  f" {str(err)} Failed SQL := {current_statement}"
             if self.logging:
                 self.logger.error(msg)
             self.cursor.execute("rollback")
@@ -712,6 +797,7 @@ class SqliteStorage(StorageProvider):
             self.logger.error(f"SQL fetchall executed in {duration:.6f}s: {sql}")
 
         return result
+
     # endregion
 
     # region file handling & naming

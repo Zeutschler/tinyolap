@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections import Iterable
 from typing import SupportsFloat
 
-from tinyolap.custom_errors import *
+from tinyolap.exceptions import *
 from tinyolap.member_context import MemberContext
 
 

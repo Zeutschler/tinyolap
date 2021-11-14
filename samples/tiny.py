@@ -112,8 +112,8 @@ def load_tiny(console_output: bool = False) -> Database:
     # member combination (e.g. [..., 'Jan', 'Profit']) the rule should actually calculate.
     # For further detailed on how to define and write rules, please refer the TinyOlap documentation.
     # Rules are a big and complex topic!!! Once you've understood the concept, it gets very easy.
-    cube.add_rule(rule_profit)
-    cube.add_rule(rule_profit_in_percent)
+    cube.register_rule(rule_profit)
+    cube.register_rule(rule_profit_in_percent)
 
     # That's it! Your first TinyOlap database is ready to use...
     return db

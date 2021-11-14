@@ -100,9 +100,9 @@ def load_tutor(console_output: bool = False):
     cube = db.add_cube(cube_name, dimensions, measures)
 
     # 4. Add rules
-    cube.add_rule(rule_delta)
-    cube.add_rule(rule_profit_contribution)
-    cube.add_rule(rule_price)
+    cube.register_rule(rule_delta)
+    cube.register_rule(rule_profit_contribution)
+    cube.register_rule(rule_price)
 
     # 4. Now it's time to import the data from a CSV file into the cube
     file_name = os.path.join(root_path, "tutor_files", cube_name.upper() + ".TXT")
