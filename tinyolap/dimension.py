@@ -575,7 +575,8 @@ class Dimension:
 
         :return: List of all members of the dimension.
         """
-        return list(str(key) for key in self._member_idx_lookup.keys())
+        return list(self.members[idx][self.NAME] for idx in self._member_idx_lookup.values())
+        # return list(str(key) for key in self._member_idx_lookup.keys())
 
     def get_members_idx(self) -> list[int]:
         """

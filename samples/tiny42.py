@@ -94,7 +94,8 @@ def consolidate(template: Database, machine_dbs: list[Database]) -> Database:
         timestamps.update(machine_db.dimensions["time"].get_members())
     timestamps = list(timestamps)
     timestamps.sort()
-    timestamps.remove("Total")
+    if "Total" in timestamps:
+        timestamps.remove("Total")
     consolidated_db.dimensions["time"].edit().add_member("Total", timestamps).commit()
 
     # get all sensors from all machine_dbs and adjust the sensor dimension

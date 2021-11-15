@@ -31,6 +31,10 @@ class TestDatabase(TestCase):
             self.db.delete()
 
     def test_Database_create(self):
+        """Creates a persistent database with rules (lambda and function level) and some data,
+        then the databse will be closed and open again. Then we check if rules are loaded
+        properly and cell request deliver the expected values.
+        """
 
         # close the database
         db = self.db
