@@ -30,7 +30,7 @@ class Cube:
                description: str = None):
         cube = Cube(Cube.__magic_key, name, dimensions, measures, description)
         cube._storage_provider = storage_provider
-        if name:
+        if name and dimensions:
             if storage_provider and storage_provider.connected:
                 storage_provider.add_cube(name, cube.to_json())
         return cube
@@ -48,12 +48,19 @@ class Cube:
         assert (cub_creation_key == Cube.__magic_key), \
             "Objects of type Cube can only be created through the method 'Database.add_cube()'."
 
+        cube_creation_from_json = bool(dimensions)
+
         self._name = name
         self._description = description
-        self._dim_count = len(dimensions)
-        self._dimensions = tuple(dimensions)
+        if cube_creation_from_json:
+            self._dim_count = len(dimensions)
+            self._dimensions = tuple(dimensions)
+        else:
+            self._dim_count = 0
+            self._dimensions = tuple()
+
         self._dim_names = []
-        self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(dimensions)])
+        self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(self._dimensions)])
         self._facts = FactTable(self._dim_count, self)
 
         self._database = None
@@ -104,11 +111,13 @@ class Cube:
         return NotImplemented
 
     def register_rule(self, function, trigger: list[str] = None,
-                      scope: RuleScope = None, injection: RuleInjectionStrategy = None):
+                      scope: RuleScope = None, injection: RuleInjectionStrategy = None, code: str = None):
         """
         Registers a rule function for the cube. Rules function either need to be decorated with the ``@rules(...)``
         decorator or the arguments ``trigger`` and ``scope`` of the ``add_rules(...)`` function must be specified.
 
+        :param code: (optional)Source code of the function.
+        :param injection: The injection strategy defined for the function.
         :param function: The rules function to be called.
         :param trigger: The cell idx_address trigger that should trigger the rule.
         :param scope: The scope of the rule.
@@ -132,7 +141,7 @@ class Cube:
                     f"with this cube '{self.name}', but with cube '{cube_name}'.")
         if not trigger:
             if hasattr(function, "trigger"):
-                trigger = function.pattern
+                trigger = function.trigger
                 if type(trigger) is str:
                     trigger = [trigger, ]
                 if not type(trigger) is list:
@@ -163,22 +172,22 @@ class Cube:
         idx_pattern = self.__pattern_to_idx_pattern(trigger)
 
         if scope == RuleScope.ALL_LEVELS:
-            self._rules_all_levels.register(function, function_name, trigger, idx_pattern, scope, injection)
+            self._rules_all_levels.register(function, function_name, trigger, idx_pattern, scope, injection, code)
         elif scope == RuleScope.AGGREGATION_LEVEL:
-            self._rules_aggr_level.register(function, function_name, trigger, idx_pattern, scope, injection)
+            self._rules_aggr_level.register(function, function_name, trigger, idx_pattern, scope, injection, code)
         elif scope == RuleScope.BASE_LEVEL:
-            self._rules_base_level.register(function, function_name, trigger, idx_pattern, scope, injection)
+            self._rules_base_level.register(function, function_name, trigger, idx_pattern, scope, injection, code)
         elif scope == RuleScope.ROLL_UP:
-            self._rules_roll_up.register(function, function_name, trigger, idx_pattern, scope, injection)
+            self._rules_roll_up.register(function, function_name, trigger, idx_pattern, scope, injection, code)
         elif scope == RuleScope.ON_ENTRY:
-            self._rules_on_entry.register(function, function_name, trigger, idx_pattern, scope, injection)
+            self._rules_on_entry.register(function, function_name, trigger, idx_pattern, scope, injection, code)
         else:
             raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope: RuleScope'.")
 
         # add function to code manager
         self._database._code_manager.register_function(
             function=function, cube=cube_name, trigger=trigger,
-            scope=scope, injection=injection)
+            scope=scope, injection=injection, code=code)
 
     def validate_rules(self, save_on_validation: bool = True) -> bool:
         """
@@ -488,7 +497,7 @@ class Cube:
         self._facts.set(idx_address, idx_measure, value)
         if self._storage_provider and self._storage_provider.connected:
             if value:
-                self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"v": value}))
+                self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"value": value}))
             else:
                 self._storage_provider.set_record(self._name, str(idx_address))
 
@@ -507,7 +516,7 @@ class Cube:
                 result = self._facts.set(idx_address, idx_measures, value)
                 if self._storage_provider and self._storage_provider.connected:
                     if value:
-                        self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"v": value}))
+                        self._storage_provider.set_record(self._name, str(idx_address), json.dumps({"value": value}))
                     else:
                         self._storage_provider.set_record(self._name, str(idx_address))
 
@@ -718,33 +727,38 @@ class Cube:
         try:
             # read configuration
             config = json.loads(json_string)
-            self._name  = config["name"]
+            self._name = config["name"]
             self._description = config["description"]
             new_dim_names = config["dimensions"]
-            self._dimensions = tuple([self._database.dimension[dim_name] for dim_name in new_dim_names])
+            self._dimensions = tuple([self._database.dimensions[dim_name] for dim_name in new_dim_names])
             self._caching = config["caching"]
+
+            self._dim_count = len(self._dimensions)
+            self._dim_names = []
+            self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(self._dimensions)])
+            self._facts = FactTable(self._dim_count, self)
 
             # load data
             if self._storage_provider:
                 records = self._storage_provider.get_records(self._name)
                 for record in records:
                     address = str(record[0])
-                    idx_address = list(map(int, address[1:-1].split(sep=",")))
+                    idx_address = tuple(map(int, address[1:-1].split(sep=",")))
 
                     data = json.loads(record[1])
-                    for key, value in data.items:
+                    for key, value in data.items():
                         idx_measure = self._measures[key]
                         self._set_base_level_cell(idx_address, idx_measure, value)
 
             # initialize rules
             # Note: This should to be done after loading the data, as otherwise push rules
-            #       might be triggered and recalcluated although the data is already consistent.
+            #       might be triggered and recalculated although the data is (should be) already consistent.
             if config["rules"] > 0:
-                functions = self._database._code_manager.get_functions(self._name)
-                for f in functions:
-                    self.register_rule(function=f.function, trigger=f.trigger, scope= f.scope, injection=f.injection)
-
-
+                pass
+            functions = self._database._code_manager.get_functions(self._name)
+            for f in functions:
+                self.register_rule(function=f.function, trigger=f.trigger,
+                                   scope= f.scope, injection=f.injection, code=f._code)
 
         except Exception as err:
             raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")

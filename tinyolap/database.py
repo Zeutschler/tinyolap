@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import json
+import os.path
 from collections.abc import Iterable
 from copy import deepcopy
 from typing import Tuple
@@ -46,21 +47,26 @@ class Database:
         given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
         use the ``save()``method of the database object.
         """
+        self._file_name = None
         if name != tinyolap.utils.to_valid_key(name):
-            raise InvalidKeyException(f"'{name}' is not a valid database name. "
-                                      f"alphanumeric characters and underscore supported only, "
+            if os.path.exists(name):
+                self._file_name = name
+            else:
+                raise InvalidKeyException(f"'{name}' is not a valid database name or path. "
+                                      f"For database names alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
         self._code_manager: CodeManager = CodeManager()
         self._history: History = History(self)
         self._name: str = name
+
         self._in_memory = in_memory
         if in_memory:
             self._storage_provider: StorageProvider = None
         else:
             self._storage_provider: StorageProvider = SqliteStorage(self._name)
-            self._storage_provider.open()
+            self._storage_provider.open(file_name=self._file_name)
         self._load()
         self._caching = True
 
@@ -205,6 +211,8 @@ class Database:
         if self._storage_provider:
             self._storage_provider.add_meta("db", self._to_json())
             self._storage_provider.add_meta("code", self._code_manager.to_json())
+            for cube in self.cubes.values():
+                self._storage_provider.add_cube(cube.name, cube.to_json())
 
     def close(self):
         """
@@ -218,6 +226,7 @@ class Database:
         if self._storage_provider:
             if self._code_manager.pending_changes:
                 self._storage_provider.add_meta("code", self._code_manager.to_json())
+                self._code_manager.pending_changes = False
             self._storage_provider.close()
 
     def delete(self):
@@ -296,9 +305,10 @@ class Database:
         Initializes the database meta data from a configuration in json format.
         :return: A json string.
         """
-        config = json.loads(data)
-        self._name = config["name"]
-        self._caching = config["caching"]
+        if data:
+            config = json.loads(data)
+            self._name = config["name"]
+            self._caching = config["caching"]
     # endregion
 
     # region CellContext access via indexing
@@ -447,6 +457,7 @@ class Database:
         # create and return the cube
         cube = Cube.create(self._storage_provider, name, dims, measures, description)
         cube.caching = self.caching
+        cube._database = self
         self.cubes[name] = cube
         return cube
 

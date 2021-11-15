@@ -160,7 +160,7 @@ class Dimension:
 
         :return: The dimension itself.
         """
-        self._member_idx_lookup = {}
+        self._member_idx_lookup = CaseInsensitiveDict()
         self.members = {}
         self._member_idx_manager.clear()
         self.alias_idx_lookup.clear()
@@ -1011,7 +1011,7 @@ class Dimension:
             self.description = new_description
             self.member_counter = new_count
             self.members = new_members
-            self._member_idx_lookup = new_member_idx_lookup
+            self._member_idx_lookup = CaseInsensitiveDict().populate(new_member_idx_lookup)
             self.attributes = new_attributes
             self.subsets = new_subsets
             self.commit()

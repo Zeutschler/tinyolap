@@ -209,9 +209,10 @@ class CodeManager:
             return [f for f in self.functions.values() if f.cube == cube]
 
     def register_function(self, function, cube: str = None, trigger: list[str] = None,
-                          scope: RuleScope = None, injection: RuleInjectionStrategy = None) -> FunctionCode:
+                          scope: RuleScope = None, injection: RuleInjectionStrategy = None, code: str = None) -> FunctionCode:
         """
         Registers a Python function.
+        :param code: (optional) the scoure code of the function
         :param function: The function to be registed.
         :param cube: (optional) the cube the function is assigned to.
         :param trigger: (optional) the trigger the function is assigned to.
@@ -261,9 +262,16 @@ class CodeManager:
             code = self._lambda_to_function_code(function, name, cube, trigger, scope, injection)
         else:
             name = str(function).split(" ")[1]
-            code = inspect.getsource(function)
+            if not code:
+                try:
+                    code = inspect.getsource(function)
+                except Exception as err:
+                    code = None
         module = inspect.getmodule(function)
-        module_name = module.__name__
+        if module:
+            module_name = module.__name__
+        else:
+            module_name = None
         fc = FunctionCode(function, name=name, module=module_name, code=code, cube=cube,
                           trigger=trigger, scope=scope, injection=injection)
 
@@ -298,12 +306,23 @@ class CodeManager:
                 for j in range(i + 1, len(tokens)):
                     if tokens[j].string == ":" and tokens[j].type == 54:  # type 54 := OP
                         end_of_signature_token = tokens[j]
-                        # from here we need go up the 'cube' NAME token followed by the '=' OP tpken.
+                        # from here we need go up the 'cube' NAME token followed by the '=' OP token. If defined...
                         for k in range(j + 1, len(tokens)):
                             if tokens[k].string == "cube" and tokens[k].type == 1 and \
                                     tokens[k + 1].string == "=" and tokens[k + 1].type == 54:
                                 terminal_token = tokens[k - 1]
                                 break
+
+                        # ...not found? Search for other terminals.
+                        if not terminal_token:
+                            end_of_lambda = self._get_end_of_lambda(source, end_of_signature_token.end[1] + 1)
+                            if end_of_lambda > 0:
+                                for k in range(j + 1, len(tokens)):
+                                    if tokens[k].start[1] > end_of_lambda:
+                                        terminal_token = tokens[k - 1]
+                                        break
+                                if not terminal_token:
+                                    terminal_token =tokens[-1]
                         break
                 break
 
@@ -320,6 +339,32 @@ class CodeManager:
         code += f'{indentation}return {source}\n'
         return code
 
+    @staticmethod
+    def _get_end_of_lambda(source: str, start: int) -> int:
+        # rough evaluation the end of lambda statement.
+        depth = 0
+        inquote = False
+        indquote = False
+        for pos, char in enumerate(source[start:]):
+            if char in "([{":
+                depth += 1
+                continue
+            if char in ")]}":
+                depth -= 1
+                continue
+            if depth > 0:
+                continue
+            if not indquote and char == "'":
+                inquote = not inquote
+            if not inquote and char == '"':
+                indquote = not indquote
+
+            if not inquote and not indquote and char == ",":
+                return start + pos
+
+        if depth == 0:
+            return len(source) - 1
+
     def build(self):
         """
         Builds (loads and instantiates) all functions available in the code manager.
@@ -330,7 +375,8 @@ class CodeManager:
 
         # 1. collect all 'modules' that need to be instantiated (no doublets please)
         modules_code = {}
-        some_module = list(self.modules.values())[0].module
+        # if any(self.modules):
+        #some_module = list(self.modules.values())[0].module
         for key, function in [(key, value) for key, value in self.functions.items()
                               if value.injection >= RuleInjectionStrategy.MODULE_INJECTION]:
             modules_code[self.modules[function.module].code] = self.modules[function.module]
@@ -400,6 +446,9 @@ class CodeManager:
         """
         self.modules = {}
         self.functions = {}
+        if not data:
+            return self
+
         config = json.loads(data)
         for function in config["functions"]:
             self.functions[function["name"]] = FunctionCode(

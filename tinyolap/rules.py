@@ -15,15 +15,15 @@ class RuleScope(IntEnum):
     """
     Defines the scope of a rule. Meaning, to which level of data the rule should be applied.
     """
-    ALL_LEVELS = 0  # doc: (default) Indicates that the rule should be executed for base level and aggregated level cells.
-    AGGREGATION_LEVEL = 1  # doc: Indicates that the rule should be executed for aggregated level cells only.
-    BASE_LEVEL = 2  # doc: Indicates that the rule should be executed for base level cells only.
-    ROLL_UP = 3  # doc: Indicates that the rule should replace the base level cell value from the database by the results of the rule. This can dramatically slow down aggregation speed. Requires a special trigger to be set.
-    ON_ENTRY = 4  # doc: Indicates that these rules should be executed when cell values are set or changed. This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
-    COMMAND = 5 # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
+    ALL_LEVELS = 1  # doc: (default) Indicates that the rule should be executed for base level and aggregated level cells.
+    AGGREGATION_LEVEL = 2  # doc: Indicates that the rule should be executed for aggregated level cells only.
+    BASE_LEVEL = 3  # doc: Indicates that the rule should be executed for base level cells only.
+    ROLL_UP = 4  # doc: Indicates that the rule should replace the base level cell value from the database by the results of the rule. This can dramatically slow down aggregation speed. Requires a special trigger to be set.
+    ON_ENTRY = 5  # doc: Indicates that these rules should be executed when cell values are set or changed. This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
+    COMMAND = 6 # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
 
     def __eq__(self, other):
-        return self.value == other.value
+        return self.value == int(other)
 
     def __ne__(self, other):
         return self.value != other.value
@@ -135,10 +135,12 @@ class Rules:
 
     def register(self, function, function_name: str,
                  pattern: list[str], idx_pattern: list[tuple[int, int]],
-                 scope: RuleScope, injection: RuleInjectionStrategy):
+                 scope: RuleScope, injection: RuleInjectionStrategy, code: str = None):
         """
         Registers a rules function (a Python method or function).
 
+        :param injection: The injection strategy defined for the rule.
+        :param code: (optional) the source code of the rule.
         :param scope: The scope of the rule function.
         :param function_name: Name of the rule function.
         :param function: The Python rule function to execute.
@@ -150,23 +152,29 @@ class Rules:
         self.function_scopes.append(scope)
         self.function_injections.append(injection)
         self.pattern.append(pattern)
-        self.source.append(self._get_source(function))
+        if code:
+            self.source.append(code)
+        else:
+            self.source.append(self._get_source(function))
         self.pattern_idx.append(idx_pattern)
         self.any = True
 
-    def _get_source_code(self, function):
-        source = inspect.getsource(function)
-        module = inspect.getmodule(function)
-        module_source = inspect.getsource(module)
-        sourcefile = inspect.getsourcefile(function)
-        print(f"Rule from module {module} and file '{sourcefile}'.")
-        print(module_source)
-
-        return source
+    # def _get_source_code(self, function):
+    #     source = inspect.getsource(function)
+    #     module = inspect.getmodule(function)
+    #     module_source = inspect.getsource(module)
+    #     sourcefile = inspect.getsourcefile(function)
+    #     print(f"Rule from module {module} and file '{sourcefile}'.")
+    #     print(module_source)
+    #
+    #     return source
 
     @staticmethod
     def _get_source(function):
-        lines = inspect.getsource(function)
+        try:
+            lines = inspect.getsource(function)
+        except Exception as err:
+            lines = None
         return lines
 
     def first_match(self, idx_address) -> (bool, object):

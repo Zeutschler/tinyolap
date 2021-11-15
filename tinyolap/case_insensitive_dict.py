@@ -2,6 +2,7 @@
 # TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from __future__ import annotations
 from itertools import chain
 
 _RaiseKeyError = object() # singleton for no-default behavior
@@ -54,6 +55,11 @@ class CaseInsensitiveDict(dict):
 
     def copy(self):  # don't delegate w/ super - dict.copy() -> dict :(
         return type(self)(self)
+
+    def populate(self, dictionary: dict) -> CaseInsensitiveDict:
+        for k, v in dictionary.items():
+            self[k] = v
+        return self
 
     @classmethod
     def fromkeys(cls, keys, v=None):

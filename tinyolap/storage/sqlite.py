@@ -17,6 +17,8 @@ from tinyolap.encryption import Encryptor
 class SqliteStorage(StorageProvider):
     """SQLite 3 storage provider. Default for persistence in TinyOlap."""
 
+    LOG_PREFIX = " SqliteStorage - "
+
     # file related names
     DB_DEFAULT_FOLDER_NAME = "db"
     DB_EXTENSION = ".tinyolap.db"
@@ -85,9 +87,10 @@ class SqliteStorage(StorageProvider):
         :return: Returns ``True``if the database has been opened successfully.
         :raises DatabaseBackendException: Raised when the opening of / connecting to the database file failed.
         """
-        file_name = kwargs["file_name"]
-        if file_name:
-            self.name = file_name
+        if kwargs:
+            file_name = kwargs["file_name"]
+            if file_name:
+                self.name = file_name
 
         file_exists, self.folder, self.file_path, self.file_name = self._evaluate_path(self.name)
         self.log_file = str(self.file_path) + self.LOG_EXTENSION
@@ -96,22 +99,20 @@ class SqliteStorage(StorageProvider):
         self.close()
         try:
             if self.logging:
-                self.logger.info(f"Attempting to open database '{self.file_path}'")
-                self.logger.handlers[0].flush()
+                self.logger.info(f"{self.LOG_PREFIX}Opening database '{str(self.file_path)}'")
+                # self.logger.handlers[0].flush()
             self.conn: sqlite3.Connection = sqlite3.connect(self.file_path)
             self.cursor: sqlite3.Cursor = self.conn.cursor()
 
             self._prepare_database()
             self.is_open = True
-            if self.logging:
-                self.logger.info(f"Database '{self.file_path}' successfully opened.")
         except sqlite3.Error as err:
-            msg = f"Failed to open database '{self.file_path}'. SQLite exception: {str(err)}"
+            msg = f"{self.LOG_PREFIX}Failed to open database '{self.file_path}'. SQLite exception: {str(err)}"
             if self.logging:
                 self.logger.error(msg)
             raise DatabaseBackendException(msg)
         except Exception as err:
-            msg = f"Failed to open database '{self.file_path}'. {str(err)}"
+            msg = f"{self.LOG_PREFIX}Failed to open database '{self.file_path}'. {str(err)}"
             if self.logging:
                 self.logger.error(msg)
             raise DatabaseBackendException(msg)
@@ -125,23 +126,23 @@ class SqliteStorage(StorageProvider):
         """
         if self.is_open:
             if self.logging and self.logger:
-                self.logger.info(f"Attempt to close database '{self.file_path}'.")
-                self.logger.handlers[0].flush()
+                self.logger.info(f"{self.LOG_PREFIX}Closing database '{self.file_path}'.")
+                # self.logger.handlers[0].flush()
             if self.conn or self.is_open:
                 try:
                     self._commit()
                     self.conn.close()
-                    if self.logging:
-                        self.logger.info(f"Database '{self.file_path}' successfully closed.")
                 except sqlite3.Error as err:
-                    msg = f"Failed to close database '{self.file_path}'. SQLite exception: {str(err)}"
+                    msg = f"{self.LOG_PREFIX}Failed to close database '{self.file_path}'. SQLite exception: {str(err)}"
                     if self.logging:
                         self.logger.error(msg)
+                        # self.logger.handlers[0].flush()
                     raise DatabaseBackendException(msg)
                 except Exception as err:
-                    msg = f"Failed to close database '{self.file_path}'. {str(err)}"
+                    msg = f"{self.LOG_PREFIX}Failed to close database '{self.file_path}'. {str(err)}"
                     if self.logging:
                         self.logger.error(msg)
+                        # self.logger.handlers[0].flush()
                     raise DatabaseBackendException(msg)
 
         self.is_open = False
@@ -166,12 +167,16 @@ class SqliteStorage(StorageProvider):
             if self.is_open:
                 self.close()
             if path.exists(file_path):
+                if self.logging and self.logger:
+                    self.logger.info(f"{self.LOG_PREFIX}Deleting database file '{self.file_path}'.")
+                    # self.logger.handlers[0].flush()
                 os.remove(file_path)
             self.delete_log()
             return True
         except OSError as err:
             if self.logging:
-                self.logger.error(f"Failed to delete database file '{self.file_path}'. {str(err)}")
+                self.logger.error(f"{self.LOG_PREFIX}Failed to delete database file '{self.file_path}'. {str(err)}")
+                # self.logger.handlers[0].flush()
             return False
 
     def delete_log(self) -> bool:
@@ -376,15 +381,14 @@ class SqliteStorage(StorageProvider):
         :param json: The configuration of the meta item in json format.
         """
         if self.logging:
-            self.logger.info(f"Attempting to add or update meta config '{key}'.")
+            self.logger.info(f"{self.LOG_PREFIX}Adding or updating meta configuration for key: '{key}'.")
+            # self.logger.handlers[0].flush()
         data = (key, json)
         sql = f"INSERT INTO {self.META_TABLE_META} (key, config)" \
               f"VALUES(?, ?)  " \
               f"ON CONFLICT(key) DO UPDATE SET config = EXCLUDED.config;"
         self._execute(sql, data)
         self._commit()
-        if self.logging:
-            self.logger.info(f"Meta config '{key}' added or updated successfully.")
 
     def get_meta(self, key: str) -> str:
         """
@@ -436,7 +440,8 @@ class SqliteStorage(StorageProvider):
         :return: ``True`` if successful,``False`` otherwise.
         """
         if self.logging:
-            self.logger.info(f"Attempting to add or update cube '{cube_name}'.")
+            self.logger.info(f"{self.LOG_PREFIX}Adding or updating configuration for cube '{cube_name}'.")
+            # self.logger.handlers[0].flush()
         # add cube to meta table
         data = (cube_name, json)
         sql = f"INSERT INTO {self.META_TABLE_CUBES} (key, config)" \
@@ -452,8 +457,6 @@ class SqliteStorage(StorageProvider):
         self._execute(sql)
 
         self._commit()
-        if self.logging:
-            self.logger.info(f"Cube '{cube_name}' added or updated successfully.")
         return True
 
     def remove_cube(self, cube_name: str):
@@ -462,13 +465,12 @@ class SqliteStorage(StorageProvider):
         :param cube_name: Name of the cube to be removed.
         """
         if self.logging:
-            self.logger.info(f"Attempting to remove cube '{cube_name}'.")
+            self.logger.info(f"{self.LOG_PREFIX}Removing configuration and data tables for cube '{cube_name}'.")
+            # self.logger.handlers[0].flush()
         table_name = self.DATA_TABLE_PREFIX + cube_name
         self._execute(f"DROP TABLE IF EXISTS {table_name};")
         self._execute(f"DELETE FROM {self.META_TABLE_CUBES} WHERE key = '{cube_name}';")
         self._commit()
-        if self.logging:
-            self.logger.info(f"Cube '{cube_name}' has been removed from the database.")
 
     def clear_cube(self, cube_name: str) -> True:
         """
@@ -530,15 +532,14 @@ class SqliteStorage(StorageProvider):
         :return: ``True`` if successful,``False`` otherwise.
         """
         if self.logging:
-            self.logger.info(f"Attempting to add or update dimension '{dimension_name}'.")
+            self.logger.info(f"{self.LOG_PREFIX}Adding or updating configuration for dimension '{dimension_name}'.")
+            # self.logger.handlers[0].flush()
         data = (dimension_name, json)
         sql = f"INSERT INTO {self.META_TABLE_DIMENSIONS} (key, config)" \
               f"VALUES(?, ?)  " \
               f"ON CONFLICT(key) DO UPDATE SET config = EXCLUDED.config;"
         self._execute(sql, data)
         self._commit()
-        if self.logging:
-            self.logger.info(f"Dimension '{dimension_name}' added or updated successfully.")
 
     def remove_dimension(self, dimension_name: str):
         """
@@ -546,12 +547,11 @@ class SqliteStorage(StorageProvider):
         :param dimension_name: Name of the dimension to be removed.
         """
         if self.logging:
-            self.logger.info(f"Attempting to remove cube '{dimension_name}'.")
+            self.logger.info(f"{self.LOG_PREFIX}Removing configuration for dimension '{dimension_name}'.")
+            # self.logger.handlers[0].flush()
         sql = f"DELETE FROM {self.META_TABLE_DIMENSIONS} WHERE key = '{dimension_name}';"
         self._execute(sql)
         self._commit()
-        if self.logging:
-            self.logger.info(f"Dimension '{dimension_name}' has been removed from the database.")
 
     # endregion
 
@@ -566,18 +566,21 @@ class SqliteStorage(StorageProvider):
         if optimize:
             try:
                 if self.logging:
-                    self.logger.info(f"Attempt to optimize database.")
+                    self.logger.info(f"{self.LOG_PREFIX}Optimizing database (PRAGMA vacuum; PRAGMA optimize;).")
+                    # self.logger.handlers[0].flush()
                 self._execute('PRAGMA vacuum;')
                 self._execute('PRAGMA optimize;')
             except sqlite3.Error as err:
-                msg = f"Failed to optimize database. SQLite exception: {str(err)}"
+                msg = f"{self.LOG_PREFIX}Failed to optimize database. SQLite exception: {str(err)}"
                 if self.logging:
                     self.logger.error(msg)
+                    # self.logger.handlers[0].flush()
                 raise DatabaseBackendException(msg)
             except Exception as err:
-                msg = f"Failed to optimize database. {str(err)}"
+                msg = f"{self.LOG_PREFIX}Failed to optimize database. {str(err)}"
                 if self.logging:
                     self.logger.error(msg)
+                    # self.logger.handlers[0].flush()
                 raise DatabaseBackendException(msg)
 
         try:
@@ -585,14 +588,16 @@ class SqliteStorage(StorageProvider):
                 self.conn.commit()
             return True
         except sqlite3.Error as err:
-            msg = f"Failed to commit database. SQLite exception: {str(err)}"
+            msg = f"{self.LOG_PREFIX}Failed to commit database. SQLite exception: {str(err)}"
             if self.logging:
                 self.logger.error(msg)
+                # self.logger.handlers[0].flush()
             raise DatabaseBackendException(msg)
         except Exception as err:
-            msg = f"Failed to commit database. {str(err)}"
+            msg = f"{self.LOG_PREFIX}Failed to commit database. {str(err)}"
             if self.logging:
                 self.logger.error(msg)
+                # self.logger.handlers[0].flush()
             raise DatabaseBackendException(msg)
 
     def _prepare_database(self) -> bool:
@@ -607,25 +612,14 @@ class SqliteStorage(StorageProvider):
         if not (self._table_exists(self.META_TABLE_CUBES) and self._table_exists(self.META_TABLE_DIMENSIONS)):
             # ...not yet a TinyOlap database, let's configure it.
             if self.logging:
-                self.logger.info(f"Attempting to prepare database for initial use with TinyOlap.")
+                self.logger.info(f"{self.LOG_PREFIX}Prepare (new) database for initial use by adding meta tables.")
+                # self.logger.handlers[0].flush()
 
             try:
                 # do some configuration for optimized performance
                 self._execute('PRAGMA temp_store=MEMORY;')
                 self._execute('PRAGMA journal_mode=MEMORY;')
                 self._commit()
-
-                # add meta tables (old)
-                # if not self._table_exists(self.META_TABLE_META):
-                #     self._add_table(self.META_TABLE_META, self.META_TABLE_FIELDS)
-                # if not self._table_exists(self.META_TABLE_CUBES):
-                #     self._add_table(self.META_TABLE_CUBES, self.META_TABLE_FIELDS)
-                # if not self._table_exists(self.META_TABLE_DIMENSIONS):
-                #     self._add_table(self.META_TABLE_DIMENSIONS, self.META_TABLE_FIELDS)
-                # if not self._table_exists(self.META_TABLE_DIMENSIONS):
-                #     if self.logging:
-                #         self.logger.info(f"Failed to prepare database for use with TinyOlap.")
-                #     raise DatabaseBackendException("Failed to add meta tables to database.")
 
                 # add meta tables
                 metas = [self.META_TABLE_META, self.META_TABLE_CUBES, self.META_TABLE_DIMENSIONS]
@@ -634,7 +628,7 @@ class SqliteStorage(StorageProvider):
                         self._add_table(meta, self.META_TABLE_FIELDS)
                     if not self._table_exists(meta):  # ensure the table has been created.
                         if self.logging:
-                            self.logger.info(f"Failed to prepare database for use with TinyOlap.")
+                            self.logger.info(f"{self.LOG_PREFIX}Failed to prepare database for use with TinyOlap.")
                         raise DatabaseBackendException("Failed to add meta tables to database.")
 
                 # add and prepare history table
@@ -645,17 +639,17 @@ class SqliteStorage(StorageProvider):
                     self._execute(f"CREATE INDEX IF NOT EXISTS {self.HISTORY_TABLE}_user_index "
                                   f"ON {self.HISTORY_TABLE}(user);")
 
-                if self.logging:
-                    self.logger.info(f"Database successfully prepared for initial use with TinyOlap.")
             except sqlite3.Error as err:
-                msg = f"Failed to prepare database for use with TinyOlap. SQLite exception: {str(err)}"
+                msg = f"{self.LOG_PREFIX}Failed to prepare database for use with TinyOlap. SQLite exception: {str(err)}"
                 if self.logging:
                     self.logger.error(msg)
+                    # self.logger.handlers[0].flush()
                 raise DatabaseBackendException(msg)
             except Exception as err:
-                msg = f"Failed to prepare database for use with TinyOlap. {str(err)}"
+                msg = f"{self.LOG_PREFIX}Failed to prepare database for use with TinyOlap. {str(err)}"
                 if self.logging:
                     self.logger.error(msg)
+                    # self.logger.handlers[0].flush()
                 raise DatabaseBackendException(msg)
 
         return True
@@ -667,6 +661,9 @@ class SqliteStorage(StorageProvider):
         :param table_name: Name of the table to be created.
         :param fields: A list of tuples containing field name and type
         """
+        if self.logging:
+            self.logger.info(f"{self.LOG_PREFIX}Adding or replacing table '{table_name}' to database.")
+            # self.logger.handlers[0].flush()
         sql = f"DROP TABLE IF EXISTS {table_name};"
         self._execute(sql)
         sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join([str(f[0]) + ' ' + str(f[1]) for f in fields])} );"
@@ -675,9 +672,6 @@ class SqliteStorage(StorageProvider):
         if index_sql:
             self._execute(index_sql)
             self._commit()
-
-        if self.logging:
-            self.logger.info(f"New database table '{table_name}' added. {sql}")
         return True
 
     def _table_exists(self, table_name) -> bool:
@@ -693,7 +687,7 @@ class SqliteStorage(StorageProvider):
         try:
             return self.cursor.execute(sql).fetchone()[0] == 1
         except (sqlite3.Error, Exception) as err:
-            msg = f"Failed to check existence of table {table_name} in database. {str(err)}"
+            msg = f"{self.LOG_PREFIX}Failed to check existence of table {table_name} in database. {str(err)}"
             if self.logging:
                 self.logger.error(msg)
             raise DatabaseBackendException(msg)
@@ -729,14 +723,15 @@ class SqliteStorage(StorageProvider):
                 result = self.cursor.execute(sql)
 
         except (sqlite3.Error, Exception) as err:
-            msg = f"Failed to execute SQL statement. {str(err)} SQL := {sql}"
+            msg = f"{self.LOG_PREFIX}Failed to execute SQL statement. {str(err)} SQL := {sql}"
             if self.logging:
                 self.logger.error(msg)
+                # self.logger.handlers[0].flush()
             raise DatabaseBackendException(msg)
 
         if self.logging and self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
-            self.logger.debug(f"SQL statement successfully executed in {duration:.6f}s: {sql}")
+            self.logger.debug(f"{self.LOG_PREFIX}SQL statement successfully executed in {duration:.6f}s: {sql}")
         return True
 
     def _execute_transaction(self, sql: list[str]) -> bool:
@@ -760,16 +755,17 @@ class SqliteStorage(StorageProvider):
                 self.cursor.execute(statement)
             self.cursor.execute("commit")
         except (sqlite3.Error, Exception) as err:
-            msg = f"Failed to execute transaction containing {len(sql)} statements." \
+            msg = f"{self.LOG_PREFIX}Failed to execute transaction containing {len(sql)} statements." \
                   f" {str(err)} Failed SQL := {current_statement}"
             if self.logging:
                 self.logger.error(msg)
+                # self.logger.handlers[0].flush()
             self.cursor.execute("rollback")
             raise DatabaseBackendException(msg)
 
         if self.logging and self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
-            self.logger.debug(f"SQL transaction executed in {duration:.6f}s: {sql}")
+            self.logger.debug(f"{self.LOG_PREFIX}SQL transaction executed in {duration:.6f}s: {sql}")
         return True
 
     def _fetchall(self, sql: str):
@@ -787,14 +783,15 @@ class SqliteStorage(StorageProvider):
                 self.cursor = self.conn.cursor()
             result = self.cursor.execute(sql).fetchall()
         except (sqlite3.Error, Exception) as err:
-            msg = f"Failed to execute SQL statement and fecth results. {str(err)} SQL := {sql}"
+            msg = f"{self.LOG_PREFIX}Failed to execute SQL statement and fecth results. {str(err)} SQL := {sql}"
             if self.logging:
                 self.logger.error(msg)
+                # self.logger.handlers[0].flush()
             raise DatabaseBackendException(msg)
 
         if self.logging and self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
-            self.logger.error(f"SQL fetchall executed in {duration:.6f}s: {sql}")
+            self.logger.error(f"{self.LOG_PREFIX}SQL fetchall executed in {duration:.6f}s: {sql}")
 
         return result
 
@@ -815,7 +812,7 @@ class SqliteStorage(StorageProvider):
             file_path = file.absolute()
             file_name = file.name
             folder = file.parent.absolute()
-            return exists, folder, file_path, file_name
+            return bool(exists), str(folder), file_path, file_name
 
         # ...file does not exist, setup a valid file apth from the predefined or default file path.
         file_name = name
@@ -833,10 +830,12 @@ class SqliteStorage(StorageProvider):
                 os.makedirs(folder, exist_ok=True)
                 if self.logging:
                     self.logger.error(f"Database folder '{folder}' has been created.")
+                    # self.logger.handlers[0].flush()
         except OSError as err:
             msg = f"Failed to create database folder '{folder}'. {str(err)}"
             if self.logging:
                 self.logger.error(msg)
+                # self.logger.handlers[0].flush()
             raise DatabaseBackendException(msg)
 
         # Assemble database file name
@@ -846,7 +845,7 @@ class SqliteStorage(StorageProvider):
         file_path = file.absolute()
         folder = file.parent.absolute()
         file_name = file.name
-        return exists, folder, file_path, file_name
+        return bool(exists), str(folder), file_path, file_name
 
     def _to_save_name(self, name: str) -> str:
         """
@@ -865,10 +864,19 @@ class SqliteStorage(StorageProvider):
         if not self.logging:  # logging not required.
             return
 
+
         self.logger = logging.getLogger("tinyolap.storage_provider.sqlite")
         handler = logging.FileHandler(self.log_file, mode='w')
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         self.logger.setLevel(self.LOG_LEVEL)
+
+        # self.logger = logging.getLogger("TinOlap.SqliteStorage")
+        # handler = logging.FileHandler(self.log_file, mode='w')
+        # handler.setLevel(self.LOG_LEVEL)
+        # formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        # handler.setFormatter(formatter)
+        # self.logger.addHandler(handler)
+
     # endregion

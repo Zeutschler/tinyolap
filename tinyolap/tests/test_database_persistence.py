@@ -10,8 +10,9 @@ class TestDatabasePersistence(TestCase):
         self.db = Database(self.db_name, in_memory=False)
 
     def tearDown(self) -> None:
-        self.db.close()
-        self.db.delete()
+        if self.db:
+            self.db.close()
+            self.db.delete()
 
     def test_Database_create(self):
 
@@ -63,7 +64,7 @@ class TestDatabasePersistence(TestCase):
         db.dimension_remove(dim_name2)
         self.assertEqual(len(db.dimensions), 0, "Database contains 0 dimension.")
 
-        # delete database
+        # finally delete database
         file_path = db.file_path
         db.close()
         db.delete()
