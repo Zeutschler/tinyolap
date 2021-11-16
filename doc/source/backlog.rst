@@ -52,6 +52,8 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
   3. **Aggregation level rules** - Get executed for cell requests on aggregated cells only.
 
+  4, **Push rules** - Get executed when data is entered or imported into a cube.
+
 1. Available Advanced Feature
 -----------------------------
 
@@ -125,18 +127,6 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 --------------------
 
 - **Web API** - A web API server, utilizing FastAPI, to serve TinyOlap databases.
-
------------------
-
-- **Cubes** - Additional Cube features.
-
-  - **Rules** - Additional rules variants.
-
-    - **Roll-Up rules** - Overwrite the actual base level values of a cube and will get aggregated.
-
-    - **Push rules** - Get executed when data is entered or imported into a cube.
-
-    - **Command rules** - Get executed when explicitly called (by code only), also require a cell context.
 
 -----------------
 
@@ -274,6 +264,8 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 -----------------
 
 - **Security and Authorization** - To enable encryption and multi-user management.
+
+  - see e.g.: https://github.com/fastapi-users/fastapi-users
 
   - **User Management** - The main idea is to know *who has done what and when* to enable
     collaboration and process data in the context or related to a user.

@@ -79,7 +79,6 @@ class Database:
         self._name: str = name
         self._file_name: str = name
 
-
         self._in_memory = in_memory
         if in_memory:
             self._encryptor: Encryptor = NotAnEncryptor()

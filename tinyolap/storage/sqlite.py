@@ -42,13 +42,15 @@ class SqliteStorage(StorageProvider):
         self.database_folder = database_folder
         self.logging = enable_logging
         self.logger = logger
+        self.log_file = None
+        if self.logging and not self.logger:
+            self._initialize_logger()
         if encryptor is None:
             encryptor = NotAnEncryptor()
         self.encryptor = encryptor
         self.file_name = None
         self.folder = None
         self.file_path = None
-        self.log_file = None
         self.is_open = False
         self.conn: sqlite3.Connection = None
         self.cursor: sqlite3.Cursor = None
@@ -907,6 +909,11 @@ class SqliteStorage(StorageProvider):
             return
 
         self.logger = logging.getLogger("tinyolap.storage_provider.sqlite")
+
+        if not self.log_file:
+            file_exists, self.folder, self.file_path, self.file_name = self._evaluate_path(self.name)
+            self.log_file = str(self.file_path) + self.LOG_EXTENSION
+
         handler = logging.FileHandler(self.log_file, mode='w')
         formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)
