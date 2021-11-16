@@ -9,6 +9,7 @@ from copy import deepcopy
 from typing import Tuple
 
 import tinyolap.utils
+from encryption import EncryptionMethodEnum, Encryptor, NotAnEncryptor, ObfuscationEncryptor, FernetEncryptor
 from storage.sqlite import SqliteStorage
 from storage.storageprovider import StorageProvider
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
@@ -24,19 +25,22 @@ class Database:
     Databases are the root objects that should be use to create **TinyOlap** data model or database.
     The Database object provides methods to create :ref:`dimensions <dimensions>` and :ref:`cubes <cubes>`.
     """
+    MIN_PASSWORD_LENGTH = 4
     MIN_DIMS_PER_CUBE = 1
     MAX_DIMS_PER_CUBE = 32  # This value can be changed.
     # Note: 32 dimensions is already huge for a model-driven OLAP database.
     MAX_MEASURES_PER_CUBE = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS_PER_CUBE)
 
-    def __init__(self, name: str = None, in_memory: bool = False):
+    def __init__(self, name: str = None, in_memory: bool = False,
+                 encryption: EncryptionMethodEnum = EncryptionMethodEnum.NoEnryption,
+                 password: str = None):
         """
         Creates a new database or, if a database file with the same name already exists, opens an existing database.
 
         The opening of an existing database will restore the state of the database either before the
         last call of the ``.close()`` method or before the Database object was released the last time.
 
-        If a database file exists for the given database name and parameter `ìn-memory``wil be set to ``True`,
+        If a database file exists for the given database name and parameter ``ìn-memory`` will be set to ``True`,
         then the existing database file will not be opened, changed or overwritten.
 
         :param name: Name of the database. Only alphanumeric characters and underscore are supported for database names
@@ -46,6 +50,19 @@ class Database:
         all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
         given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
         use the ``save()``method of the database object.
+
+        :param encryption: Encryption method for database contents when ``ìn-memory = True``.
+        By default no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
+
+        .. note::
+            If encryption is required, using ``encryption = EncryptionMethodEnum.Obfuscation`` should
+            be sufficient for most cases and is recommended for performance reasons.
+            Use ``encryption = EncryptionMethodEnum.Encryption`` only if the highest possible security
+            level is required. For such cases also ensure to choose a long (>= 32 charactes) and cryptic
+            password consisting of upper- and lower-case chatacter, number and special characters.
+
+        :param password: Password for encryption. Require if any other encryption method is required than
+        ``encryption = EncryptionMethodEnum.NoEnryption``. Please ensure to remember the password.
         """
         self._file_name = None
         if name != tinyolap.utils.to_valid_key(name):
@@ -60,12 +77,31 @@ class Database:
         self._code_manager: CodeManager = CodeManager()
         self._history: History = History(self)
         self._name: str = name
+        self._file_name: str = name
+
 
         self._in_memory = in_memory
         if in_memory:
+            self._encryptor: Encryptor = NotAnEncryptor()
             self._storage_provider: StorageProvider = None
         else:
-            self._storage_provider: StorageProvider = SqliteStorage(self._name)
+            # setup encryption
+            if encryption == EncryptionMethodEnum.NoEnryption:
+                self._encryptor: Encryptor = NotAnEncryptor()
+            else:
+                if not password or len(password.strip()) < self.MIN_PASSWORD_LENGTH:
+                    raise ValueError(f"Failed to activate encryption. The defined password does not meet "
+                                     f"the minimum requirements of: length >= {self.MIN_PASSWORD_LENGTH}.")
+                if encryption == EncryptionMethodEnum.Obfuscation:
+                    self._encryptor: Encryptor = ObfuscationEncryptor(password)
+                elif encryption == EncryptionMethodEnum.Encryption:
+                    self._encryptor: Encryptor = FernetEncryptor(password)
+                else:
+                    raise ValueError(f"Failed to activate encryption. '{encryption}' is not a "
+                                     f"supported encryption method.")
+
+            # setup the storage provider
+            self._storage_provider: StorageProvider = SqliteStorage(name=self._name, encryptor=self._encryptor)
             self._storage_provider.open(file_name=self._file_name)
         self._load()
         self._caching = True
@@ -240,7 +276,9 @@ class Database:
             self._storage_provider.close()
             self._storage_provider.delete()
 
-    def export(self, name: str, overwrite_if_exists: bool = False):
+    def export(self, name: str, overwrite_if_exists: bool = False,
+               encryption: EncryptionMethodEnum = EncryptionMethodEnum.NoEnryption,
+               password: str = None):
         """
         Exports the database to a new database file. This method is useful e.g.
         for creating backups and especially to persist databases that run in
@@ -258,9 +296,29 @@ class Database:
            the name does not represent a path, then the databse file will be
            created in the default location '/db' or whatever is specified in
            the config file for ``database_folder``.
+
         :param overwrite_if_exists: Defines if an already existing file should
            be overwritten or not. If set to ``False`` and the file already exist,
            an FileExistsError will be raised.
+
+        :param in_memory: Identifies if the database should run in memory only (no persistence) or should persist
+        all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
+        given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
+        use the ``save()``method of the database object.
+
+        :param encryption: Encryption method for database contents when ``ìn-memory = True``.
+        By default no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
+
+        .. note::
+            If encryption is required, using ``encryption = EncryptionMethodEnum.Obfuscation`` should
+            be sufficient for most cases and is recommended for performance reasons.
+            Use ``encryption = EncryptionMethodEnum.Encryption`` only if the highest possible security
+            level is required. For such cases also ensure to choose a long (>= 32 charactes) and cryptic
+            password consisting of upper- and lower-case chatacter, number and special characters.
+
+        :param password: Password for encryption. Require if any other encryption method is required than
+        ``encryption = EncryptionMethodEnum.NoEnryption``. Please ensure to remember the password.
+
         :return:
         """
         if name.lower() == self.name.lower():

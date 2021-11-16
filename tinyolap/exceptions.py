@@ -8,6 +8,11 @@ class TinyOlapException(Exception):
     pass
 
 
+class EncryptionException(TinyOlapException):
+    """Raised when an encryption or decryption error occured. Especially on wrong password."""
+    pass
+
+
 class RuleException(TinyOlapException):
     """Raised when an rule function fails or is invalid."""
     pass

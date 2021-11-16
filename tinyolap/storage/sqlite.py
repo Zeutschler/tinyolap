@@ -11,7 +11,7 @@ from timeit import default_timer as timer
 import tinyolap.utils
 from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.exceptions import *
-from tinyolap.encryption import Encryptor
+from tinyolap.encryption import Encryptor, NotAnEncryptor
 
 
 class SqliteStorage(StorageProvider):
@@ -36,12 +36,14 @@ class SqliteStorage(StorageProvider):
 
     DATA_TABLE_PREFIX = "tinyolap_data_"
 
-    def __init__(self, name: str, database_folder: str = None, logging: bool = True,
+    def __init__(self, name: str, database_folder: str = None, enable_logging: bool = True,
                  logger: logging.Logger = None, encryptor: Encryptor = None):
         self.name = name.strip()
         self.database_folder = database_folder
-        self.logging = logging
+        self.logging = enable_logging
         self.logger = logger
+        if encryptor is None:
+            encryptor = NotAnEncryptor()
         self.encryptor = encryptor
         self.file_name = None
         self.folder = None
@@ -365,10 +367,7 @@ class SqliteStorage(StorageProvider):
         sql = f"SELECT * FROM {table};"
         records = self._fetchall(sql)
         if records:
-            if self.encryptor:
-                return self.encryptor.decrypt(records[0][0])
-            else:
-                return records
+            return records
         return None
 
     # endregion
@@ -383,6 +382,10 @@ class SqliteStorage(StorageProvider):
         if self.logging:
             self.logger.info(f"{self.LOG_PREFIX}Adding or updating meta configuration for key: '{key}'.")
             # self.logger.handlers[0].flush()
+
+        key = self.encryptor.encrypt(key)
+        json = self.encryptor.encrypt(json)
+
         data = (key, json)
         sql = f"INSERT INTO {self.META_TABLE_META} (key, config)" \
               f"VALUES(?, ?)  " \
@@ -395,9 +398,13 @@ class SqliteStorage(StorageProvider):
         Returns the configuration of a meta item in json format.
         :return: A json string.
         """
+        key = self.encryptor.encrypt(key)
+
         result = self._fetchall(f"SELECT config FROM {self.META_TABLE_META} WHERE key = '{key}'")
         if result:
-            return result[0][0]
+            value = str(result[0][0])
+            value = self.encryptor.decrypt(value)
+            return value
         return None
 
     # endregion
@@ -626,6 +633,7 @@ class SqliteStorage(StorageProvider):
                 for meta in metas:
                     if not self._table_exists(meta):
                         self._add_table(meta, self.META_TABLE_FIELDS)
+                        self.add_meta("provider", "tinyolap")
                     if not self._table_exists(meta):  # ensure the table has been created.
                         if self.logging:
                             self.logger.info(f"{self.LOG_PREFIX}Failed to prepare database for use with TinyOlap.")
@@ -651,6 +659,12 @@ class SqliteStorage(StorageProvider):
                     self.logger.error(msg)
                     # self.logger.handlers[0].flush()
                 raise DatabaseBackendException(msg)
+
+        else:
+            # check if data can be decrypted properly.
+            provider = self.get_meta("provider")  # this should return 'tinyolap'
+            if provider != "tinyolap":
+                raise EncryptionException(f"Failed to open database. Invalid username or password.")
 
         return True
 
@@ -861,9 +875,8 @@ class SqliteStorage(StorageProvider):
         """Initializes the logger, if required."""
         if self.logger:  # an existing logger was already handed in
             return
-        if not self.logging:  # logging not required.
+        if not self.logging:  # enable_logging not required.
             return
-
 
         self.logger = logging.getLogger("tinyolap.storage_provider.sqlite")
         handler = logging.FileHandler(self.log_file, mode='w')
@@ -872,10 +885,10 @@ class SqliteStorage(StorageProvider):
         self.logger.addHandler(handler)
         self.logger.setLevel(self.LOG_LEVEL)
 
-        # self.logger = logging.getLogger("TinOlap.SqliteStorage")
-        # handler = logging.FileHandler(self.log_file, mode='w')
+        # self.logger = enable_logging.getLogger("TinOlap.SqliteStorage")
+        # handler = enable_logging.FileHandler(self.log_file, mode='w')
         # handler.setLevel(self.LOG_LEVEL)
-        # formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        # formatter = enable_logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         # handler.setFormatter(formatter)
         # self.logger.addHandler(handler)
 

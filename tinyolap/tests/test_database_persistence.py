@@ -24,7 +24,7 @@ class TestDatabasePersistence(TestCase):
         cube = "cube"
 
         # create database
-        db = Database(self.db_name)
+        db = self.db  # Database(self.db_name)
         if not db.dimension_exists(dim_name1):
             dim1 = db.add_dimension(dim_name1).edit()
             dim1.add_member(members1)
