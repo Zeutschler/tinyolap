@@ -1,6 +1,7 @@
 from unittest import TestCase
+from tinyolap.dimension import Dimension
 from tinyolap.database import Database
-from tinyolap.exceptions import *
+from tinyolap.custom_errors import *
 
 
 class TestDimension(TestCase):
@@ -16,14 +17,14 @@ class TestDimension(TestCase):
 
     def test_duplicate_dimension(self):
         dim = self.db.add_dimension("doublet")
-        with self.assertRaises(DuplicateKeyException):
+        with self.assertRaises(DuplicateKeyError):
             self.db.add_dimension("doublet")
         self.db.dimension_remove("doublet")
 
     def test_member_naming_conventions(self):
         dim = self.db.add_dimension("naming")
 
-        valid_names = ["we", "are", "all", "valid", "address", "123","ððð➜₥ℌ℉≥∭♖☀︎☀⚽︎︎"]
+        valid_names = ["we", "are", "all", "valid", "keys", "123","ððð➜₥ℌ℉≥∭♖☀︎☀⚽︎︎"]
         invalid_names = ["no \t tabs", "no \n new lines", "no \r carriage return"]
 
         dim.edit()
@@ -82,9 +83,9 @@ class TestDimension(TestCase):
         self.execute_dimension_test(dim, members, parents, root_members)
 
     def execute_dimension_test(self, dim, members, parents, root_members):
-        all_members = set(members).union(set(parents).union(set(root_members)))
-        self.assertEqual(len(dim), len(all_members))
-        self.assertEqual(len(dim.get_members()), len(all_members))
+        all = set(members).union(set(parents).union(set(root_members)))
+        self.assertEqual(len(dim), len(all))
+        self.assertEqual(len(dim.get_members()), len(all))
         self.assertEqual(len(dim.get_leave_members()), len(members))
         if dim.get_top_level() > 0:
             self.assertEqual(len(dim.get_aggregated_members()), len(parents) + len(root_members))

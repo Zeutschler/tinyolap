@@ -2,8 +2,9 @@ import math
 import unittest
 from unittest import TestCase
 
-from samples.tiny import load_tiny
-from tinyolap.exceptions import InvalidCellAddressException
+from tinyolap.samples.tiny import load_tiny
+from tinyolap.cell import Cell
+from tinyolap.custom_errors import InvalidCellAddressError
 
 
 class TestCell(TestCase):
@@ -16,7 +17,7 @@ class TestCell(TestCase):
         c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
         with self.assertRaises(Exception) as context:
             c = self.cube.cell("2022", "Jan")
-        self.assertEqual(type(InvalidCellAddressException()), type(context.exception))
+        self.assertEqual(type(InvalidCellAddressError()), type(context.exception))
 
     def test_cell_manipulation(self):
         a = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
@@ -35,7 +36,7 @@ class TestCell(TestCase):
         value = c["Mar"]
         self.assertEqual(c, b)   # still, c will return 123.0
 
-        # MemberContext object
+        # Member object
         april = c.member("Apr")
         c[april] = 42
         c["2023", april] = 333.0
@@ -46,7 +47,7 @@ class TestCell(TestCase):
         self.assertEqual("Apr", april.name)   # still, c will return 123.0
         self.assertEqual("months:Apr", april.full_name)   # still, c will return 123.0
         self.assertEqual(42.0, c[april])
-        self.assertEqual(a.value, c["Jan"])
+        self.assertEqual(42.0, c["Jan"])
 
         c.value = 987.0  # sets a new value to "Feb", so b will show the same result,
         self.assertEqual(c, b)

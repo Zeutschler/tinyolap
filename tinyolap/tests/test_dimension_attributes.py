@@ -1,7 +1,8 @@
 import datetime
 from unittest import TestCase
+from tinyolap.dimension import Dimension
 from tinyolap.database import Database
-from tinyolap.exceptions import *
+from tinyolap.custom_errors import *
 
 
 class TestDimensionAttributes(TestCase):
@@ -29,11 +30,11 @@ class TestDimensionAttributes(TestCase):
         dim.add_attribute("datetime", datetime.datetime)
         dim.add_attribute("123", int)
 
-        with self.assertRaises(InvalidKeyException):
+        with self.assertRaises(InvalidKeyError):
             self.db.add_dimension("no spaces please")
-        with self.assertRaises(InvalidKeyException):
+        with self.assertRaises(InvalidKeyError):
             self.db.add_dimension(" no_spaces_please ")
-        with self.assertRaises(InvalidKeyException):
+        with self.assertRaises(InvalidKeyError):
             self.db.add_dimension("%&(&%§?````?)")
 
         self.assertTrue(dim.has_attribute("name"))

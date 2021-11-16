@@ -12,8 +12,6 @@ the **samples** folder.
 1. Tiny Database
 ----------------
 
-**Usage:** Open and/or start the script *...tinyolap/samples/tiny.py*
-
 Purpose of the Tiny data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The **Tiny** data model is a very small and simple demo database created with Python code.
@@ -24,73 +22,9 @@ And also how to create and print a simple report to the console.
 The data model contains 5 dimensions for years, months, products, regions and some sales
 figures.
 
-------------------------------
-2. Financial Planning Database
-------------------------------
-
-.. note::
-   Coming soon. Under development.
-
-**Usage:** Open and/or start the script *...tinyolap/samples/finance.py*
-
-Purpose of the Finance data model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The **Finance** data model is a simple, but real example for financial planning.
-The data model is a great template for integrated financial planning for small to large companies.
-It provides the following features, leveraging many of TinyOlap's capabilities:
-
-- Sales plan by legal entities, sales-teams, products and regions based on price and quantity.
-
-- HR plan covering employees some attributes and their salaries. Segmented by legal entities.
-
-- Production plan covering planned quantities, raw material costs and capacities.
-
-- Profit and Loss statement, integrating all other plans.
-
-- User management and access rights, so, e.g., the sales guy can look into the salary data
-  and only the finance guy can see certain cost figures and EBIT. And the boss can see
-  anything but is not allowed to change data.
-
-------------------------------
-3. Huge (the opposite of tiny)
-------------------------------
-
-.. warning::
-   Please be aware that your RAM is limited. **Don't overdo it!** Python will crash when
-   your running out of memory.
-
-**Usage:** Open and/or start the script *...tinyolap/samples/huge.py*
-
-Purpose of the Huge data model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The **Huge** data model is - in contrast - larger demo database (at least for TinyOlap),
-created by some lines of Python code. It shows how TinyOlap behaves on larger data sets.
-You can play around with the parameters ``numbers_of_records``  (default = 1,000,000),
-``numbers_of_dimensions`` (default = 8) and ``members_per_dimension (default = 100) to
-check how the database behaves and perform.
-
-As a rule of thumb, TinyOlap databases consume an average ±1.5kb per record (incl data model).
-
-----------------
-4. Plane Spotter
-----------------
-
-**Usage:** Open and/or start the script *...tinyolap/samples/planespotter.py*
-
-Purpose of the Plane Spotter data model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The **Plane Spotter** data model is kind of a gimmick and creates a data model containing
-real-time flight data from the great `OpenSky online network <https://opensky-network.org>`_.
-
-The data model show cases how you can update the structure and content of database in
-more or less real time. Although the request for flight data will need some time (sometimes
-seconds), the actual update and import of the data model only takes a few milliseconds.
-
--------------------------------
-5. Tutor - A vintage data model
--------------------------------
-
-**Usage:** Open and/or start the script *...tinyolap/samples/tutor.py*
+-----------------
+2. Tutor Database
+-----------------
 
 Purpose of the Tutor data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -121,24 +55,15 @@ The Tutor database is in german language, but it should be understandable for ev
 The TXT files in the folder *tutor* are the original files ship with the database on a
 3½-inch disk at around 1995, they are single-byte **latin-1** encoded (ISO 8859-1).
 
---------------------------------------
-6. Tiny42 - TinyOlap multi-processsing
---------------------------------------
 
-**Usage:** Open and/or start the script *...tinyolap/samples/tiny42.py*
+.. autoclass:: samples.tutor.Tutor
+    :members:
 
-Purpose of the Tiny42 data model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This example show cases the cloning of databases and how to use multiprocessing
-(not multi-threading) to process multiple databases in parallel. The example
-works in-memory, in order to not flood you disk with database files.
+.. autoclass:: tinyolap.samples.tutor.Tutor
+    :members:
 
-We create 1x database template, create 42x independent clones and process *them* in
-a distributed manner, whatever *them* might be, e.g., recipients, machines, locations
-or departments). The clones get adapted (by adding some new members) and
-filled with some data. When anything is recollected, we consolidate all the clones
-into one single databases.
+.. automodule:: samples.tutor
+    :members:
 
-For illustration purposes we use an IoT sample for the *Tiny Marmalade Factory*,
-where 42x marmalade machines create some senor data. Each machines return their
-own machine and sensor ids.
+.. automodule:: tutor
+    :members:

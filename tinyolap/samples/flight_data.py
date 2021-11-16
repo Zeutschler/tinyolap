@@ -1,15 +1,8 @@
-# -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
 from __future__ import annotations
-
 import base64
+import requests
 import math
 from math import sin, cos, asin, sqrt, atan2, radians, degrees
-
-import requests
 
 
 class BoundingBox:
@@ -73,7 +66,6 @@ class FlightData:
     Request and process flight data from OpenSky API
     Please refer https://opensky-network.org for further details.
     """
-
     def __init__(self, location: Location = None, radius: float = 0):
         # set defaults, use 'Berlin' as default location
         self.__default_location = Location(52.5200, 13.4050)

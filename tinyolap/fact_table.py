@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
+import weakref
 
 
 class FactTable:
@@ -82,14 +78,14 @@ class FactTable:
 
                     self._index[i][member_idx] = new_row_set
 
-    def __init__(self, dimensions: int, cube):
+    def __init__(self, dimensions: int, cube=None):
         self.row_lookup = {}
         self.facts = []
         self.addresses = []
         self.index = FactTable.FactTableIndex(dimensions)
         self.dims = dimensions
         # we need access to the parent cube. This is a garbage collection safe approach
-        self.cube = cube
+        self.cube = weakref.ref(cube) if cube else None
 
     def set(self, address: tuple, measure, value):
         record_hash = hash(address)
@@ -107,8 +103,8 @@ class FactTable:
             # update index
             self.index.set(address, row)
             if self.cube:
-                # cube = self.cube()
-                self.cube._update_aggregation_index(self.index, address, row)
+                cube = self.cube()
+                cube._update_aggregation_index(self.index, address, row)
             return True
 
     def get(self, address, measure):
@@ -164,14 +160,12 @@ class FactTable:
             raise ValueError(f"Invalid query {idx_address}. At least one dimension needs to be specified.")
 
         # Execute intersection of sets
-        # Order matters most!!! So we order the sets ascending by number of items, process smaller sets first,
-        # this improves the performance of intersection quite nicely (±2x up to ±4x times on average).
+        # Order matters most!!! order the sets by ascending number of items, this greatly
+        # improves the performance of intersection operations.
         seq = sorted(((len(s), i) for i, s in enumerate(sets)))
         result = sets[seq[0][1]]
         for i in range(1, len(seq)):
             result = result.intersection(sets[seq[i][1]])
-            if not result:
-               break
         return result
 
     def query_area(self, idx_area_def):

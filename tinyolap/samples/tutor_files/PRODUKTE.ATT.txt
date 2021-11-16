@@ -1,4 +1,4 @@
-MemberContext	Manager	Einf	Color	Class
+Member	Manager	Einf	Color	Class
 ProServ 1000 P90	T Heinzel	95/01	LightBlue	ProServ
 ProServ 2000 P120	T Heinzel	95/04	Red	ProServ
 ProServ 2500 P166	T Heinzel	96/01	LightGray	ProServ
