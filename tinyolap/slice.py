@@ -1,11 +1,5 @@
-# -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
 import enum
-import time
-
+import weakref
 from tinyolap.cube import Cube
 
 
@@ -13,7 +7,7 @@ class Slice:
     """Represents a slice from a cube. Slices can be seen as a report in Excel with filters on top,
      row- and column-headers and the requested data itself. See demo.py for sample usage."""
 
-    class ColorSchema:
+    class Color_Schema():
 
         class Colors(enum.Enum):
             none = ''
@@ -58,11 +52,11 @@ class Slice:
             self.names = ""
             self.members = ""
 
-    class ColorSchemeNone(ColorSchema):
+    class ColorScheme_None(Color_Schema):
         def __init__(self):
             super().__init__()
 
-    class ColorSchemaDefault(ColorSchema):
+    class Color_Scheme_Default(Color_Schema):
         def __init__(self):
             super().__init__()
             self.borders = self.colors.darkgrey
@@ -94,7 +88,7 @@ class Slice:
         self.refresh()
 
     def _experimental_refresh_grid(self, parallel_execution=True):
-        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
         from time import time
 
         results = list()
@@ -169,19 +163,19 @@ class Slice:
                         address[dim_ordinal] = col_member[1]
 
                 # check formats
-                number_format = None
+                format = None
                 for idx, member in enumerate(tuple(address)):
                     if member not in formats:
                         member_format = self.cube.get_dimension_by_index(idx).member_get_format(member)
                         if member_format:
-                            number_format = member_format
+                            format = member_format
                         formats[member] = member_format
                     else:
-                        number_format = formats[member]
+                        format = formats[member]
 
                 # now we have a valid idx_address to be evaluated
                 value = self.cube.get(tuple(address) + (measure,))
-                grid.append([col, row, value, col_members, row_members, tuple(address), measure, number_format])
+                grid.append([col, row, value, col_members, row_members, tuple(address), measure, format])
 
                 col += 1
             row += 1
@@ -191,7 +185,7 @@ class Slice:
         self.grid_rows_count = len(self.axis[2])
 
         # execute zero suppression
-        self.__zero_suppression()
+        self.__zero_surpression()
 
     def __validate(self):
         """Validates the definition and adds missing information"""
@@ -288,7 +282,6 @@ class Slice:
                                 raise ValueError(f"Slice axis '{axis}' contains unknown member '{member}' in "
                                                  f"definition '{member_def}'.")
                     else:
-                        type_name = type(member_def["member"])
                         raise ValueError(f"Slice axis '{axis}' contains an invalid definition '{member_def}'.")
 
                 # ******************************************
@@ -302,7 +295,7 @@ class Slice:
 
                     measure = member_def["measure"]
                     if (not measure) or (measure == "*"):
-                        self.definition[axis][position]["measure"] = self.cube.measures  # get all measures
+                        self.definition[axis][position]["measure"] = self.cube.measures.keys()  # get all measures
                     if type(measure) is str:
                         if measure not in self.cube.measures:
                             raise ValueError(
@@ -405,12 +398,12 @@ class Slice:
 
                 self.axis[axis_index] = members
 
-    def __zero_suppression(self):
+    def __zero_surpression(self):
         # todo: implement this
         self.zero_cols = None
         self.zero_rows = None
 
-    def as_console_output(self, color_schema: ColorSchema = ColorSchema) -> str:
+    def as_console_output(self, color_shema: Color_Schema = Color_Schema) -> str:
         """Renders an output suitable for printing to the console only. The output most probably contains
         control characters and color definitions and is therefore not suitable for other use cases."""
         # title, description
@@ -418,8 +411,8 @@ class Slice:
         # print col headers
         # print row headers and values
 
-        cell_width = 14
-        row_header_width = 16
+        cell_width = 12
+        row_header_width = 12
 
         row_dims = len(self.grid[0][4])
         col_dims = len(self.grid[0][3])
@@ -447,14 +440,10 @@ class Slice:
             for r in range(row_dims):
                 text += " ".ljust(row_header_width)
             for i in range(self.grid_cols_count):
-                caption = self.grid[i][3][c]
-                if len(caption) > cell_width:
-                    caption = caption[:cell_width - 3].strip() + "..."
-                text += caption.center(cell_width)
+                text += self.grid[i][3][c].center(cell_width)
             text += "\n"
 
         # row headers & cells
-        previous = {}
         for cell in self.grid:
             col = cell[0]
             row = cell[1]
@@ -473,18 +462,8 @@ class Slice:
             if col == 0:
                 if row > 0:
                     text += "\n"
-                for pos, member in enumerate(cell[4]):
-                    caption = member
-                    if len(caption) > row_header_width:
-                        caption = caption[:row_header_width - 3].strip + "..."
-                    if pos in previous:
-                        if previous[pos] != member:
-                            text += caption.ljust(row_header_width)
-                        else:
-                            text += " ".ljust(row_header_width)
-                    else:
-                        text += caption.ljust(row_header_width)
-                    previous[pos] = member
+                for member in cell[4]:
+                    text += member.ljust(row_header_width)
 
             text += value
 
@@ -498,7 +477,8 @@ class Slice:
         # print col headers
         # print row headers and values
 
-        start = time.time()
+        cell_width = 12
+        row_header_width = 12
 
         row_dims = len(self.grid[0][4])
         col_dims = len(self.grid[0][3])
@@ -547,7 +527,6 @@ class Slice:
         text += '</thead">\n'
 
         # row headers and cells
-        previous = {}
         text += tro
         for cell in self.grid:
             col = cell[0]
@@ -560,18 +539,8 @@ class Slice:
                 if row > 0:
                     text += trc
                     text += tro
-                for pos, member in enumerate(cell[4]):
-                    #text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
-                    if pos in previous:
-                        if previous[pos] != member:
-                            text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
-                        else:
-                            text += f'<th class="text-nowrap" scope="row"></th>\n'
-                    else:
-                        text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
-                    previous[pos] = member
-
-
+                for member in cell[4]:
+                    text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
 
             if type(value) is float:
                 if format:
@@ -607,13 +576,8 @@ class Slice:
                  '<li><a href="#" class="nav-link px-2 text-white">Baz</a></li>' \
                  '</ul>' \
                  '<form action="/report" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
-                 '<div class="btn-toolbar">'\
+                 '<div class="text-end">' \
                  '<button type="submit" class="btn btn-warning">Refresh</button>' \
-                 '</div>' \
-                 '</form>' \
-                 '<form action="/nextreport" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
-                 '<div class="btn-toolbar">'\
-                 '<button type="submit" class="btn btn-warning">Next</button>' \
                  '</div>' \
                  '</form>' \
                  '</div>' \
@@ -632,8 +596,6 @@ class Slice:
                  '}' \
                  'document.addEventListener("DOMContentLoaded", onLoad)'
 
-        duration = f'<div class="font-italic font-weight-light">HTML rendered in {time.time()- start:.6} sec.</div>'
-
         html = f'<!doctype html><html lang="en"><head><!-- Required meta tags --><meta charset="utf-8">' \
                f'<meta name="viewport" content="width=device-width, initial-scale=1">' \
                f'<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" ' \
@@ -648,7 +610,6 @@ class Slice:
                f'<div class="p-3">' \
                f'{text}' \
                f'</div>' \
-               f'{duration}' \
                f'<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" ' \
                f'integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" ' \
                f'crossorigin="anonymous"></script></body></html>'
@@ -659,7 +620,7 @@ class Slice:
         return str(self)
 
     def __str__(self):
-        return self.as_console_output(color_schema=Slice.ColorSchemaDefault())
+        return self.as_console_output(color_shema=Slice.Color_Scheme_Default())
 
     def __repr__(self):
-        return self.as_console_output(color_schema=Slice.ColorSchemaDefault())
+        return self.as_console_output(color_shema=Slice.Color_Scheme_Default())

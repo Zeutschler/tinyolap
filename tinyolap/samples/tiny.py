@@ -1,23 +1,20 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# Copyright (c) Thomas Zeutschler (Germany).
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
 import itertools
 import math
 import time
-from art import *
 
-import tinyolap.cell_context
-from area import Area
-from tinyolap.decorators import rule
+import tinyolap.cell
+from decorators import rule
 from tinyolap.database import Database
-from tinyolap.rules import RuleScope, RuleInjectionStrategy
+from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
-from random import randrange
+from random import uniform, randrange
 
 
-def load_tiny(console_output: bool = False) -> Database:
+def load_tiny():
     """
     Creates a very simple (tiny) database for 'actual sales figures',
     just by code. Although the database is super minimalistic, it
@@ -26,9 +23,6 @@ def load_tiny(console_output: bool = False) -> Database:
     :return: The **Tiny** sample data model as a tinyolap in-memory
     only Database object.
     """
-
-    if console_output:
-        print(f"Creating the 'tiny' data model. Please wait...")
 
     # ************************
     # 1. create a new database
@@ -92,10 +86,10 @@ def load_tiny(console_output: bool = False) -> Database:
     dim_measures.commit()
 
     # You can also add some nice number formatting to dimension measures
-    # e.g. for number and percentage formatting. MemberContext formatting follows
+    # e.g. for number and percentage formatting. Member formatting follows
     # the standard Python formatting specification at
     # <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
-    dim_measures.member_set_format("Profit in %", "{:.2%}")  # e.g. this would number_format 0.864 as '86.40%'-
+    dim_measures.member_set_format("Profit in %", "{:.2%}")  # e.g. this would format 0.864 as '86.40%'-
 
     # ************************
     # 3. Now we can create our 'sales'*' cube, which is actually a 5-dimensional cube.
@@ -111,21 +105,21 @@ def load_tiny(console_output: bool = False) -> Database:
     # decorator you need to specify for what cube the rule should be used and what member (e.g. ['Profit']) or
     # member combination (e.g. [..., 'Jan', 'Profit']) the rule should actually calculate.
     # For further detailed on how to define and write rules, please refer the TinyOlap documentation.
-    # Rules are a big and complex topic!!! Once you've understood the concept, it gets very easy.
-    cube.register_rule(rule_profit)
-    cube.register_rule(rule_profit_in_percent)
+    # Rules are a big and complex topic!!! Once you've understood the concept, it get's very easy.
+    cube.add_rule(rule_profit)
+    cube.add_rule(rule_profit_in_percent)
 
     # That's it! Your first TinyOlap database is ready to use...
     return db
 
 
-@rule("sales", ["Profit"])
-def rule_profit(c: tinyolap.cell_context.CellContext):
+@rule("sales", "Profit")
+def rule_profit(c: tinyolap.cell.Cell):
     return c["Sales"] - c["Cost"]
 
 
-@rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS, volatile=False)
-def rule_profit_in_percent(c: tinyolap.cell_context.CellContext):
+@rule("sales", ["Profit in %"], scope=tinyolap.rules.RuleScope.ALL_LEVELS, volatile=False)
+def rule_profit_in_percent(c: tinyolap.cell.Cell):
     sales = c["Sales"]
     profit = c["Profit"]
     if sales:
@@ -133,18 +127,14 @@ def rule_profit_in_percent(c: tinyolap.cell_context.CellContext):
     return None
 
 
-def play_tiny(console_output: bool = True):
+def play_tiny(database: Database = load_tiny(), console_output: bool = True):
     """ Demonstrates the usage TinyOlap and the Tiny database.
     It creates and print some simple reports to the console.
 
     :param console_output: Set to ``False``to suppress console output.
+    :param database: The Tiny database generate by the ``load()`` function.
     """
-
-    if console_output:
-        tprint("TinyOlap", font="Slant")
-
     # 1. get the cube
-    database = load_tiny()
     cube = database.cubes["sales"]
     # Caching - to experience the raw speed of the database,
     # we'll switch it off. For real world use cases, caching
@@ -252,7 +242,7 @@ def play_tiny(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube.counter_aggregations:,} cell aggregations calculated")
+              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
 
     if console_output:
         print(f"\n...again, the same report, now with Caching On, but cold=empty cache...")
@@ -269,7 +259,7 @@ def play_tiny(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube.counter_aggregations:,} cell aggregations calculated")
+              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
 
     if console_output:
         print(f"\n...finally the same report, with Caching On and warm cache...")
@@ -285,7 +275,7 @@ def play_tiny(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube.counter_aggregations:,} cell aggregations calculated")
+              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
 
     if console_output:
         print(f"\nRecommendation: Leave Caching On, whenever possible!")
@@ -295,8 +285,9 @@ def play_tiny(console_output: bool = True):
         print(f"\t- Switch off caching only if you have rules are 'volatile'.'")
 
 
-def play_advanced_business_logic(database: Database = load_tiny()):
+def play_advanced_business_logic(database: Database = load_tiny(), console_output: bool = False):
     """ Demonstrates the implementation of advanced business logic in TinyOlap.
+    :param console_output: Set to ``False``to suppress console output.
     :param database: The Tiny database generate by the ``load()`` function.
     """
     cube = database.cubes["sales"]
@@ -314,12 +305,12 @@ def play_advanced_business_logic(database: Database = load_tiny()):
         cube.set(address, float(randrange(5, 100)))
 
     # *************************************************************************
-    # 2. Lets create a CellContext and see how it basically works
+    # 2. Lets create a Cell and see how it basically works
     c = cube.cell("2022", "Jan", "North", "trucks", "Sales")
 
     # Cursors behave (more or less) like float values,
     # ...but on direct assignment you need to be a bit careful:
-    a = c.value  # as 'a = c' would only copy the reference to the CellContext object,
+    a = c.value  # as 'a = c' would only copy the reference to the Cell object,
     # so we need to explicitly ask for .value
     a = float(c)  # ...would be an alternative approach to ask for the numeric value of 'c'
     a = c.numeric_value  # ...or this, in order to be sure to strictly get the numerical value.
@@ -348,13 +339,13 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     # RECOMMENDATION: Even if you want to access 'Jan'(what is defined by the cursor itself),
     #                 it is good practice to ALWAYS use slicers, even is you don need to.
     #                 This greatly improves the readability and consistency of your code.
-    # Both of the following statements are identical:
-    q1 = c + c["Feb"] + c["Mar"]         # Who knows what 'c' is about?
-    q1 = c["Jan"] + c["Feb"] + c["Mar"]  # ...so, THIS IS GOOD PRACTISE !!!
+    # Both of the follwong staments are identical:
+    q1 = c + c["Feb"] + c["Mar"]  # Who knows what 'c' is about?
+    q1 = c["Jan"] + c["Feb"] + c["Mar"]  # THIS IS GOOD PRACTISE !!!
 
     # Let's see what else we can do...
     if c["Q1"] != c["Jan"] + c["Feb"] + c["Mar"]:
-        print("This should never be printed, as Q1 should be equal to Jan + Feb + Mar.")
+        print("This should never be printed, as Q1 is the parent member for Jan, Feb and Mar.")
 
     # You can also shift multiple dimensions.
     # The order of dimensions doesn't matter, they get automatically sorted.
@@ -363,69 +354,23 @@ def play_advanced_business_logic(database: Database = load_tiny()):
 
     # Or you can build whatever ratios you want...
     sport_cars_in_percent = c["sports"] / c["Total"] * 100.0
-    # But wait...   ALARM !!!! WARNING !!!! ALARM !!!! WARNING !!!!
+    # ALARM !!!! WARNING !!!! ERROR !!!!
     # Here we might run into a problem: while 'sports' is a unique member key over all dimensions
     # of the cube, the member 'Total' is not. 'Total' is defined for two dimensions, for 'products'
     # and 'regions' dimension.
     # WARNING: You have no guarantee and control on what dimension the cursor will actually modify.
 
     # But the solution to this problem is very easy, you just need to explicitly hand in the dimension name...
-    #   cursor[cube_name:member_name]
+    #   cursor[dimension_name:member_name]
     # BRAVO !!! Now your save, at least almost...
     sport_cars_in_percent = c["sports"] / c["products:Total"] * 100.0
 
     # *************************************************************************
-    # 4. You can process many cells at once usisng the Area object
-    # Instead of a single cell you access a range of cells, defined by a
-    # multidimensional area. These areas only and always reflect the base-level
-    # cells of a cube (aggregations do not exists in the cube). By this you can
-    # easily do mass manipulation of data. Let's create an Area for 'Sales' '2022':
-    data: Area = cube.area("Sales", "2022")
-    # The above statement defines an area over ALL months, products and regions,
-    # but for the 'measure' dimension only for 'Sales' and for the years only '2022'
-
-    # Areas are super useful do delete data, meaning clearing an 'area of data' in a cube.
-    # e.g. when you accidentally imported wrong data into a cube and need to delete it.
-    data.clear()
-
-    # Now that the data are is empty, let's add 2 values in the cube that fall into the Area.
-    cube["2022", "Jan", "North", "trucks", "Sales"] = 45.0
-    cube["2022", "Feb", "North", "sedan", "Sales"] = 67.0
-
-    # Now you can get a list of ALL EXISTING records.
-    # Each record contains the idx_address of each cell and its value as a list.
-    records = list(data.records())
-    # record and value can be seperated from each other easily as shown in the loop below
-    for record in data.records():
-        address = record[:-1]
-        value = record[-1]
-        # Such records can be used for whatever purpose, but especially
-        # to instantly write bike values back to the cube.
-        cube.set(address, 2.0 * value / (3.0 - 1.0))
-
-
-    # But, such loops can also be done more elegantly with 1 line of code only.
-    data *= 2.0  # ALL EXISTING values in the Area get multiplied by 2.0
-
-    # You can also set all values in the area to a specific value.
-    data.set_value(1.0)  # set ALL values (REALLY ALL VALUES) in the area to 1.0
-    # So, the above ``set_value()``statement should be handled with care on larger data models,
-    # as it enumerates the entire data space. 100 x 100 x 100 x 100 members over 4 dimensions
-    # already end up incl 100.000.000 that will be written - much too much for TinyOlap.
-
-    # And finally you have the same modifiers as with CellContext objects.
-    # This is a very powerful and essential feature of TinyOlap.
-    # The following statement copies all 'sales' data from 2022 to 2023,
-    # before copying, the target area will be cleared.()
-    # todo: implementation not yet ready. Go Bro, go ....
-    # data["2023"] = data["2022"] * 2
-
-    # *************************************************************************
-    # 5. Let's get down to business.
+    # 4. Let's get down to business.
     # When you'll build a lot of business logic, often with dedicated functions
     # or classes (e.g. for calculation an amortization or a forecast using ML,
     # or to read/write data from a web service, a database or an ERP system),
-    # THEN the above 'manual' approach of doing calculations might get hard to maintain.
+    # THEN the above 'manual' approach of doing calculations might get complex.
     #
     # The best way is to further encapsulate and reuse your business logic.
     # One solution is to define lambda functions like this...

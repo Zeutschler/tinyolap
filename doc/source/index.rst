@@ -1,87 +1,37 @@
 .. attention::
    TinyOlap is under active development and therefore subject of change.
-
    Please refer :ref:`feature backlog <backlog>` for a high-level status overview.
 
 =================
-TinyOlap
+Developer's Guide
 =================
 
-TinyOlap is a light-weight [1]_ in-process [2]_ multi-dimensional [3]_ in-memory [4]_ **OLAP database**
-written in plain Python. TinyOlap follows the :ref:`model-driven approach <model_driven>` which is
-suitable for many real world use cases, especially in the area of planning, budgeting, forecasting,
-simulation, analysis and reporting.
+.. tip::
+   TinyOlap for financial data transformation !!! Coole Idee...
 
-.. [1] TinyOlap is standard Python, no external dependencies. You can spin up a database in milliseconds by code,
-       or you can spin up an existing database using the included web api (based on the great
-       `FastAPI <https://fastapi.tiangolo.com>`_, love it...︎) and build a web or remote application on top.
-
-.. [2] TinyOlap is a simple library and running in your Python process, there is no external server.
-       If you use the TinyOlap web api then TinyOlap turns into a web server on its own.
-
-.. [3] TinyOlap allows you to create low- to high-dimensional data space, depending on the problem you want to solve.
-       Then you can read and write data from that space and do multi-dimensional calculations. Aggregation is build-in.
-       For advanced calculation you need to write a `rule <rules>`_, what is nothing else then a Python function.
-       This is very suitable for many real world (business) and abstract problems.
-
-.. [4] TinyOlap is an in-memory database with (optional) persistence to an SQLite database.
-       Why optional? If you want to use TinyOlap just as a path-through calculation engine,
-       what makes totally sense for certain use cases, then persistence might not be required.
-
+TinyOlap is a super-light-weight multi-dimensional **in-memory OLAP database** (often called a
+`MOLAP <https://en.wikipedia.org/wiki/Online_analytical_processing#Multidimensional_OLAP_(MOLAP)>`_
+Database) written in plain Python. TinyOlap follows the :ref:`model-driven approach <model_driven>`
+which is very suitable for business use cases such as planning, budgeting, forecasting, simulation
+and reporting. And there is :ref:`one thing that makes TinyOlap stunning and unique<what_makes_tinyolap_unique>`.
 
 Use cases for TinyOlap
-----------------------
-TinyOlap is suitable for a huge variety of use cases, where aggregation and calculation
-in multidimensional data space is required or makes sense. Actually, most business problems
-are multi-dimensional:
+---------------------------
+TinyOlap is highly suitable for research and educational purposes in computer and business science, as well
+as in other disciplines. In addition TinyOlap is **perfect for prototyping and testing** in professional use cases,
+e.g., in business area like finance, controlling, sales, marketing and supply chain management.
 
-    If you for instance sell **1.** products to **2.** customers over certain **3.** channels over **4.** time,
-    then you already have a **4-dimensional business problem** on which TinyOlap will perfectly support you.
-
-Some use case where TinyOlap will shine:
-
-- TinyOlap is perfect for prototyping, testing and small to medium size use cases in enterprise
-  performance management, as in the areas of finance, controlling, sales, marketing, human resource,
-  supply chain and others.
-
-- TinyOlap is when useful, when you have data containing certain attributes - the attributes will make
-  up your dimensions in multi-dimensional space - and you need to do aggregations (or counting) or
-  calculations over these attributes. e.g. to provide statistics for user requests, process incoming
-  sensor data or statistics over the the clubs and players of a basketball or football league.
-
-- TinyOlap can be also used as intelligent data processing engine, where a lot of business logic needs
-  to be applied. e.g. for any kind mathematical or financial data processing, incl. advanced stuff
-  like legal consolidation or portfolio optimization.
-
-- For research and educational purposes in computer and business science, as well other disciplines.
-  Building multi-dimensional data models is great for students to learn abstract thinking and simple coding.
-  TinyOlap was actually build to support a research project in the area of AI.
-
-For such use cases, TinyOlap is much more intuitive and simpler to use than, e.g., a relational database
-and building your business logic in SQL the hard way. Another nice side effect, TinyOlap is in comparison
-most often much faster on such queries than relational databases.
-
-And there is also :ref:`one thing that makes TinyOlap really unique<what_makes_tinyolap_unique>`
-in the database space...
-
-But whatever you do, please keep in mind, that TinyOlap is just interpreted Python code. Meaning, although
-Tinyolap is perfect for evaluation and testing and small to mid-size use cases, **TinyOlap is neither
-intended nor recommend to be used for any large scale production purposes**. If you want to experience
-how well or not well TinyOlap behaves on larger data volumes, then please try the 'huge' sample database
-and set the increase the ``numbers_of_records`` at the top of file 'huge.py'. For larger data volumes,
-say > 5m records you need to test, if TinyOlap still meets you performance requirements.
-
-TinyOlap is provided AS-IS and without any warranty, please refer the :ref:`provided license <license>`
-for further details.
-
+Although Tinyolap might be helpful for evaluation, testing and experimental purposes, **TinyOlap is neither intended
+nor recommend to be used for production purposes**. TinyOlap is provided AS-IS and without any warranty,
+please refer the :ref:`provided MIT license <license>` for further details.
 
 Basic Usage
 -----------
-The basic idea of the **model-driven approach** is, to explicitly define the multi-dimensional
-data space that describes a certain business problem as a first step. Data space consist of
-:ref:`dimensions <dimensions>` and :ref:`cubes <cubes>`. Cubes represent the multi-dimensional data space,
-made up by a set of dimensions whihc define the axis of the multi-dimensional data space. Dimensions are
-flat list or hierarchies of :ref:`members <members>`.
+The basic idea of the **model-driven approach** is to explicitly define the multi-dimensional data space
+that describes a certain business problem or whatever multi-dimensional problem domain. Data space consist of
+:ref:`dimensions <dimensions>` and :ref:`cubes <cubes>`. Cubes represent the multi-dimensional data space, made up
+by a set of dimensions whihc define the axis of the multi-dimensional data space. Dimensions are flat list or
+hierarchies of :ref:`members <members>`.
 
 To access a cube, members from each of the cube dimensions are combined
 to build a :ref:`cell address <cells>`. With these addresses you can access the individual cells of the cube for
@@ -133,7 +83,16 @@ To learn more on how to build :ref:`databases<databases>`, :ref:`dimensions <dim
 and :ref:`cubes <cubes>` and all the cool and advanced feature of TinyOlap, please continue
 with the :ref:`getting started guide<setup>`. Enjoy...
 
+Use cases for TinyOlap
+---------------------------
+TinyOlap is highly suitable for research and educational purposes in computer science as well as in business
+studies and other disciplines.
 
+I actually use TinyOlap also for teaching my students at the HSD University for Applied Science in
+Düsseldorf (Germany). Although Tinyolap might be helpful for evaluation, testing and experimental purposes
+for professional use cases, it is neither intended nor recommend to be used for any kind of production purposes,
+especially not for larger data volumes, say > 5m records. TinyOlap is provided AS-IS and without any warranty,
+please refer the :ref:`provided MIT license <license>` for further details.
 
 Why TinyOlap was implemented?
 ----------------------------
@@ -258,7 +217,6 @@ Table of Contents
    backlog
    setup
    usage
-   support
    model_driven
    best_practise
    samples
@@ -271,7 +229,6 @@ Table of Contents
    rules
    server
    license
-   lowcode
 
 
 Indices and Tables

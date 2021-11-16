@@ -1,6 +1,7 @@
 from unittest import TestCase
 from tinyolap.database import Database
 from pathlib import Path
+import time
 
 
 class TestDatabasePersistence(TestCase):
@@ -10,9 +11,8 @@ class TestDatabasePersistence(TestCase):
         self.db = Database(self.db_name, in_memory=False)
 
     def tearDown(self) -> None:
-        if self.db:
-            self.db.close()
-            self.db.delete()
+        self.db.close()
+        self.db.delete()
 
     def test_Database_create(self):
 
@@ -37,7 +37,7 @@ class TestDatabasePersistence(TestCase):
         file_path = db.file_path
         db.close()
         # check if file exists
-        self.assertTrue(Path(file_path).exists(), "Database file exists.")
+        self.assertEqual(Path(file_path).exists(), True, "Database file exists.")
 
         # (re)open the database
         db = Database(self.db_name)
@@ -64,7 +64,7 @@ class TestDatabasePersistence(TestCase):
         db.dimension_remove(dim_name2)
         self.assertEqual(len(db.dimensions), 0, "Database contains 0 dimension.")
 
-        # finally delete database
+        # delete database
         file_path = db.file_path
         db.close()
         db.delete()

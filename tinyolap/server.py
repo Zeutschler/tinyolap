@@ -1,29 +1,32 @@
-# -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
 import os
 from typing import Dict
+import functools
 
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
-from tinyolap.database import Database
+from custom_errors import DuplicateKeyError
+from database import Database
 
 
+# def singleton(cls):
+#     """Make a class a Singleton class (only one instance)"""
+#     @functools.wraps(cls)
+#     def wrapper_singleton(*args, **kwargs):
+#         if not wrapper_singleton.instance:
+#             wrapper_singleton.instance = cls(*args, **kwargs)
+#         return wrapper_singleton.instance
+#     wrapper_singleton.instance = None
+#     return wrapper_singleton
+# @singleton
 class Server:
     """
-    Represents a TinyOlap server instance serving one or more _databases.
+    Represents a TinyOlap server instance serving one or more databases.
     """
-
-    class Settings:
-        version = "0.1"
 
     UNDEFINED = "undefined"
     DB_FILE_EXT = ".db"
     DB_DEFAULT_FOLDER = "db"
 
     def __init__(self):
-        self._databases: CaseInsensitiveDict[str, Database] = CaseInsensitiveDict()
+        self.databases: Dict[str, Database] = {}
         self.__initialize()
 
     def reinitialize(self):
@@ -32,24 +35,12 @@ class Server:
 
     def __initialize(self):
         """Initializes the server for first use."""
-        self._databases = CaseInsensitiveDict()
+        self.databases.clear()  # initiates the garbage collection
         files = self.get_existing_database_files()
         for file in files:
             database = Database(file)
-            self._databases[database.name] = database
+            self.databases[database.name] = database
 
-    # region database access via indexing/slicing
-    def __getitem__(self, args):
-        if type(args) is str:
-            dbs = [db.name for db in self._databases.values()]
-            if args in self._databases:
-                return self._databases[args]
-            raise KeyError(f"A database named '{args}' is not registered on the server.")
-        raise KeyError(f"Invalid database name '{str(args)}'.")
-
-    def __delitem__(self, args):
-        self.deletes_database(args[0])
-    # endregion
 
     def open_database(self, database_file: str):
         """
@@ -63,57 +54,32 @@ class Server:
         database = Database(database_file)
         if not database.open(database_file):
             return False
-        if database.name in self._databases:
-            raise KeyError(f"Method 'open_database()' failed. "
+        if database.name in self.databases:
+            raise DuplicateKeyError(f"Method 'open_database()' failed. "
                                     f"A database named '{database.name}' already exists.")
-        self._databases[database.name] = database
+        self.databases[database.name] = database
         return True
 
-    def create_database(self, name: str, in_memory: bool = True, overwrite_existing: bool = False):
+    def create_database(self, name: str, in_memory: bool =True):
         """
-        Creates a new database. If parameter ``in_memory``is set to ``True``,
-        no database file will be created. For that case, all changes made to the database
-        and data entered or imported will be lost after your application has shut down.
+        Creates a new database in the default database folder.
 
-        If parameter ``in_memory``is set to ``False`` (the default settings), then a
-        database file will be created in the folder 'db' aside your script root.
-        If a database with the same name already exists, then the old database file will
-        be renamed and a new database file will be created. Renaming simply appends a
-        timestamp.
-
-        .. danger::
-           If parameter ``in_memory``is set to ``True`` and parameter ``overwrite_existing``
-           is also set to ``True`` then an any existing database file will be deleted/overwritten.
-
-        :param overwrite_existing: Identifies that an already existing database file with the
-        same name will be overwritten.
-        :param name: The name of the database to be created.
-        Special characters are not supported for database names.
-        :param in_memory: Defines if the database should operate in-memory only,
-        without persistence (all data will be lost after your application will shut down)
-        or, if set to ``False``, with an SQLite file storage_provider.
+        Parameters
+        ----------
+        name : str
+            The name of the database. Special characters are not supported for databse names.
         """
-        if not name in self._databases:
+        if not name in self.databases:
             database = Database(name, in_memory)
-            self._databases[database.name] = database
+            self.databases[database.name] = database
             return database
         else:
-            raise KeyError(f"A database named '{name}' is already registed in the server.")
+            raise KeyError(f"Database '{name}' already exists.")
 
-    def add_database(self, database: Database) -> Database:
-        """
-        Adds a database to the server
-        :param database: The database to be added.
-        """
-        if not database.name in self._databases:
-            self._databases[database.name] = database
-            return database
-        else:
-            raise KeyError(f"A database named '{database.name}' is already registed in the server.")
 
-    def deletes_database(self, name: str):
+    def delete_database(self):
         """Deletes a database from the filesystem. Handle with care."""
-        return NotImplemented
+        raise NotImplementedError
 
     @staticmethod
     def get_database_folder():
@@ -139,10 +105,10 @@ class Server:
 
     # region functions
     def _register(self, func, database: str, cube: str, pattern: list[str]):
-        if database not in self._databases:
+        if database not in self.databases:
             raise KeyError(f"Database '{database}' not found.")
-        if cube not in self._databases[database].cubes:
+        if cube not in self.databases[database].cubes:
             raise KeyError(f"Cube '{cube}' of database '{database}' not found.")
-        self._databases[database].cubes[cube]._register(func, pattern)
+        self.databases[database].cubes[cube]._register(func, pattern)
 
     # endregion

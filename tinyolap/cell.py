@@ -1,34 +1,27 @@
-# -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
 from __future__ import annotations
 
-from collections import Iterable
+from collections  import Iterable
 from typing import SupportsFloat
-
-from tinyolap.exceptions import *
-from tinyolap.member_context import MemberContext
-
-
 # noinspection PyProtectedMember
 
+from tinyolap.custom_errors import *
+from tinyolap.member import Member
 
-class CellContext(SupportsFloat):
+
+class Cell(SupportsFloat):
     """
-    A CellContext is an immutable pointer to a data cell in a cube. Although they are immutable, CellContext objects can
+    A Cell is an immutable pointer to a data cell in a cube. Although they are immutable, Cell objects can
     be used to navigate through data space. In addition they can be directly used in mathematical calculations,
     as they (almost) behave like a 'float' value.
 
-    .. note::
-        CellContext objects are also used for the internal rules engine of TinyOlap. They are perfect for being
+    .. information::
+        Cell objects are also used for the internal rules engine of TinyOlap. They are perfect for being
         handed in to function and methods, as shown in the code fragment below.
 
         .. code:: python
 
             from tinyolap.database import Database
-            from tinyolap.cell import CellContext
+            from tinyolap.cell import Cell
 
             # setup a new database
             cell = cube.create_cell()
@@ -54,7 +47,7 @@ class CellContext(SupportsFloat):
     # region Initialization
     @classmethod
     def create(cls, cube, dim_names, address, bolt):
-        cell = CellContext()
+        cell = Cell()
         cell._cube = cube
         cell._dim_names = dim_names
         cell._dim_count = len(dim_names)
@@ -98,19 +91,17 @@ class CellContext(SupportsFloat):
     # endregion
 
     # region methods
-    def alter(self, *args) -> CellContext:
+    def alter(self, *args) -> Cell:
         """
-        Creates a modified deep copy of a CellContext object.
+        Creates a modified deep copy of a Cell object.
 
         :param args: One or more modifiers (member names) for at least one dimension of the cube.
-            MemberContext names can be in one of the ƒfollowing formats:
-
-               {member_name} e.g.: clone = c.alter("Mar", ...)
-               {cube_name:member_name} e.g.: clone = c.alter("months:Mar", ...)
-               {dimension_index:member_name} e.g.: clone = c.alter("1:Mar", ...)
-
-            If multiple modifiers for a single dimension are defined, then the last of those will be used.
-        :return: A new CellContext object.
+        Member names can be in one of the following formats:
+           {member_name} e.g.: clone = c.alter("Mar", ...)
+           {dimension_name:member_name} e.g.: clone = c.alter("months:Mar", ...)
+           {dimension_index:member_name} e.g.: clone = c.alter("1:Mar", ...)
+        If multiple modifiers for a single dimension are defined, then the last of those will be used.
+        :return: A new Cell object.
         """
         modifiers = []
 
@@ -121,8 +112,8 @@ class CellContext(SupportsFloat):
         address = list(self._address)
 
         for member in args:
-            if type(member) is MemberContext:
-                # The easy way! The MemberContext object should be properly initialized already.
+            if type(member) is Member:
+                # The easy way! The Member object should be properly initialized already.
                 raise NotImplementedError("Working on that...")
 
             elif type(member) is str:
@@ -135,16 +126,16 @@ class CellContext(SupportsFloat):
 
                 modifiers.append((idx_dim, idx_member))
             else:
-                raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'MemberContext are supported.")
+                raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'Member are supported.")
 
         for modifier in modifiers:
             idx_address[modifier[0]] = modifier[1]
         bolt = (super_level, tuple(idx_address), idx_measure)
-        return CellContext.create(self._cube, self._dim_names, address, bolt)
+        return Cell.create(self._cube, self._dim_names, address, bolt)
 
-    def member(self, dimension_and_or_member_name: str) -> MemberContext:
+    def member(self, dimension_and_or_member_name: str) -> Member:
         """
-        Create a new MemberContext object from the CellContext's current context.
+        Create a new Member object from the Cell's current context.
         This can be either the current member of a specific dimension,
         if called with a dimension name, e.g., ``c.member("months")`` .
         Or it can be already a modified member of a dimension, if called
@@ -159,19 +150,18 @@ class CellContext(SupportsFloat):
             jul = c.member("months:Jul")
             jul = c.member("1:Aug")  # 'months' is the second dimension of the cube, so zero-based index is 1.
 
-        :return: A new MemberContext object.
+        :return: A new Member object.
         """
         idx_dim, idx_member, member_level = self._get_member(dimension_and_or_member_name)
-        member = MemberContext(self._cube._dimensions[idx_dim], dimension_and_or_member_name, self._cube, idx_dim, idx_member,
-                               member_level)
+        member = Member(self._cube._dimensions[idx_dim], dimension_and_or_member_name, self._cube, idx_dim, idx_member, member_level)
         return member
-
     # endregion
 
-    # region CellContext manipulation via indexing/slicing
+
+    # region Cell manipulation via indexing/slicing
     def __getitem__(self, args):
-        if not isinstance(args, (str, MemberContext)) and (args[-1] == self.BYPASS_RULES):
-            return self._cube._get(self.__item_to_bold(args[:len(args) - 1]), True)
+        if not isinstance(args, (str, Member)) and (args[-1] == self.BYPASS_RULES):
+            return self._cube._get(self.__item_to_bold(args[:len(args)-1]), True)
         else:
             return self._cube._get(self.__item_to_bold(args))
 
@@ -180,14 +170,13 @@ class CellContext(SupportsFloat):
 
     def __delitem__(self, args):
         self.__setitem__(args, None)
-
     # endregion
 
-    # region CellContext manipulation
+    # region Cell manipulation
     def __item_to_bold(self, item):
         """Setting a value through indexing/slicing will temporarily modify the cell idx_address and return
-        the value from that cell idx_address. This does NOT modify the cell idx_address of the CellContext object.
-        To modify the cell idx_address of a CellContext, you can call the ``.alter(...)`` method."""
+        the value from that cell idx_address. This does NOT modify the cell idx_address of the Cell object.
+        To modify the cell idx_address of a Cell, you can call the ``.alter(...)`` method."""
 
         modifiers = []
         if type(item) is str or not isinstance(item, Iterable):
@@ -198,7 +187,7 @@ class CellContext(SupportsFloat):
         idx_address = list(idx_address)
 
         for member in item:
-            if type(member) is MemberContext:
+            if type(member) is Member:
                 super_level -= self._cube._dimensions[member._idx_dim].members[self._bolt[1][member._idx_dim]][
                     key_level]
                 super_level += member._member_level
@@ -211,7 +200,7 @@ class CellContext(SupportsFloat):
 
                 modifiers.append((idx_dim, idx_member))
             else:
-                raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'MemberContext are supported.")
+                raise TypeError(f"Invalid type '{type(member)}'. Only type 'str' and 'Member are supported.")
 
         # Finally modify the idx_address and set the value
         for modifier in modifiers:
@@ -228,6 +217,7 @@ class CellContext(SupportsFloat):
         level = self._cube._dimensions[0].LEVEL
         dimensions = self._cube._dimensions
         idx_dim = -1
+        idx_member = -1
         pos = member_name.find(":")
         if pos != -1:
             # lets extract the dimension name and check if it is valid, e.g., c["months:Mar"]
@@ -236,21 +226,21 @@ class CellContext(SupportsFloat):
             # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
             if dim_name.isdigit():
                 ordinal = int(dim_name)
-                if 0 <= ordinal < len(self._dim_names):
+                if ordinal >= 0 and ordinal < len(self._dim_names):
                     # that's a valid dimension position number
                     idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                    raise InvalidCellAddressError(f"Invalid member key. '{dim_name}' is not a dimension "
                                                   f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member_name = member_name[pos + 1:].strip()
-            if member_name not in dimensions[idx_dim]._member_idx_lookup:
-                raise InvalidCellAddressException(f"Invalid member key. '{member_name}'is not a member of "
+            if member_name not in dimensions[idx_dim].member_idx_lookup:
+                raise InvalidCellAddressError(f"Invalid member key. '{member_name}'is not a member of "
                                               f"dimension '{dim_name}' in cube '{self._cube.name}.")
-            idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
+            idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
 
             member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]
             return idx_dim, idx_member, member_level
@@ -259,8 +249,8 @@ class CellContext(SupportsFloat):
         # ...we'll search in reverse order, as we assume that it is more likely,
         #    that inner dimensions are requested through rules.
         for idx_dim in range(self._dim_count - 1, -1, -1):
-            if member_name in dimensions[idx_dim]._member_idx_lookup:
-                idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
+            if member_name in dimensions[idx_dim].member_idx_lookup:
+                idx_member = dimensions[idx_dim].member_idx_lookup[member_name]
                 # adjust the super_level
                 member_level = dimensions[idx_dim].members[idx_member][level]
                 return idx_dim, idx_member, member_level
@@ -271,12 +261,12 @@ class CellContext(SupportsFloat):
         # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
         if type(dim_name) is int or dim_name.isdigit():
             ordinal = int(dim_name)
-            if 0 <= ordinal < len(self._dim_names):
+            if ordinal >= 0 and ordinal < len(self._dim_names):
                 # that's a valid dimension position number
                 idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                    raise InvalidCellAddressError(f"Invalid member key. '{dim_name}' is not a dimension "
                                                   f"in cube '{self._cube.name}. Found in '{member_name}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
@@ -405,7 +395,6 @@ class CellContext(SupportsFloat):
 
     def __ror__(self, other):  # or (equal to) operator
         return other or self.numeric_value
-
     # endregion
 
     # region conversion function
