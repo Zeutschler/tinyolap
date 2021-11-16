@@ -1,30 +1,33 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) Thomas Zeutschler (Germany).
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-import os
-from pathlib import Path
-from typing import Tuple
+import json
+import os.path
 from collections.abc import Iterable
+from copy import deepcopy
+from typing import Tuple
 
 import tinyolap.utils
+from storage.sqlite import SqliteStorage
+from storage.storageprovider import StorageProvider
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
-from tinyolap.custom_errors import *
+from tinyolap.codemanager import CodeManager
 from tinyolap.cube import Cube
 from tinyolap.dimension import Dimension
-from tinyolap.backend import Backend
+from tinyolap.exceptions import *
+from tinyolap.history import History
+
 
 class Database:
     """
     Databases are the root objects that should be use to create **TinyOlap** data model or database.
     The Database object provides methods to create :ref:`dimensions <dimensions>` and :ref:`cubes <cubes>`.
     """
-    MIN_DIMS = 1
-    MAX_DIMS = 32  # This value can be changed. For the given purpose (planning), 32 is already too much.
-    # max. 2000 columns and that dimensions and measure share the same space.
-    # Note: 32 dimensions is already huge for model-driven OLAP databases.
-    MAX_MEASURES = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS)
+    MIN_DIMS_PER_CUBE = 1
+    MAX_DIMS_PER_CUBE = 32  # This value can be changed.
+    # Note: 32 dimensions is already huge for a model-driven OLAP database.
+    MAX_MEASURES_PER_CUBE = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS_PER_CUBE)
 
     def __init__(self, name: str = None, in_memory: bool = False):
         """
@@ -44,19 +47,31 @@ class Database:
         given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
         use the ``save()``method of the database object.
         """
+        self._file_name = None
         if name != tinyolap.utils.to_valid_key(name):
-            raise InvalidKeyError(f"'{name}' is not a valid database name. "
-                                      f"alphanumeric characters and underscore supported only, "
-                                      f"no whitespaces, no special characters.")
+            if os.path.exists(name):
+                self._file_name = name
+            else:
+                raise InvalidKeyException(f"'{name}' is not a valid database name or path. "
+                                          f"For database names alphanumeric characters and underscore supported only, "
+                                          f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
-        self.name: str = name
+        self._code_manager: CodeManager = CodeManager()
+        self._history: History = History(self)
+        self._name: str = name
+
         self._in_memory = in_memory
-        self._backend = Backend(name, self._in_memory)
-        self._database_file = self._backend.file_path
-        self.__load()
+        if in_memory:
+            self._storage_provider: StorageProvider = None
+        else:
+            self._storage_provider: StorageProvider = SqliteStorage(self._name)
+            self._storage_provider.open(file_name=self._file_name)
+        self._load()
         self._caching = True
-        self.file_path = self._backend.file_path
+
+    def __del__(self):
+        self.close()
 
     # region Properties
     @property
@@ -67,7 +82,39 @@ class Database:
 
         :return: Returns ``True`` if the database is in-memory mode, ``False`` otherwise.
         """
-        return self._caching
+        return self._in_memory
+
+    @property
+    def history(self) -> History:
+        """Returns the history of the database."""
+        return self._history
+
+    @property
+    def code_manager(self) -> CodeManager:
+        """Returns the code manager of the database."""
+        return self._code_manager
+
+    @property
+    def name(self) -> str:
+        """Returns the name of the database."""
+        return self._name
+
+    @property
+    def uri(self) -> str:
+        """Returns the uri of the database."""
+        if self._storage_provider:
+            return self._storage_provider.uri
+        return None
+
+    @property
+    def file_path(self) -> str:
+        """Returns the file path of the database."""
+        if self._storage_provider:
+            file = self._storage_provider.uri
+            if file.startswith("file://"):
+                file = file[7:]
+            return file
+        return None
 
     @property
     def caching(self) -> bool:
@@ -110,18 +157,62 @@ class Database:
         :param value: Set value to ``True`` to activate caching, ``False`` to deactivate caching.
         """
         self._caching = value
-        for cube in self.cubes:
+        for cube in self.cubes.values():
             cube.caching = value
 
     # endregion
 
     # region Database related methods
+    def rename(self, new_name: str):
+        """Renames the database.
+        :param new_name: New name for the database.
+        :raise KeyError: Raised if the key is invalid.
+        """
+        if new_name != tinyolap.utils.to_valid_key(new_name):
+            raise KeyError(f"'{new_name}' is not a valid database name. "
+                           f"alphanumeric characters and underscore supported only, "
+                           f"no whitespaces, no special characters.")
+        self._name: str = new_name
+
+        if self._storage_provider:
+            self._storage_provider.add_meta("db", self._to_json())
+
+    def clone(self):
+        """Creates a clone of the database."""
+        return deepcopy(self)
+
     def open(self, file_name: str):
         """
         Opens a database from a file.
-        :param file_name: The database file path to be opened.
+
+        .. Note::
+            Please note that an already defined database name will be overwritten by
+            the name defined in the dabase file.
+
+        .. caution::
+            If the database is set to ``in_memory == True``, then the requested database file
+            will be opened and used only to initialize the database (like a template).
+            But it will NOT be connected and write back change to that database file.
+            So, any subsequent change, after opening a database file, will happen in-memory
+            only and not be persisted. Please remember, that you can use the ``export()``
+            method to save an in-memory databases at any time.
+
+        :param file_name: The database file to open.
         """
-        return NotImplemented
+        self._load(file_name)
+
+    def save(self):
+        """
+        Saves pending changes to the database. The ``save()`` command has no effect
+        if the database is in-memory mode, meaning ``in_memory == True``.
+
+        :return:
+        """
+        if self._storage_provider:
+            self._storage_provider.add_meta("db", self._to_json())
+            self._storage_provider.add_meta("code", self._code_manager.to_json())
+            for cube in self.cubes.values():
+                self._storage_provider.add_cube(cube.name, cube.to_json())
 
     def close(self):
         """
@@ -129,40 +220,99 @@ class Database:
         then all pending changes to the database file will be committed and
         the connection to the underlying database will be be closed.
 
-        The ``close()`` command will be ignored if the database is in-memory mode, ``in_memory == True`` .
+        The ``close()`` command has no effect if the database is in-memory mode,
+        meaning ``in_memory == True``.
         """
-        self._backend.close()
+        if self._storage_provider:
+            if self._code_manager.pending_changes:
+                self._storage_provider.add_meta("code", self._code_manager.to_json())
+                self._code_manager.pending_changes = False
+            self._storage_provider.close()
 
-    def delete(self, delete_log_file_too=True):
+    def delete(self):
         """
-        Deletes the database file, if such exists and the database is already closed.
-        The ``delete()`` command will be ignored if the database is in in-memory mode, ``in_memory == True`` .
-
-        :param delete_log_file_too: If set to ``True`` , also the database log file will be deleted, if such exits.
-            Default value is ``True`` . Log files are not available if ``in_memory`` has been set to ``True`` on
-            database initialization.
+        Deletes the database file and log file, if such exists. If the database is
+        open, it will be closed beforehand. You should handle this method with care.
+        The ``delete()`` command has no effect if the database is in in-memory mode
+        ``in_memory == True``.
         """
-        if self._in_memory:
-            return
+        if self._storage_provider:
+            self._storage_provider.close()
+            self._storage_provider.delete()
 
-        try:
-            if not self._backend.is_open:
-                if Path(self.file_path).exists():
-                    os.remove(self.file_path)
-                if Path(self.file_path + ".log").exists():
-                    os.remove(self.file_path + ".log")
+    def export(self, name: str, overwrite_if_exists: bool = False):
+        """
+        Exports the database to a new database file. This method is useful e.g.
+        for creating backups and especially to persist databases that run in
+        in-memory mode.
+
+        .. note::
+            When **TinyOlap** is used for data processing purposes, rather than
+            as for planning or other data-entry focussed tasks, it is a clever
+            idea to spin up the database first in in-memory mode, do all your
+            processing and then persists the result using the ``export(...)``
+            method. This approach is presumably much faster than constantly
+            writing to the database file.
+
+        :param name: Either a simple name or a fully qualified file path. If
+           the name does not represent a path, then the databse file will be
+           created in the default location '/db' or whatever is specified in
+           the config file for ``database_folder``.
+        :param overwrite_if_exists: Defines if an already existing file should
+           be overwritten or not. If set to ``False`` and the file already exist,
+           an FileExistsError will be raised.
+        :return:
+        """
+        if name.lower() == self.name.lower():
+            raise DatabaseBackendException(f"Failed to export database '{self.name}'. "
+                                           f"You cannot export a database under it's current name.")
+
+        exporter: StorageProvider = SqliteStorage(name)
+        if exporter.exists():
+            if not overwrite_if_exists:
+                raise FileExistsError(f"Failed to export database '{self.name}'. "
+                                      f"The database file '{exporter.uri}' already exists.")
             else:
-                raise DatabaseFileError("Failed to delete database file. Database connection is still open.")
-        except OSError as err:
-            raise DatabaseFileError(f"Failed to delete database file. {str(err)}")
+                exporter.delete()
 
-        if delete_log_file_too:
-            if not self._backend.delete_log_file():
-                raise DatabaseFileError(f"Failed to delete database log file.")
+        # Export the database
+        exporter.open()
+        exporter.add_meta("db", self._to_json())
+        exporter.add_meta("code", self._code_manager.to_json())
+        for dimension in self.dimensions.values():
+            exporter.add_dimension(dimension.name, dimension.to_json())
+        for cube in self.cubes.values():
+            exporter.add_cube(cube.name, cube.to_json())
+            exporter.set_records(cube.name, cube._get_records())
+        exporter.close()
+
+    def _to_json(self) -> str:
+        """
+        Returns the database configuration as a json string.
+        :return: A json string.
+        """
+        config = {"name": self._name,
+                  "caching": self._caching,
+                  "dimensions": len(self.dimensions),
+                  "cubes": len(self.cubes),
+                  "contains_code": len(self._code_manager.functions) > 0,
+                  "max_dims_per_cube": self.MAX_DIMS_PER_CUBE,
+                  "max_measures_per_cube": self.MAX_MEASURES_PER_CUBE}
+        return json.dumps(config)
+
+    def _from_json(self, data: str):
+        """
+        Initializes the database meta data from a configuration in json format.
+        :return: A json string.
+        """
+        if data:
+            config = json.loads(data)
+            self._name = config["name"]
+            self._caching = config["caching"]
 
     # endregion
 
-    # region Cell access via indexing
+    # region CellContext access via indexing
     def __getitem__(self, item):
         cube = self.cubes[item[0]]
         return cube.get(item[1:])
@@ -188,15 +338,13 @@ class Database:
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
         if not tinyolap.utils.is_valid_db_object_name(name):
-            raise InvalidKeyError(f"'{name}' is not a valid dimension name. "
+            raise InvalidKeyException(f"'{name}' is not a valid dimension name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if name in self.dimensions:
-            raise DuplicateKeyError(f"Failed to add dimension. A dimension named '{name}' already exists.")
-        dimension = Dimension._create(self._backend, name, description=description)
-        dimension.backend = self._backend
+            raise DuplicateKeyException(f"Failed to add dimension. A dimension named '{name}' already exists.")
+        dimension = Dimension._create(self._storage_provider, name, description=description)
         dimension.database = self
-        self._backend.dimension_update(dimension, dimension.to_json())
         self.dimensions[name] = dimension
         return dimension
 
@@ -215,12 +363,12 @@ class Database:
 
         uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
-            raise DimensionInUseError(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
+            raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                           f"and therefore can not be removed. Remove cubes first.")
 
-        # todo: Check if the dimension can be removed safely (not in use by any cubes)
+        if self._storage_provider and self._storage_provider.connected:
+            self._storage_provider.remove_dimension(name)
 
-        self._backend.dimension_remove(self.dimensions[name])
         del self.dimensions[name]
 
     def dimension_exists(self, name: str):
@@ -233,7 +381,7 @@ class Database:
     # endregion
 
     # region Cube related methods
-    def add_cube(self, name: str, dimensions: list, measures=None):
+    def add_cube(self, name: str, dimensions: list, measures=None, description: str = None):
         """
         Creates a new :ref:´cube<cubes>´ and adds it to the database.
 
@@ -242,9 +390,10 @@ class Database:
         :param dimensions: A list of either names of existing dimensions of the database or
         :ref:`dimension <dimensions>` objects contained in the database.
         :param measures: (optional) a measure name or a list of measures names for the cube.
-        If argument 'measures' is not defined, that a dfault measure named 'value' will be created.
+        If argument 'measures' is not defined, that a default measure named 'value' will be created.
+        :param description: (optional) description for the cube.
         :return: The added cube object.
-        :raises CubeCreationError: Raised if the creation of the cubed failed due to one
+        :raises CubeCreationException: Raised if the creation of the cubed failed due to one
         of the following reasons:
 
         * The cube name is not invalid. Cube have to consist of lower case alphanumeric characters
@@ -256,63 +405,71 @@ class Database:
 
           .. note::
              The default upper limit for cube creation is 32 dimensions, but this limit can be
-             adjusted at any time by changing the value for ``MAX_DIMS`` in the source file
+             adjusted at any time by changing the value for ``MAX_DIMS_PER_CUBE`` in the source file
              'database.py'.
 
-        :raises DuplicateKeyError: Raised if the cube already exists.")
+        :raises DuplicateKeyException: Raised if the cube already exists.")
         """
 
         # validate cube name
         if not tinyolap.utils.is_valid_db_object_name(name):
-            raise CubeCreationError(f"Invalid cube name '{name}'. Cube names must contain "
+            raise CubeCreationException(f"Invalid cube name '{name}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
-            raise DuplicateKeyError(f"A cube named '{name}' already exists.")
+            raise DuplicateKeyException(f"A cube named '{name}' already exists.")
 
         # validate dimensions
         if not dimensions:
-            raise CubeCreationError("List of dimensions to create cube is empty or undefined.")
-        if len(dimensions) > self.MAX_DIMS:
-            raise CubeCreationError(f"Too many dimensions ({len(dimensions)}). "
-                                        f"Maximum number dimensions per cube is {self.MAX_DIMS}.")
+            raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
+        if len(dimensions) > self.MAX_DIMS_PER_CUBE:
+            raise CubeCreationException(f"Too many dimensions ({len(dimensions)}). "
+                                        f"Maximum number dimensions per cube is {self.MAX_DIMS_PER_CUBE}.")
         dims = []
         for dimension in dimensions:
             if type(dimension) is str:
                 if dimension not in self.dimensions:
-                    raise CubeCreationError(f"A dimension named '{str(dimension)}' is not defined in "
+                    raise CubeCreationException(f"A dimension named '{str(dimension)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dims.append(self.dimensions[dimension])
             elif type(dimension) is Dimension:
                 if dimension.name not in self.dimensions:
-                    raise CubeCreationError(f"Dimension '{str(dimension.name)}' is not defined in "
+                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dim = self.dimensions[dimension.name]
                 if dim is not dimension:
-                    raise CubeCreationError(f"Dimension '{str(dimension.name)}' is not the same dimension "
+                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not the same dimension "
                                                 f"as the one defined in database '{self.name}'. You can only use "
                                                 f"dimensions from within a database to add cubes.")
 
                 dims.append(dimension)
             else:
-                raise CubeCreationError(f"Unsupported dimension type '{str(dimension)}'.")
+                raise CubeCreationException(f"Unsupported dimension type '{str(dimension)}'.")
         # validate measures
         if measures:
             if type(measures) is str:
                 if not tinyolap.utils.is_valid_member_name(measures):
-                    raise CubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
+                    raise CubeCreationException(f"Measure name '{str(measures)}' is not a valid measure name. "
                                                 f"Please refer the documentation for further details.")
             elif isinstance(measures, Iterable):
                 for m in measures:
                     if not tinyolap.utils.is_valid_member_name(m):
-                        raise CubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
+                        raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
                                                     f"Please refer the documentation for further details.")
         # create and return the cube
-        cube = Cube.create(self._backend, name, dims, measures)
+        cube = Cube.create(self._storage_provider, name, dims, measures, description)
         cube.caching = self.caching
+        cube._database = self
         self.cubes[name] = cube
         return cube
 
-    def set(self, cube: str, address: Tuple[str], measure: str, value: float):
+    def cube_exists(self, name: str):
+        """Checks if a cube exists.
+
+        :param name: Name of the cube to be checked.
+        :returns bool: Returns ``True`` if the cube exists, ``False`` otherwise."""
+        return name in self.cubes
+
+    def set(self, cube: str, address: Tuple[str], value: float):
         """
         Writes a value to the database for the given cube, idx_address and measure.
         Write back is supported for base level cells only.
@@ -325,10 +482,9 @@ class Database:
 
         :param cube: Name of the cube to write to.
         :param address: Address of the cube cell to write to.
-        :param measure: NAme of the measure to write to
         :param value: The value to be written to the database.
         """
-        self.cubes[cube].set(address, measure, value)
+        self.cubes[cube].set(address, value)
 
     def get(self, cube: str, address: Tuple[str], measure: str):
         """Returns a value from the database for a given cube, idx_address and measure.
@@ -338,16 +494,41 @@ class Database:
     # endregion
 
     # region internal functions
-    def __load(self):
-        """Initialize objects from database."""
-        if self._in_memory:
-            return
-        dims = self._backend.meta_dim()
-        for dim in dims:
-            name = dim[0]
-            dimension = self.add_dimension(name)
-            json_string = dim[1]
-            dimension.from_json(json_string)
+    def _load(self, file_name: str = None):
+        """Initialize database from storage storage_provider."""
+
+        if self._storage_provider:
+            provider = self._storage_provider
+            if not provider.exists():
+                return
+            if not provider.connected:
+                if file_name:
+                    provider.open(file_name=file_name)
+                else:
+                    provider.open()
+
+            # initialize meta information
+            self._from_json(provider.get_meta("db"))
+            self._code_manager.from_json(provider.get_meta("code"))
+
+            # initialize dimensions
+            data = provider.get_dimensions()
+            for dim_tuple in data:
+                dim_name, dim_json = dim_tuple
+                dimension = self.add_dimension(dim_name)
+                dimension.from_json(dim_json)
+
+            # initialize cubes
+            data = provider.get_cubes()
+            for cube_tuple in data:
+                cube_name, cube_json = cube_tuple
+                cube = Cube.create(provider, cube_name, None, None, None)
+                cube._database = self
+                cube.from_json(cube_json)
+                self.cubes[cube_name] = cube
+
+            # import data
+            # todo: implementation missing
 
     def _remove_members(self, dimension, members):
         """Remove data for obsolete (deleted) members over all cubes.

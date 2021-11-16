@@ -127,4 +127,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-/tinyolap/old/tests/db/
+/tinyolap/tests/db/

@@ -6,10 +6,10 @@ purposes, based on SQLite and Python.
 
 ## Why you should use TinyOlap
 TinyOlap is intended to bring back the easy of use, that client-based OLAP 
-databases like TM/1, MIS-Alea or Palo provided in former times. These products 
-have been grow up to complex and expensive client-server solutions, definitely 
-capable for todays high volume data analysis, but hard to manage for non-IT 
-people. 
+databases like IBM TM/1, MIS-Alea (Infor) or Jedox Palo provided in former times. 
+These products have grown up, and become quite complex and expensive client-server 
+solutions. Definitely capable for today's high volume data analysis, but hard to 
+manage for non-IT people and on low budget. 
 
 > If you are a **sales or a finance person** and want to do planning and 
 > reporting, or if you are an **IT person** and have to serve such audience 
@@ -39,7 +39,7 @@ limitations, for instance:
   case. That said, 1 million records is already huge amount of data a planning
   & reporting purposes.
 - The calculations capabilities of TinyOlap are sufficient for most
-  planning uses cases. But still - especially when comapre to products like 
+  planning uses cases. But still - especially when compare to products like 
   TM/1 - they maybe not sufficient for advanced use cases. 
 
 ## Usage 

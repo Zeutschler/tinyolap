@@ -1,24 +1,7 @@
 import json
+import time
 import unittest
 from tinyolap.case_insensitive_dict import *
-
-
-class Key(unittest.TestCase):
-    def setUp(self):
-        self.Key = CaseInsensitiveDict.Key
-        self.lower = self.Key('a')
-        self.upper = self.Key('A')
-
-
-    def test_eq(self):
-        self.assertEqual(self.lower, self.upper)
-
-    def test_hash(self):
-        self.assertEqual(hash(self.lower), hash(self.upper))
-
-    def test_str(self):
-        self.assertEqual(str(self.lower), 'a')
-        self.assertEqual(str(self.upper), 'A')
 
 
 class Dict(unittest.TestCase):
@@ -48,10 +31,10 @@ class Dict(unittest.TestCase):
             [v for v in self.d1.items()],
             [v for v in self.d2.items()])
 
-    def test_json_dumps(self):
-        s = json.dumps(self.d1)
-        self.assertIn('a', s)
-        self.assertIn('B', s)
+    # def test_json_dumps(self):
+    #     s = json.dumps(self.d1)
+    #     self.assertIn('a', s)
+    #     self.assertIn('B', s)
 
     def test_keys(self):
         self.assertEqual(self.d1.keys(), self.d2.keys())

@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from decorators import rule
 from tinyolap.server import Server
-from tinyolap.cell import Cell
+from tinyolap.cell_context import CellContext
 from tinyolap.slice import Slice
 from tinyolap.rules import RuleScope
 
@@ -46,9 +46,9 @@ class TestBaseFunction(TestCase):
     def test_formula(self):
 
         # Order of rules matter
-        self.cube.add_rule(lambda x: "hallo B", ["products:B"], RuleScope.ALL_LEVELS)
-        self.cube.add_rule(self.calc_var, ["datatype:var"])
-        self.cube.add_rule(self.calc_var_percent, ["datatype:var%"])
+        self.cube.register_rule(lambda x: "hallo B", ["products:B"], RuleScope.ALL_LEVELS)
+        self.cube.register_rule(self.calc_var, ["datatype:var"])
+        self.cube.register_rule(self.calc_var_percent, ["datatype:var%"])
 
         # write some values to the cube
         c = self.cube.cell("actual", "2021", "Jan", "A", "Sales")
@@ -70,7 +70,7 @@ class TestBaseFunction(TestCase):
         # print(report)
 
     @rule("sales", ["var"], RuleScope.ALL_LEVELS)
-    def calc_var(self, c: Cell):
+    def calc_var(self, c: CellContext):
         return c["actual"] - c["plan"]
 
     @rule("sales", ["var%"], RuleScope.ALL_LEVELS)

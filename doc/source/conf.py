@@ -25,6 +25,8 @@ author = 'Thomas Zeutschler'
 # The full version, including alpha/beta/rc tags
 release = '0.1.0'
 
+github_username = "zeutschler"
+github_repository = "tinyolap"
 
 # -- General configuration ---------------------------------------------------
 
@@ -37,7 +39,8 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosectionlabel',
     'myst_parser',
-    'enum_tools.autoenum'   # install via: python3 -m pip install enum_tools --user
+    'enum_tools.autoenum',   # install via: python3 -m pip install enum_tools --user
+    'sphinx_toolbox.shields'
 ]
 
 # Make sure the target is unique
@@ -51,7 +54,7 @@ html_title = "TinyOlap"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
+# This trigger also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
 

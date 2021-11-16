@@ -1,3 +1,4 @@
+dependency-injector>=4.0,<5.0
 uvicorn
 fastapi
 Sphinx
@@ -6,3 +7,5 @@ Faker
 sphinx-toolbox
 enum_tools
 psutil
+art
+cryptography

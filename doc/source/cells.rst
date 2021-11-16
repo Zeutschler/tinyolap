@@ -4,6 +4,6 @@
 Cells
 ===============
 
-.. autoclass:: tinyolap.cell.Cell
+.. autoclass:: tinyolap.cell_context.CellContext
     :members:
     :noindex:
