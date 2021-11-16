@@ -349,12 +349,12 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     #                 it is good practice to ALWAYS use slicers, even is you don need to.
     #                 This greatly improves the readability and consistency of your code.
     # Both of the following statements are identical:
-    q1 = c + c["Feb"] + c["Mar"]  # Who knows what 'c' is about?
-    q1 = c["Jan"] + c["Feb"] + c["Mar"]  # THIS IS GOOD PRACTISE !!!
+    q1 = c + c["Feb"] + c["Mar"]         # Who knows what 'c' is about?
+    q1 = c["Jan"] + c["Feb"] + c["Mar"]  # ...so, THIS IS GOOD PRACTISE !!!
 
     # Let's see what else we can do...
     if c["Q1"] != c["Jan"] + c["Feb"] + c["Mar"]:
-        print("This should never be printed, as Q1 is the parent member for Jan, Feb and Mar.")
+        print("This should never be printed, as Q1 should be equal to Jan + Feb + Mar.")
 
     # You can also shift multiple dimensions.
     # The order of dimensions doesn't matter, they get automatically sorted.
@@ -425,7 +425,7 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     # When you'll build a lot of business logic, often with dedicated functions
     # or classes (e.g. for calculation an amortization or a forecast using ML,
     # or to read/write data from a web service, a database or an ERP system),
-    # THEN the above 'manual' approach of doing calculations might get complex.
+    # THEN the above 'manual' approach of doing calculations might get hard to maintain.
     #
     # The best way is to further encapsulate and reuse your business logic.
     # One solution is to define lambda functions like this...

@@ -9,13 +9,13 @@ from copy import deepcopy
 from typing import Tuple
 
 import tinyolap.utils
-from codemanager import CodeManager
 from storage.sqlite import SqliteStorage
 from storage.storageprovider import StorageProvider
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.codemanager import CodeManager
 from tinyolap.cube import Cube
-from tinyolap.exceptions import *
 from tinyolap.dimension import Dimension
+from tinyolap.exceptions import *
 from tinyolap.history import History
 
 
@@ -26,7 +26,7 @@ class Database:
     """
     MIN_DIMS_PER_CUBE = 1
     MAX_DIMS_PER_CUBE = 32  # This value can be changed.
-                            # Note: 32 dimensions is already huge for a model-driven OLAP database.
+    # Note: 32 dimensions is already huge for a model-driven OLAP database.
     MAX_MEASURES_PER_CUBE = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS_PER_CUBE)
 
     def __init__(self, name: str = None, in_memory: bool = False):
@@ -53,8 +53,8 @@ class Database:
                 self._file_name = name
             else:
                 raise InvalidKeyException(f"'{name}' is not a valid database name or path. "
-                                      f"For database names alphanumeric characters and underscore supported only, "
-                                      f"no whitespaces, no special characters.")
+                                          f"For database names alphanumeric characters and underscore supported only, "
+                                          f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
         self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
         self._code_manager: CodeManager = CodeManager()
@@ -309,6 +309,7 @@ class Database:
             config = json.loads(data)
             self._name = config["name"]
             self._caching = config["caching"]
+
     # endregion
 
     # region CellContext access via indexing

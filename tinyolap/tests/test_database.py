@@ -30,14 +30,17 @@ class TestDatabase(TestCase):
             self.db.close()
             self.db.delete()
 
-    def test_Database_create(self):
-        """Creates a persistent database with rules (lambda and function level) and some data,
+    def test_Database_create_unload_load(self):
+        """
+        Creates a persistent database with rules (lambda and function level) and some data,
         then the databse will be closed and open again. Then we check if rules are loaded
         properly and cell request deliver the expected values.
         """
 
         # close the database
         db = self.db
+        if not db._storage_provider.exists():
+            self.db = self.create_database()
         file_path = db.file_path
         db.close()
 
@@ -72,6 +75,44 @@ class TestDatabase(TestCase):
         db.close()
         db.delete()
 
+    def test_Database_overwrite_rule_on_load(self):
+        """
+        Creates a persistent database with rules.
+        On the next load the rules will be overwritten by new once.
+        """
+
+        # close the database
+        db = self.db
+        if not db._storage_provider.exists():
+            self.db = self.create_database()
+        file_path = db.file_path
+        db.close()
+
+        # check if file exists
+        self.assertTrue(db._storage_provider.exists(), "Database file exists.")
+
+        # (re)open the database
+        db = Database(file_path)
+        cube = db.cubes["sales"]
+
+        # get initial values
+        sales = cube.get(["2020", "Jan", "North", "A", "Sales"])    # 3.0
+        cost = cube.get(["2020", "Jan", "North", "A", "Cost"])      # 2.0
+        profit = cube.get(["2020", "Jan", "North", "A", "Profit"])  # 3.0 - 2.0 (via rule) = 1.0
+        self.assertEqual(3.0, sales)
+        self.assertEqual(2.0, cost)
+        self.assertEqual(1.0, profit)
+
+        # change rule for 'profit' by multipling 'cost' by 0.5
+        cube.register_rule(lambda x: x["Sales"] - x["Cost"] * 0.5, "Profit",
+                           RuleScope.ALL_LEVELS, RuleInjectionStrategy.FUNCTION_INJECTION)
+        # check result.
+        profit = cube.get(["2020", "Jan", "North", "A", "Profit"])  # = 3.0 - 2.0 * 0.5 (via rule) = 2.0
+        self.assertEqual(2.0, profit)
+
+        # close and clean up
+        db.close()
+        db.delete()
 
     def create_database(self) -> Database:
         db = Database(self.db_name, in_memory=False)

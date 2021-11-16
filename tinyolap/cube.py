@@ -17,12 +17,13 @@ from tinyolap.cell_context import CellContext
 from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *
 from tinyolap.fact_table import FactTable
-from tinyolap.rules import Rules, RuleScope, RuleInjectionStrategy
+from tinyolap.rules import Rule, Rules, RuleError, RuleScope, RuleInjectionStrategy
 
 
 class Cube:
     """Represents a multi-dimensional table."""
     __magic_key = object()
+
 
     @classmethod
     def create(cls, storage_provider: StorageProvider, name: str = None,
@@ -66,11 +67,15 @@ class Cube:
         self._database = None
         self._storage_provider: StorageProvider = None
 
-        self._rules_all_levels = Rules()
-        self._rules_base_level = Rules()
-        self._rules_aggr_level = Rules()
-        self._rules_roll_up = Rules()
-        self._rules_on_entry = Rules()
+        # new approach
+        self._rules = Rules(self._name)
+
+        # old approach
+        self._rules_all_levels = Rules(self._name)
+        self._rules_base_level = Rules(self._name)
+        self._rules_aggr_level = Rules(self._name)
+        self._rules_roll_up = Rules(self._name)
+        self._rules_on_entry = Rules(self._name)
 
         # create a default-measure if none is defined
         if not measures:
@@ -122,6 +127,7 @@ class Cube:
         :param trigger: The cell idx_address trigger that should trigger the rule.
         :param scope: The scope of the rule.
         """
+
         offset = 0
         if not inspect.isroutine(function):
             if callable(function) and function.__name__ == "<lambda>":
@@ -169,27 +175,32 @@ class Cube:
         if type(trigger) is str:  # a lazy user forgot to put the trigger in brackets
             trigger = [trigger, ]
 
-        idx_pattern = self.__pattern_to_idx_pattern(trigger)
+        # setup and add rule
+        idx_pattern = self._pattern_to_idx_pattern(trigger)
+        rule = Rule(function=function, name= function_name, cube=self.name, trigger=trigger, idx_trigger_pattern=idx_pattern,
+                    scope=scope, injection=injection, code=code)
+        self._rules.add(rule)
 
-        if scope == RuleScope.ALL_LEVELS:
-            self._rules_all_levels.register(function, function_name, trigger, idx_pattern, scope, injection, code)
-        elif scope == RuleScope.AGGREGATION_LEVEL:
-            self._rules_aggr_level.register(function, function_name, trigger, idx_pattern, scope, injection, code)
-        elif scope == RuleScope.BASE_LEVEL:
-            self._rules_base_level.register(function, function_name, trigger, idx_pattern, scope, injection, code)
-        elif scope == RuleScope.ROLL_UP:
-            self._rules_roll_up.register(function, function_name, trigger, idx_pattern, scope, injection, code)
-        elif scope == RuleScope.ON_ENTRY:
-            self._rules_on_entry.register(function, function_name, trigger, idx_pattern, scope, injection, code)
-        else:
-            raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope: RuleScope'.")
+        # old approach
+        # if scope == RuleScope.ALL_LEVELS:
+        #     self._rules_all_levels.register(function, self._name, function_name, trigger, idx_pattern, scope, injection, code)
+        # elif scope == RuleScope.AGGREGATION_LEVEL:
+        #     self._rules_aggr_level.register(function, self._name, function_name, trigger, idx_pattern, scope, injection, code)
+        # elif scope == RuleScope.BASE_LEVEL:
+        #     self._rules_base_level.register(function, self._name, function_name, trigger, idx_pattern, scope, injection, code)
+        # elif scope == RuleScope.ROLL_UP:
+        #     self._rules_roll_up.register(function, self._name, function_name, trigger, idx_pattern, scope, injection, code)
+        # elif scope == RuleScope.ON_ENTRY:
+        #     self._rules_on_entry.register(function, self._name, function_name, trigger, idx_pattern, scope, injection, code)
+        # else:
+        #     raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope: RuleScope'.")
 
         # add function to code manager
         self._database._code_manager.register_function(
             function=function, cube=cube_name, trigger=trigger,
             scope=scope, injection=injection, code=code)
 
-    def validate_rules(self, save_on_validation: bool = True) -> bool:
+    def validate_rules(self, save_after_sucessfull_validation: bool = True) -> (bool, str):
         """
         Validates all registered rules by calling each with a random cell matching the defined
         rule trigger and rule scope. Calling this methods (maybe even multiple times) can be
@@ -201,15 +212,20 @@ class Cube:
             that your rule calculations ideally never (or only for explicit purposes) thows an
             error.
 
-        :return: ``True`` if all rules returned a result with throwing an error.
+        :param save_after_sucessfull_validation: If set to true
+        :return: ``(True, validation_results_json:str)`` if all rules returned a proper result without causing errors.
+                 ``(False, validation_results_json:str)`` if at least one rule causes an error. The validation results
+                  will contain information for all rules that have been processed. The validation will not stop
+                  on the first error casued by a rule function.
         """
         # todo: to be implemented
 
         # update the database
-        self._database.save()
+        if save_after_sucessfull_validation:
+            self._database.save()
         return True
 
-    def __pattern_to_idx_pattern(self, pattern):
+    def _pattern_to_idx_pattern(self, pattern):
         """
         Converts a trigger into it's index representation.
 
@@ -227,7 +243,6 @@ class Cube:
             idx_dim, idx_member, member_level = c._get_member(p)
             idx_pattern.append((idx_dim, idx_member))
         return idx_pattern
-
     # endregion
 
     # region Properties
@@ -392,8 +407,60 @@ class Cube:
 
         # ALL_LEVELS rules
         if not bypass_rules:
-            if self._rules_all_levels.any:
-                found, func = self._rules_all_levels.first_match(idx_address)
+            # old approach
+            # if self._rules_all_levels.any:
+            #     found, func = self._rules_all_levels.first_match(idx_address)
+            #     if found:
+            #         cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+            #         try:
+            #             self._rule_request_counter += 1
+            #             value = func(cursor)
+            #             if value != CellContext.CONTINUE:
+            #                 if self._caching:
+            #                     self._cache[bolt] = value  # save value to cache
+            #                 return value
+            #         except ZeroDivisionError:
+            #             return RuleError.DIV0
+            #         except Exception as e:
+            #             return RuleError.ERROR
+            #             # raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
+
+            # new approach
+            found, func = self._rules.match(scope=RuleScope.ALL_LEVELS, idx_address=idx_address)
+            if found:
+                cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                try:
+                    self._rule_request_counter += 1
+                    value = func(cursor)
+                    if value != CellContext.CONTINUE:
+                        if self._caching:
+                            self._cache[bolt] = value  # save value to cache
+                        return value
+                except ZeroDivisionError:
+                    return RuleError.DIV0
+                except Exception as err:
+                    return RuleError.ERROR
+
+        if super_level == 0:  # base-level cells
+            # BASE_LEVEL rules
+            if not bypass_rules:
+                # old approach
+                # if self._rules_base_level.any:
+                #     found, func = self._rules_base_level.first_match(idx_address)
+                #     if found:
+                #         cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                #         try:
+                #             self._rule_request_counter += 1
+                #             value = func(cursor)
+                #             if value != CellContext.CONTINUE:
+                #                 if self._caching:
+                #                     self._cache[bolt] = value  # save value to cache
+                #                 return value
+                #         except Exception as e:
+                #             raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
+
+                # new approach
+                found, func = self._rules.match(scope=RuleScope.BASE_LEVEL, idx_address=idx_address)
                 if found:
                     cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                     try:
@@ -403,26 +470,10 @@ class Cube:
                             if self._caching:
                                 self._cache[bolt] = value  # save value to cache
                             return value
-                    except Exception as e:
-                        return "ERR"
-                        raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
-
-        if super_level == 0:  # base-level cells
-            # BASE_LEVEL rules
-            if not bypass_rules:
-                if self._rules_base_level.any:
-                    found, func = self._rules_base_level.first_match(idx_address)
-                    if found:
-                        cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
-                        try:
-                            self._rule_request_counter += 1
-                            value = func(cursor)
-                            if value != CellContext.CONTINUE:
-                                if self._caching:
-                                    self._cache[bolt] = value  # save value to cache
-                                return value
-                        except Exception as e:
-                            raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
+                    except ZeroDivisionError:
+                        return RuleError.DIV0
+                    except Exception as err:
+                        return RuleError.ERROR
 
             if type(idx_measures) is int:
                 return self._facts.get(idx_address, idx_measures)
@@ -432,25 +483,38 @@ class Cube:
                 # return [self._facts.get(idx_address, m) for m in idx_measures]
 
         else:  # aggregated cells
-            # if self._caching and bolt in self._cache:
-            #     self._cell_request_counter += 1
-            #     return self._cache[bolt]
-
             # AGGREGATION_LEVEL
+            # #old approach
+            # if not bypass_rules:
+            #     if self._rules_aggr_level.any:
+            #         found, func = self._rules_aggr_level.first_match(idx_address)
+            #         if found:
+            #             cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+            #             try:
+            #                 self._rule_request_counter += 1
+            #                 value = func(cursor)
+            #                 if value != CellContext.CONTINUE:
+            #                     if self._caching:
+            #                         self._cache[bolt] = value  # save value to cache
+            #                     return value
+            #             except Exception as e:
+
+            # new approach
             if not bypass_rules:
-                if self._rules_aggr_level.any:
-                    found, func = self._rules_aggr_level.first_match(idx_address)
-                    if found:
-                        cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
-                        try:
-                            self._rule_request_counter += 1
-                            value = func(cursor)
-                            if value != CellContext.CONTINUE:
-                                if self._caching:
-                                    self._cache[bolt] = value  # save value to cache
-                                return value
-                        except Exception as e:
-                            raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
+                found, func = self._rules.match(scope=RuleScope.AGGREGATION_LEVEL, idx_address=idx_address)
+                if found:
+                    cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                    try:
+                        self._rule_request_counter += 1
+                        value = func(cursor)
+                        if value != CellContext.CONTINUE:
+                            if self._caching:
+                                self._cache[bolt] = value  # save value to cache
+                            return value
+                    except ZeroDivisionError:
+                        return RuleError.DIV0
+                    except Exception as err:
+                        return RuleError.ERROR
 
             # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address)
@@ -477,20 +541,7 @@ class Cube:
                 return total
             else:
                 raise FatalException("Depreciated. Feature Needs to be removed")
-                # if not rows:
-                #     return [0.0] * len(idx_measures)
-                # facts = self._facts.facts
-                # totals = [] * len(idx_measures)
-                # for idx, idx_m in idx_measures:
-                #     for row in rows:
-                #         if idx_m in facts[row]:
-                #             value = facts[row][idx_m]
-                #             if type(value) is float:
-                #                 totals[idx] += value
-                #
-                # if self._caching:
-                #     self._cache[bolt] = totals  # save value to cache
-                # return totals
+
 
     def _set_base_level_cell(self, idx_address, idx_measure, value):
         """Writes a base level value to the cube for the given idx_address (idx_address and measures)."""
@@ -501,7 +552,7 @@ class Cube:
             else:
                 self._storage_provider.set_record(self._name, str(idx_address))
 
-    def _set(self, bolt, value):
+    def _set(self, bolt, value, bypass_rules=False):
         """Writes a value to the cube for the given bolt (idx_address and measures)."""
         if self._caching and self._cache:
             self._cache = {}  # clear the cache
@@ -520,24 +571,17 @@ class Cube:
                     else:
                         self._storage_provider.set_record(self._name, str(idx_address))
 
-            # todo: rework or remove measures
-            elif isinstance(idx_measures, collections.abc.Sequence):
-                if isinstance(value, collections.abc.Sequence):
-                    if len(idx_measures) != len(value):
-                        raise InvalidKeyException(f"Arguments for write back not aligned. The numbers of measures "
-                                                  f"and the numbers of values handed in need to be identical.")
-                    result = all([self._facts.set(idx_address, m, v) for m, v in zip(idx_measures, value)])
-                else:
-                    result = all([self._facts.set(idx_address, m, value) for m in idx_measures])
+            #  ...check for base-level on_entry rule (aka push-rules) to be executed
+            if not bypass_rules:
+                found, func = self._rules.match(scope=RuleScope.ON_ENTRY, idx_address=idx_address)
+                if found:
+                    cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
+                    try:
+                        self._rule_request_counter += 1
+                        func(cursor)
+                    except Exception as err:
+                       pass
 
-            #  ...check for base-level (push) rules to be executed
-            # todo: Add push rules
-            # if self._rules_all_levels:
-            #     success = self._rules_all_levels.on_set(super_level, idx_address, idx_measures, value)
-            #     if success:
-            #         return success
-
-            return True
         else:
             raise InvalidOperationException(f"Write back to aggregated cells in not (yet) supported.")
 

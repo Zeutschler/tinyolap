@@ -8,7 +8,6 @@ import string
 import tokenize
 import types
 
-import tinyolap.rule_module_template
 from tinyolap.exceptions import RuleException
 from tinyolap.rules import RuleScope, RuleInjectionStrategy
 
@@ -209,7 +208,8 @@ class CodeManager:
             return [f for f in self.functions.values() if f.cube == cube]
 
     def register_function(self, function, cube: str = None, trigger: list[str] = None,
-                          scope: RuleScope = None, injection: RuleInjectionStrategy = None, code: str = None) -> FunctionCode:
+                          scope: RuleScope = None, injection: RuleInjectionStrategy = None,
+                          code: str = None) -> FunctionCode:
         """
         Registers a Python function.
         :param code: (optional) the scoure code of the function
@@ -322,7 +322,7 @@ class CodeManager:
                                         terminal_token = tokens[k - 1]
                                         break
                                 if not terminal_token:
-                                    terminal_token =tokens[-1]
+                                    terminal_token = tokens[-1]
                         break
                 break
 
@@ -376,7 +376,7 @@ class CodeManager:
         # 1. collect all 'modules' that need to be instantiated (no doublets please)
         modules_code = {}
         # if any(self.modules):
-        #some_module = list(self.modules.values())[0].module
+        # some_module = list(self.modules.values())[0].module
         for key, function in [(key, value) for key, value in self.functions.items()
                               if value.injection >= RuleInjectionStrategy.MODULE_INJECTION]:
             modules_code[self.modules[function.module].code] = self.modules[function.module]
@@ -495,6 +495,11 @@ class CodeManager:
         Returns a default module body (mainly imports) for rules
         that are injected on method level (FUNCTION_INJECTION = 1).
         """
-        module = inspect.getmodule(tinyolap.rule_module_template.tinyolap_info)
-        module_code = inspect.getsource(module)
-        return module_code
+        return '\n'.join([
+            "import math, cmath, statistics, decimal, fractions, random, datetime, time, re, json",
+            "from tinyolap.decorators import *",
+            "from tinyolap.database import *",
+            "from tinyolap.dimension import *",
+            "from tinyolap.cube import *",
+            "from tinyolap.rules import *",
+        ])

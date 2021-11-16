@@ -2,12 +2,23 @@
 # TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-from enum import IntEnum, IntFlag
+import json
+from enum import Enum, IntEnum, IntFlag
 import inspect
 import enum_tools.documentation
 
+from exceptions import RuleException
+
 enum_tools.documentation.INTERACTIVE = True
+
+
+@enum_tools.documentation.document_enum
+class RuleError(Enum):
+    """Defines error values raised by rules, useing an Excel-alike error format."""
+    DIV0 = "#DIV/0!"   # doc: Devision by zero.
+    VALUE = "#VALUE!"  # doc: Invalid argument type, e.g. a number was used instead of an expected string.
+    REF = "#REF!"      # doc: Invalid reference to a member, dimension, attribute or cube name.
+    ERROR = "#ERR!"    # doc: An unknown or unhandable error occurred.
 
 
 @enum_tools.documentation.document_enum
@@ -78,8 +89,25 @@ class RuleInjectionStrategy(IntEnum):
         return hash(self.value)
 
 
+class Rule:
+    """
+    Represents a rule, defining custom calculations or business logic to be assigned to a cube.
+    """
+    def __init__(self, function, name:str, cube: str, trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
+                 scope: RuleScope, injection: RuleInjectionStrategy, code: str = None ):
+        self.function = function
+        self.cube: str = cube
+        self.name: str = name
+        self.trigger: list[str] = trigger
+        self.idx_trigger_pattern = idx_trigger_pattern
+        self.scope: RuleScope = scope
+        self.injection: RuleInjectionStrategy = injection
+        self.code: str = code
+        self.signature: str = self.cube + str(idx_trigger_pattern)
+
+
 class Rules:
-    """Rules define custom calculation or business logic to be assigned to a cube.
+    """Represemts a list of rules. Rules define custom calculations or business logic to be assigned to a cube.
 
     Rules consist two main components:
     * A trigger or trigger, defining the context for which the rule should be executed
@@ -117,8 +145,14 @@ class Rules:
                 return c.CONTINUE
     """
 
-    def __init__(self):
+    def __init__(self, cube: str):
+        # new implementation
+        self.rules: dict[RuleScope, list[Rule]] = {}
+        self.patterns: dict[RuleScope, list[list[tuple[int, int]]]] = {}
+
+        # old implementation
         self.any: bool = False
+        self.cube = cube
         self.functions = []
         self.function_names = []
         self.function_scopes = []
@@ -127,13 +161,64 @@ class Rules:
         self.pattern = []
         self.pattern_idx = []
 
+    def add(self, rule: Rule):
+        """
+        Adds a new rule to the list of rules. If a rule with the same trigger pattern
+        already exists, then the existing rule will be replaceed by the new rule.
+        :param rule: The Rule to be added.
+        """
+        scope = rule.scope
+        idx_existing = -1
+        if scope in self.rules:
+            # Note: sorting matters, as we don't know the sequence in which users define rules !!!
+            rule.idx_trigger_pattern.sort()
+            for idx, existing_rule in enumerate(self.rules[scope]):
+                # check if trigger pattern are identical
+                if rule.idx_trigger_pattern == existing_rule.idx_trigger_pattern:
+                    # replace existing rule with new rule.
+                    idx_existing = idx
+                    break
+            if idx_existing >= 0:
+                # replace rule (the trigger pattern is the same)
+                self.rules[scope][idx_existing] = rule
+            else:
+                # add new rule
+                self.rules[scope].append(rule)
+                self.patterns[scope].append(rule.idx_trigger_pattern)
+        else:
+            # add first rule and pattern for this scope
+            self.rules[scope] = [rule]
+            self.patterns[scope] =[rule.idx_trigger_pattern]
+
+    def match(self, scope: RuleScope, idx_address: list[tuple[int, int]]) -> (bool, object):
+        """
+        Returns the first trigger match, if any, for a given cell address.
+
+        :param scope: The rule scope for which a matching rule is requested.
+        :param idx_address: The cell address (in index int format) to be evaluated.
+        :return: Returns a tuple (True, *function*) if at least one trigger matches,
+        *function* is the actual rules function to call, or (False, None) if none
+        of the patterns matches the given cell idx_address.
+        """
+        patterns = self.patterns.get(scope)
+        if patterns:
+            for idx, function_pattern in enumerate(patterns):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
+                for dim_pattern in function_pattern:   # e.g. (0,3) >> dim0 = member3
+                    if idx_address[dim_pattern[0]] != dim_pattern[1]:
+                        break
+                else:
+                    return True, self.rules[scope][idx].function  # this statement will be executed only,
+                                                                  # if the inner loop did NOT break
+
+        return False, None
+
     def __bool__(self):
         return self.functions is True
 
     def __len__(self):
         return len(self.functions)
 
-    def register(self, function, function_name: str,
+    def register(self, function, cube: str, function_name: str,
                  pattern: list[str], idx_pattern: list[tuple[int, int]],
                  scope: RuleScope, injection: RuleInjectionStrategy, code: str = None):
         """
