@@ -294,6 +294,8 @@ class SqliteStorage(StorageProvider):
         :param instant_commit: If set to ``True``, then the change is instantly committed to the underlying database.
         :return: ``True`` if successful.
         """
+        # todo: add encryption
+
         table = self.DATA_TABLE_PREFIX + cube_name
         if not data:
             sql = f"DELETE FROM {table} WHERE address = '{address}';"
@@ -317,6 +319,8 @@ class SqliteStorage(StorageProvider):
         :param instant_commit: If set to ``True``, then the change is instantly committed to the underlying database.
         :return: ``True`` if successful.
         """
+        # todo: add encryption
+
         table = self.DATA_TABLE_PREFIX + cube_name
         # separate records that should be deleted and upserted.
         del_records = [(address,) for address, data in records if not data]
@@ -347,6 +351,8 @@ class SqliteStorage(StorageProvider):
         :return: The data stored for the given address.
            If the address does not exist, ``None`` will be returned.
         """
+        # todo: add encryption
+
         table = self.DATA_TABLE_PREFIX + cube_name
         sql = f"SELECT data FROM {table} WHERE address = '{address}';"
         records = self._fetchall(sql)
@@ -363,6 +369,8 @@ class SqliteStorage(StorageProvider):
         :param cube_name: Name of the cube to get data from.
         :return: All records of the cube.
         """
+        # todo: add encryption
+
         table = self.DATA_TABLE_PREFIX + cube_name
         sql = f"SELECT * FROM {table};"
         records = self._fetchall(sql)
@@ -416,6 +424,8 @@ class SqliteStorage(StorageProvider):
         available in the database.
         :return: A list of tuples of type (cube_name:str, json:str).
         """
+        # todo: add encryption
+
         result = self._fetchall(f"SELECT * FROM {self.META_TABLE_CUBES}")
         return result
 
@@ -424,6 +434,8 @@ class SqliteStorage(StorageProvider):
         Returns a list of all cubes names available in the database.
         :return: List of cube names.
         """
+        # todo: add encryption
+
         names = []
         result = self._fetchall(f"SELECT key FROM {self.META_TABLE_CUBES}")
         for row in result:
@@ -446,6 +458,8 @@ class SqliteStorage(StorageProvider):
         :param json: The configuration of the cube in json format.
         :return: ``True`` if successful,``False`` otherwise.
         """
+        # todo: add encryption
+
         if self.logging:
             self.logger.info(f"{self.LOG_PREFIX}Adding or updating configuration for cube '{cube_name}'.")
             # self.logger.handlers[0].flush()
@@ -471,6 +485,8 @@ class SqliteStorage(StorageProvider):
         Removes a cube from the database.
         :param cube_name: Name of the cube to be removed.
         """
+        # todo: add encryption
+
         if self.logging:
             self.logger.info(f"{self.LOG_PREFIX}Removing configuration and data tables for cube '{cube_name}'.")
             # self.logger.handlers[0].flush()
@@ -496,6 +512,8 @@ class SqliteStorage(StorageProvider):
         Returns the number of records contained in cube table.
         :return: The number of records in cube table.
         """
+        # todo: add encryption
+
         table_name = self.DATA_TABLE_PREFIX + cube_name
         return self._fetchall(f"SELECT COUNT(*) FROM {table_name}")[0][0]
 
@@ -508,6 +526,8 @@ class SqliteStorage(StorageProvider):
         available in the database.
         :return: A list of tuples of type (cube_name:str, json:str).
         """
+        # todo: add encryption
+
         result = self._fetchall(f"SELECT * FROM {self.META_TABLE_DIMENSIONS}")
         if result:
             return result
@@ -518,6 +538,8 @@ class SqliteStorage(StorageProvider):
         Returns a list of all dimension names available in the database.
         :return: List of database names.
         """
+        # todo: add encryption
+
         names = []
         result = self._fetchall(f"SELECT key FROM {self.META_TABLE_DIMENSIONS}")
         for row in result:
@@ -529,6 +551,8 @@ class SqliteStorage(StorageProvider):
         Returns the number of dimensions defined in the database.
         :return: The number of dimension defined for the database.
         """
+        # todo: add encryption
+
         return self._fetchall(f"SELECT COUNT(*) FROM {self.META_TABLE_DIMENSIONS}")[0][0]
 
     def add_dimension(self, dimension_name: str, json: str) -> bool:
@@ -538,6 +562,8 @@ class SqliteStorage(StorageProvider):
         :param json: The configuration of the dimension in json format.
         :return: ``True`` if successful,``False`` otherwise.
         """
+        # todo: add encryption
+
         if self.logging:
             self.logger.info(f"{self.LOG_PREFIX}Adding or updating configuration for dimension '{dimension_name}'.")
             # self.logger.handlers[0].flush()
@@ -553,6 +579,8 @@ class SqliteStorage(StorageProvider):
         Removes a dimension from the database.
         :param dimension_name: Name of the dimension to be removed.
         """
+        # todo: add encryption
+
         if self.logging:
             self.logger.info(f"{self.LOG_PREFIX}Removing configuration for dimension '{dimension_name}'.")
             # self.logger.handlers[0].flush()
