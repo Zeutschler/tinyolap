@@ -116,7 +116,9 @@ class Cube:
         return NotImplemented
 
     def register_rule(self, function, trigger: list[str] = None,
-                      scope: RuleScope = None, injection: RuleInjectionStrategy = None, code: str = None):
+                      scope: RuleScope = RuleScope.ALL_LEVELS,
+                      injection: RuleInjectionStrategy = RuleInjectionStrategy.NO_INJECTION,
+                      code: str = None):
         """
         Registers a rule function for the cube. Rules function either need to be decorated with the ``@rules(...)``
         decorator or the arguments ``trigger`` and ``scope`` of the ``add_rules(...)`` function must be specified.

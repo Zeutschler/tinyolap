@@ -2,9 +2,9 @@ from unittest import TestCase
 import os
 from pathlib import Path
 import time
-
-from rules import RuleScope
 from tinyolap.database import Database
+from tinyolap.cube import Cube
+from tinyolap.dimension import Dimension
 from random import randrange
 
 
@@ -13,7 +13,7 @@ class TestCube(TestCase):
     def setUp(self):
         # delete database if exists
         self.database_name = "test_cube"
-        self.clean_up = True
+        self.clean_up = False
 
         file = os.path.join(os.getcwd(), "db", self.database_name + ".db")
         if Path(file).exists():
@@ -28,7 +28,7 @@ class TestCube(TestCase):
 
     def test_create(self,  console_output: bool = False):
 
-        db = Database(self.database_name, in_memory=False)
+        db = Database(self.database_name, in_memory=True)
 
         dim_years = db.add_dimension("years")
         dim_years.edit()
@@ -60,9 +60,11 @@ class TestCube(TestCase):
         dim_measures.add_member(["Sales", "Cost", "Profit"])
         dim_measures.commit()
 
+        measures = ["Sales", "Cost", "Profit"]
         cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products, dim_measures])
-        cube.register_rule(lambda x: x["Sales"] - x["Cost"], "Profit", RuleScope.ALL_LEVELS)
-        cube.register_rule(lambda x: x["jan"] - x["FEB"], "q1", RuleScope.ALL_LEVELS)
+        # todo: Uppps, not yet supported for measures...
+        cube.register_rule(lambda x: x["Sales"] - x["Cost"], "Profit")
+        cube.register_rule(lambda x: x["jan"] - x["FEB"], "q1")
 
         # disable caching
         cube.caching = False
@@ -79,11 +81,11 @@ class TestCube(TestCase):
         if console_output:
             print(f"{address} := {value}")
 
-        max_loops = 1000
+        max_loops = 1_000
         # Performance: read from cube base cells
         total = 0.0
         start = time.time()
-        loops = min(10_000, max_loops)
+        loops = max(1_000, max_loops)
         for r in range(0, loops):
             total += cube.get(address)
         duration = time.time() - start
@@ -101,7 +103,7 @@ class TestCube(TestCase):
         # Performance: read from aggregated cells
         total = 0.0
         start = time.time()
-        loops = min(10_000, max_loops)
+        loops = max(1_000, max_loops)
         for r in range(0, loops):
             total += cube.get(address)
         duration = time.time() - start
@@ -115,27 +117,24 @@ class TestCube(TestCase):
         # Performance: read from formula cells
         total = 0.0
         start = time.time()
-        loops = min(10_000, max_loops)
+        loops = max(1_000, max_loops)
         for r in range(0, loops):
             total += cube.get(address)
         duration = time.time() - start
         if console_output:
             print(f"read {loops} formula records in {duration:.3}sec, total = {total}")
 
-        # export database
-        # db.export(db.name + "_export")
-
         # clean up
         if self.clean_up:
             db.close()
             db.delete()
 
-    def test_big_cube(self,  console_output: bool = True):
+    def test_big_cube(self,  console_output: bool = False):
         min_dims = 3
         max_dims = 8
         measures = [f"measure_{i}" for i in range(0, 10)]
         base_members = [f"member_{i}" for i in range(0, 100)]
-        max_loop_base_level = 1000
+        max_loop_base_level = 100
         max_loop_aggregation = 100
 
         for dims in range(min_dims, max_dims):
