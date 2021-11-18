@@ -26,7 +26,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
   - **Members** - String keys to access data. by defining a multidimensional address of
     all dimensions of a cube.
 
-  - **MemberContext Alias** - (1...N) Alias keys to access members. Helpful to provide access to
+  - **Member Alias** - (1...N) Alias keys to access members. Helpful to provide access to
     members via multiple keys, e.g. a business keys and technical keys. Useful for data importing.
 
   - **Subsets** - (1...N) Lists of members. Useful for display or calculation purposes.
@@ -139,13 +139,34 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
   .. attention::
     This is undoubtedly the most important component for the overall **success of TinyOlap**.
 
+  - **TextEditor** - For natutal language data processing through spacy. Some links
+
+    - Monaco is th editor of choice:
+      - Microsoft's Monaco Editor (VS-Code) https://microsoft.github.io/monaco-editor/
+      - Custom IntelliSense with Monaco Editor: https://mono.software/2017/04/11/custom-intellisense-with-monaco-editor/
+      - https://css-tricks.com/creating-an-editable-textarea-that-supports-syntax-highlighted-code/
+      - https://prismjs.com
+      - https://ace.c9.io
+      - https://code.visualstudio.com/api/language-extensions/language-server-extension-guide
+      - https://froala.com
+      - https://froala.com/blog/editor/how-to-add-a-spelling-and-grammar-api-into-your-html-editor/
+
   - **Grid** - A minimalistic, visually reduced grid with alternatively fixed (browser-style)
     or unfixed (report style) row and column axis.
+
+    Available alternatives:
+
+    - overview: https://github.com/FancyGrid/awesome-grid
+
+    - overview https://jspreadsheets.com
+
+    - high quality commercial component: https://handsontable.com
+    - free and sufficient? http://w2ui.com/web/home
 
   - **Cursor** - A cell cursor, as in Excel, either by finger/mouse or keyboard, supporting
     instant editing (start typing to edit).
 
-  - **CellContext Swiping** - The selected cell should have a small *gripper* attached (left or right).
+  - **Cell Swiping** - The selected cell should have a small *gripper* attached (left or right).
     By taking and swiping or dragging the gripper up, down, left and right individual menus should
     appear that contain *drag targets* to invoke certain functionality. e.g.
 
@@ -162,7 +183,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
 - **Cubes** - Additional Cube features.
 
-  - **Cube/CellContext Comments** - A minimalistic discussion thread over cubes and cells,
+  - **Cube/Cell Comments** - A minimalistic discussion thread over cubes and cells,
     enabling users to discuss and exchange information. Maybe with attachments.
 
   - **Splashing** - The capability to enter values on aggregated cells to automatically
@@ -185,7 +206,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
       .. code:: python
 
             @rule(cube:"sales", pattern:"Profit", command:"Double")
-            def rule_profit(c: tinyolap.cell.CellContext):
+            def rule_profit(c: tinyolap.cell.Cell):
                 # 'profit' is defined as 'sales' - 'cost'
                 c["Sales"] *= 2
                 c["Cost"] *= 2
@@ -237,7 +258,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
             total_of_blue_cars = c["color:blue"]        # will work, if no conflicts occur
             total_of_blue_cars = c["blue"]              # will work, if no conflicts occur
 
-    - **Multi-MemberContext Aggregations** - Aggregations based on a list of members.
+    - **Multi-Member Aggregations** - Aggregations based on a list of members.
 
       .. code:: python
 

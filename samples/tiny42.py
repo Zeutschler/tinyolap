@@ -9,7 +9,7 @@ import time
 
 from art import *
 
-from tinyolap.cell_context import CellContext
+from tinyolap.cell import Cell
 from tinyolap.cube import Cube
 from tinyolap.database import Database
 from tinyolap.decorators import rule
@@ -125,7 +125,7 @@ def consolidate(template: Database, machine_dbs: list[Database]) -> Database:
 
 
 @rule("sensors", ["temperature"], scope=RuleScope.AGGREGATION_LEVEL, volatile=False)
-def rule_average_temperature(c: CellContext):
+def rule_average_temperature(c: Cell):
     """Calculate the average temperature for all aggregated values."""
     count = c["count"]
     temperature = c["temperature", c.BYPASS_RULES]

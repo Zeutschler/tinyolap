@@ -369,7 +369,7 @@ class Database:
 
     # endregion
 
-    # region CellContext access via indexing
+    # region Cell access via indexing
     def __getitem__(self, item):
         cube = self.cubes[item[0]]
         return cube.get(item[1:])

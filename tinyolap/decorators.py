@@ -24,7 +24,7 @@ def rule(cube: str, trigger: list[str], scope: RuleScope = RuleScope.ALL_LEVELS,
                      results on identical input, e.g. if real-time data integration is used.
     :param command: (optional, default = None) Identifies that this rule will only the triggered
                      and executed by an explicit user command or call to the ``execute()``method of
-                     a CellContext object.
+                     a Cell object.
     """
 
     def decorator_rule(func):

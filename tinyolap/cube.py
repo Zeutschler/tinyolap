@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from storage.storageprovider import StorageProvider
 from tinyolap.area import Area
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
-from tinyolap.cell_context import CellContext
+from tinyolap.cell import Cell
 from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *
 from tinyolap.fact_table import FactTable
@@ -51,6 +51,7 @@ class Cube:
 
         cube_creation_from_json = bool(dimensions)
 
+        #self.data = [1.0 for i in range(1_200_000)]
         self._name = name
         self._description = description
         if cube_creation_from_json:
@@ -359,7 +360,7 @@ class Cube:
 
     # endregion
 
-    # region CellContext access via indexing/slicing
+    # region Cell access via indexing/slicing
     def __getitem__(self, item):
         bolt = self._address_to_bolt(item)
         return self._get(bolt)
@@ -409,32 +410,13 @@ class Cube:
 
         # ALL_LEVELS rules
         if not bypass_rules:
-            # old approach
-            # if self._rules_all_levels.any:
-            #     found, func = self._rules_all_levels.first_match(idx_address)
-            #     if found:
-            #         cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
-            #         try:
-            #             self._rule_request_counter += 1
-            #             value = func(cursor)
-            #             if value != CellContext.CONTINUE:
-            #                 if self._caching:
-            #                     self._cache[bolt] = value  # save value to cache
-            #                 return value
-            #         except ZeroDivisionError:
-            #             return RuleError.DIV0
-            #         except Exception as e:
-            #             return RuleError.ERROR
-            #             # raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
-
-            # new approach
             found, func = self._rules.match(scope=RuleScope.ALL_LEVELS, idx_address=idx_address)
             if found:
                 cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                 try:
                     self._rule_request_counter += 1
                     value = func(cursor)
-                    if value != CellContext.CONTINUE:
+                    if value != Cell.CONTINUE:
                         if self._caching:
                             self._cache[bolt] = value  # save value to cache
                         return value
@@ -446,29 +428,13 @@ class Cube:
         if super_level == 0:  # base-level cells
             # BASE_LEVEL rules
             if not bypass_rules:
-                # old approach
-                # if self._rules_base_level.any:
-                #     found, func = self._rules_base_level.first_match(idx_address)
-                #     if found:
-                #         cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
-                #         try:
-                #             self._rule_request_counter += 1
-                #             value = func(cursor)
-                #             if value != CellContext.CONTINUE:
-                #                 if self._caching:
-                #                     self._cache[bolt] = value  # save value to cache
-                #                 return value
-                #         except Exception as e:
-                #             raise RuleException(f"Rule function {func.__name__} failed. {str(e)}")
-
-                # new approach
                 found, func = self._rules.match(scope=RuleScope.BASE_LEVEL, idx_address=idx_address)
                 if found:
                     cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
                     try:
                         self._rule_request_counter += 1
                         value = func(cursor)
-                        if value != CellContext.CONTINUE:
+                        if value != Cell.CONTINUE:
                             if self._caching:
                                 self._cache[bolt] = value  # save value to cache
                             return value
@@ -481,27 +447,9 @@ class Cube:
                 return self._facts.get(idx_address, idx_measures)
             else:
                 raise FatalException("Depreciated. Feature Needs to be removed")
-                # self._cell_request_counter += len(idx_measures)
-                # return [self._facts.get(idx_address, m) for m in idx_measures]
 
         else:  # aggregated cells
             # AGGREGATION_LEVEL
-            # #old approach
-            # if not bypass_rules:
-            #     if self._rules_aggr_level.any:
-            #         found, func = self._rules_aggr_level.first_match(idx_address)
-            #         if found:
-            #             cursor = self._create_cell_from_bolt(None, (super_level, idx_address, idx_measures))
-            #             try:
-            #                 self._rule_request_counter += 1
-            #                 value = func(cursor)
-            #                 if value != CellContext.CONTINUE:
-            #                     if self._caching:
-            #                         self._cache[bolt] = value  # save value to cache
-            #                     return value
-            #             except Exception as e:
-
-            # new approach
             if not bypass_rules:
                 found, func = self._rules.match(scope=RuleScope.AGGREGATION_LEVEL, idx_address=idx_address)
                 if found:
@@ -509,7 +457,7 @@ class Cube:
                     try:
                         self._rule_request_counter += 1
                         value = func(cursor)
-                        if value != CellContext.CONTINUE:
+                        if value != Cell.CONTINUE:
                             if self._caching:
                                 self._cache[bolt] = value  # save value to cache
                             return value
@@ -533,6 +481,7 @@ class Cube:
 
                 for row in rows:
                     if idx_measures in facts[row]:
+                        # 25% performance gain possible, if we would not read from an array of array, but just an array.
                         value = facts[row][idx_measures]
                         if type(value) is float:
                             total += value
@@ -703,13 +652,13 @@ class Cube:
     # endregion
 
     # region cells
-    def cell(self, *args) -> CellContext:
-        """Returns a new CellContext from the Cube."""
-        return CellContext.create(self, self._dim_lookup, args, self._address_to_bolt(args))
+    def cell(self, *args) -> Cell:
+        """Returns a new Cell from the Cube."""
+        return Cell.create(self, self._dim_lookup, args, self._address_to_bolt(args))
 
-    def _create_cell_from_bolt(self, address, bolt) -> CellContext:
-        """Create a CellContext for the Cube directly from an existing bolt."""
-        return CellContext.create(self, self._dim_lookup, address, bolt)
+    def _create_cell_from_bolt(self, address, bolt) -> Cell:
+        """Create a Cell for the Cube directly from an existing bolt."""
+        return Cell.create(self, self._dim_lookup, address, bolt)
 
     def _get_default_cell_address(self):
         """Generates a default address. This is the first member from all dimensions."""

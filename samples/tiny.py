@@ -8,7 +8,7 @@ import math
 import time
 from art import *
 
-import tinyolap.cell_context
+import tinyolap.cell
 from area import Area
 from tinyolap.decorators import rule
 from tinyolap.database import Database
@@ -92,7 +92,7 @@ def load_tiny(console_output: bool = False) -> Database:
     dim_measures.commit()
 
     # You can also add some nice number formatting to dimension measures
-    # e.g. for number and percentage formatting. MemberContext formatting follows
+    # e.g. for number and percentage formatting. Member formatting follows
     # the standard Python formatting specification at
     # <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
     dim_measures.member_set_format("Profit in %", "{:.2%}")  # e.g. this would number_format 0.864 as '86.40%'-
@@ -120,12 +120,12 @@ def load_tiny(console_output: bool = False) -> Database:
 
 
 @rule("sales", ["Profit"])
-def rule_profit(c: tinyolap.cell_context.CellContext):
+def rule_profit(c: tinyolap.cell.Cell):
     return c["Sales"] - c["Cost"]
 
 
 @rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS, volatile=False)
-def rule_profit_in_percent(c: tinyolap.cell_context.CellContext):
+def rule_profit_in_percent(c: tinyolap.cell.Cell):
     sales = c["Sales"]
     profit = c["Profit"]
     if sales:
@@ -314,12 +314,12 @@ def play_advanced_business_logic(database: Database = load_tiny()):
         cube.set(address, float(randrange(5, 100)))
 
     # *************************************************************************
-    # 2. Lets create a CellContext and see how it basically works
+    # 2. Lets create a Cell and see how it basically works
     c = cube.cell("2022", "Jan", "North", "trucks", "Sales")
 
     # Cursors behave (more or less) like float values,
     # ...but on direct assignment you need to be a bit careful:
-    a = c.value  # as 'a = c' would only copy the reference to the CellContext object,
+    a = c.value  # as 'a = c' would only copy the reference to the Cell object,
     # so we need to explicitly ask for .value
     a = float(c)  # ...would be an alternative approach to ask for the numeric value of 'c'
     a = c.numeric_value  # ...or this, in order to be sure to strictly get the numerical value.
@@ -370,7 +370,7 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     # WARNING: You have no guarantee and control on what dimension the cursor will actually modify.
 
     # But the solution to this problem is very easy, you just need to explicitly hand in the dimension name...
-    #   cursor[cube_name:member_name]
+    #   cursor[cube_name:member]
     # BRAVO !!! Now your save, at least almost...
     sport_cars_in_percent = c["sports"] / c["products:Total"] * 100.0
 
@@ -413,7 +413,7 @@ def play_advanced_business_logic(database: Database = load_tiny()):
     # as it enumerates the entire data space. 100 x 100 x 100 x 100 members over 4 dimensions
     # already end up incl 100.000.000 that will be written - much too much for TinyOlap.
 
-    # And finally you have the same modifiers as with CellContext objects.
+    # And finally you have the same modifiers as with Cell objects.
     # This is a very powerful and essential feature of TinyOlap.
     # The following statement copies all 'sales' data from 2022 to 2023,
     # before copying, the target area will be cleared.()

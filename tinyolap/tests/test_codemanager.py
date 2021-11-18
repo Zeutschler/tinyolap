@@ -52,6 +52,7 @@ class TestCodeFunction(TestCase):
 
         # convert code to json
         self.json = manager.to_json()
+        print(self.json)
 
         # rebuild code in a new code manager instance
         another_manager = CodeManager().from_json(self.json)

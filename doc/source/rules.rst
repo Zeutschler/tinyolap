@@ -38,15 +38,15 @@ Rules usually consists of 3 main parts:
 
   - some settings that define when and how the rule should behave or treated. We'll come back to this later.
 
-- The function signature which is always should look like this ``def any_function_name(c: CellContext):``.
+- The function signature which is always should look like this ``def any_function_name(c: Cell):``.
   The name of the function can be anything, but should ideallyc express what the rule is doing.
   The call signature must contain at least one single parameter ``c`` which represents the cell (or address) of a
-  cube that is currently requested from the user. It is highly beneficial to use the ``CellContext`` type hint at
+  cube that is currently requested from the user. It is highly beneficial to use the ``Cell`` type hint at
   all time, e.g. to benefit from code assistance. If you want to call the rule function on your own and you require
   additional parameters, then these need to be optional as the TinyOlap engine will call the function only with
   one parameter, the current cell context.
 
-  The ``CellContext`` allows you to navigate through the data space. As shown in the example below, you
+  The ``Cell`` allows you to navigate through the data space. As shown in the example below, you
   can easily "walk" through the data space by shifting and investigate your data space by shifting to
 
 - A returned value. This can be any datatype, but it should ideally be a generic type like float, int or string.
@@ -55,7 +55,7 @@ Rules usually consists of 3 main parts:
 
 .. code:: python
     @rule(cube="sales", trigger=["delta"])
-    def rule_profit(c: CellContext):
+    def rule_profit(c: Cell):
         return c["actual"] - c["plan"]
 
 

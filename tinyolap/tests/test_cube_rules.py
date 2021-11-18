@@ -2,7 +2,7 @@ import itertools
 from random import uniform
 from unittest import TestCase
 
-from cell_context import CellContext
+from cell import Cell
 from database import Database
 from decorators import rule
 from rules import RuleScope
@@ -107,7 +107,7 @@ class TestCubeRules(TestCase):
 
     # region Rules Functions
     @rule("sales", ["Price"], RuleScope.AGGREGATION_LEVEL)
-    def rule_price_aggregated(self, db: Database, c: CellContext):
+    def rule_price_aggregated(self, db: Database, c: Cell):
         sales = c["Sales"]
         quantity = c["Quantity"]
         if quantity != 0.0:
@@ -116,7 +116,7 @@ class TestCubeRules(TestCase):
             return 0.0
 
     @rule("sales", ["Profit%"], RuleScope.ALL_LEVELS)
-    def rule_profit_percent(self, db: Database, c: CellContext):
+    def rule_profit_percent(self, db: Database, c: Cell):
         sales = c["Sales"]
         profit = c["Profit"]
         if sales != 0.0:
@@ -125,15 +125,15 @@ class TestCubeRules(TestCase):
             return 0.0
 
     @rule("sales", ["Profit"], RuleScope.ALL_LEVELS)
-    def rule_profit(self, db: Database, c: CellContext):
+    def rule_profit(self, db: Database, c: Cell):
         return c["Sales"] - c["Cost"]
 
     @rule("sales", ["Sales"], RuleScope.ROLL_UP)
-    def rule_sales_from_quantity_mul_price(self, db: Database, c: CellContext):
+    def rule_sales_from_quantity_mul_price(self, db: Database, c: Cell):
         return c["Quantity"] * c["Price"]
 
     @rule("sales", ["USD"], RuleScope.ALL_LEVELS)
-    def rule_currency_conversion(self, db: Database, c: CellContext):
+    def rule_currency_conversion(self, db: Database, c: Cell):
         """Inter cube rule"""
         return c["EUR"] * db["exrates", c.member("years"), c.member("months"), "exrate"]
 

@@ -35,7 +35,7 @@ class TestCell(TestCase):
         value = c["Mar"]
         self.assertEqual(c, b)   # still, c will return 123.0
 
-        # MemberContext object
+        # Member object
         april = c.member("Apr")
         c[april] = 42
         c["2023", april] = 333.0

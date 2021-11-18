@@ -5,12 +5,12 @@ from unittest import TestCase
 from rules import RuleScope, RuleInjectionStrategy
 from tinyolap.decorators import *
 from tinyolap.database import Database
-from tinyolap.cell_context import CellContext
+from tinyolap.cell import Cell
 
 
 @rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS,
       injection=RuleInjectionStrategy.FUNCTION_INJECTION, volatile=False)
-def rule_profit_in_percent(c: CellContext):
+def rule_profit_in_percent(c: Cell):
     sales = c["Sales"]
     profit = c["Profit"]
     if sales != 0.0:

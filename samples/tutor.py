@@ -8,7 +8,7 @@ import time
 import psutil
 from art import *
 
-from tinyolap.cell_context import CellContext
+from tinyolap.cell import Cell
 from tinyolap.decorators import rule
 from tinyolap.rules import RuleScope
 from tinyolap.database import Database
@@ -145,17 +145,17 @@ def load_tutor(console_output: bool = False):
 
 
 @rule("verkauf", ["Abweichung"])
-def rule_delta(c: CellContext):
+def rule_delta(c: Cell):
     return c["Ist"] - c["Plan"]
 
 
 @rule("verkauf", ["DB1"], scope=RuleScope.ALL_LEVELS, volatile=False)
-def rule_profit_contribution(c: CellContext):
+def rule_profit_contribution(c: Cell):
     return c["Umsatz"] - c["variable Kosten"]
 
 
 @rule("verkauf", ["Preis"], scope=RuleScope.AGGREGATION_LEVEL)
-def rule_price(c: CellContext):
+def rule_price(c: Cell):
     umsatz = c["Umsatz"]
     menge = c["Menge"]
     if menge != 0.0:
@@ -224,7 +224,7 @@ def play_tutor(console_output: bool = True):
     # of the dimension will be selected and used.
     report_definition = {"title": "Report with rules calculations",
                          "header": [{"dimension": "jahre", "member": "1994"},
-                                    {"dimension": "regionen", "member": "USA"},
+                                    {"dimension": "regionen", "member": "Welt Gesamt"},
                                     {"dimension": "produkte", "member": "Produkte gesamt"},
                                     {"dimension": "monate", "member": "Jahr Gesamt"}],
                          "columns": [{"dimension": "datenart"}],
@@ -235,7 +235,7 @@ def play_tutor(console_output: bool = True):
 
     report_definition = {"title": "Report - Sales by years and months",
                          "header": [{"dimension": "datenart", "member": "Ist"},
-                                    {"dimension": "regionen", "member": "USA"},
+                                    {"dimension": "regionen", "member": "Welt Gesamt"},
                                     {"dimension": "produkte", "member": "Produkte gesamt"},
                                     {"dimension": "wertart", "member": "Umsatz"}],
                          "columns": [{"dimension": "jahre"}],

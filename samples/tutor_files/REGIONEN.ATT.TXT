@@ -1,4 +1,4 @@
-MemberContext	Currency
+Member	Currency
 USA	USD
 Kanada	USD
 Brasilien	USD

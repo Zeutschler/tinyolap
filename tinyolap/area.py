@@ -8,7 +8,7 @@ from __future__ import annotations
 import copy
 from collections import Iterable
 
-from tinyolap.member_context import MemberContext
+from tinyolap.member import Member
 
 
 class Area:
@@ -28,7 +28,7 @@ class Area:
         cube.area("Plan", "2023") = cube.area("Actual", "2022") * 1,15
 
     The smallest possible subspace would be a single cube cell.
-    For such purposes it is recommended to use the CellContext object.
+    For such purposes it is recommended to use the Cell object.
     """
 
     def __init__(self, cube, args):
@@ -406,7 +406,7 @@ class Area:
             item = (item,)
 
         for member in item:
-            if type(member) is MemberContext:
+            if type(member) is Member:
                 idx_dims.append(member._idx_dim)
                 members.append(member.name)
                 idx_members.append(member._idx_member)

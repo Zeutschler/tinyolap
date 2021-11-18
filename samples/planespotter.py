@@ -7,7 +7,7 @@ import os
 
 from art import *
 
-import tinyolap.cell_context
+import tinyolap.cell
 from decorators import rule
 from tinyolap.database import Database
 from tinyolap.rules import RuleScope
@@ -57,7 +57,7 @@ def load(console_output: bool = False):
 
 
 @rule("planes", ["altitude"], scope=tinyolap.rules.RuleScope.AGGREGATION_LEVEL)
-def rule_average_altitude(c: tinyolap.cell_context.CellContext):
+def rule_average_altitude(c: tinyolap.cell.Cell):
     altitude = c["altitude", c.BYPASS_RULES]
     count = c["count"]
     if count != 0.0:

@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from decorators import rule
 from tinyolap.server import Server
-from tinyolap.cell_context import CellContext
+from tinyolap.cell import Cell
 from tinyolap.slice import Slice
 from tinyolap.rules import RuleScope
 
@@ -70,7 +70,7 @@ class TestBaseFunction(TestCase):
         # print(report)
 
     @rule("sales", ["var"], RuleScope.ALL_LEVELS)
-    def calc_var(self, c: CellContext):
+    def calc_var(self, c: Cell):
         return c["actual"] - c["plan"]
 
     @rule("sales", ["var%"], RuleScope.ALL_LEVELS)

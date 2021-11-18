@@ -9,7 +9,7 @@ import collections.abc
 import json
 
 from storage.storageprovider import StorageProvider
-from tinyolap.member_context import MemberContext
+from tinyolap.member import Member
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.exceptions import *
 from tinyolap.utils import *
@@ -217,14 +217,24 @@ class Dimension:
     # endregion
 
     # region member context
-    def member_context(self, member_name: str) -> MemberContext:
-        if member_name in self._member_idx_lookup:
-            idx_member = self._member_idx_lookup[member_name]
-            return MemberContext(self, member_name,
-                                 None, idx_dim=-1,
-                                 idx_member=idx_member,
-                                 member_level=self.members[self._member_idx_lookup[member_name]][self.LEVEL])
-        raise KeyError(f"Failed to create MemberContext for member '{member_name}'. The member does not exist.")
+    def member(self, member) -> Member:
+        if type(member) is int:
+            try:
+                member_name = self.members[member]
+                return Member(self, member_name,
+                              None, idx_dim=-1,
+                              idx_member=member,
+                              member_level=self.members[self._member_idx_lookup[member_name]][self.LEVEL])
+            except (IndexError, ValueError):
+                raise KeyError(f"Failed to return Member with index '{member}'. The member does not exist.")
+
+        elif member in self._member_idx_lookup:
+            idx_member = self._member_idx_lookup[member]
+            return Member(self, member,
+                          None, idx_dim=-1,
+                          idx_member=idx_member,
+                          member_level=self.members[self._member_idx_lookup[member]][self.LEVEL])
+        raise KeyError(f"Failed to return Member '{member}'. The member does not exist.")
 
     # region add, remove, rename members
     def add_member(self, member, children=None, description=None, number_format=None) -> Dimension:
@@ -454,11 +464,11 @@ class Dimension:
     def member_set_format(self, member: str, format_string: str):
         """
         Set a number_format string for output formatting, especially useful for number formatting.
-        MemberContext formatting follows the standard Python formatting specification at
+        Member formatting follows the standard Python formatting specification at
         https://docs.python.org/3/library/string.html#format-specification-mini-language.
 
         :param member: Name of the member to set the number_format for.
-        :param format_string: The number_format string to be used. MemberContext formatting follows the standard
+        :param format_string: The number_format string to be used. Member formatting follows the standard
                Python formatting specification at
                https://docs.python.org/3/library/string.html#format-specification-mini-language.
         """
