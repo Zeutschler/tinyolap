@@ -1,0 +1,34 @@
+<h4>Basic mat-select</h4>
+<mat-form-field appearance="fill">
+  <mat-label>Favorite food</mat-label>
+  <mat-select>
+    <mat-option *ngFor="let food of foods" [value]="food.value">
+      {{food.viewValue}}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
+
+<p>
+  <mat-checkbox [formControl]="disableSelect">Disable select</mat-checkbox>
+</p>
+
+<h4>mat-select</h4>
+<mat-form-field appearance="fill">
+  <mat-label>Choose an option</mat-label>
+  <mat-select [disabled]="disableSelect.value">
+    <mat-option value="option1">Option 1</mat-option>
+    <mat-option value="option2" disabled>Option 2 (disabled)</mat-option>
+    <mat-option value="option3">Option 3</mat-option>
+  </mat-select>
+</mat-form-field>
+
+<h4>Basic native select</h4>
+<mat-form-field appearance="fill">
+  <mat-label>Cars</mat-label>
+  <select matNativeControl required>
+    <option value="volvo">Volvo</option>
+    <option value="saab">Saab</option>
+    <option value="mercedes">Mercedes</option>
+    <option value="audi">Audi</option>
+  </select>
+</mat-form-field>

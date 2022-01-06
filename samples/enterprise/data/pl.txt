@@ -1,0 +1,50 @@
+Revenue Stream 1;687.0
+Revenue Stream 2;145.6
+Returns, Refunds, Discounts;-21.0
+Total Net Revenenue;711.6
+    Revenue Stream 1
+    Revenue Stream 2
+    Returns, Refunds, Discounts
+
+Cost of Goods Sold;269.6
+Gross Profit;442.0
+    Total Net Revenenue
+    Cost of Goods Sold
+
+Advertising & Promotion;-18.7
+Depreciation & Amortization;-108.7
+Insurance;-1.1
+Maintenance;-5.7
+Office Supplies;-2.8
+Rent;-5.8
+Saleries, Benefits & Wages;-251.2
+Telecommunication;-1.5
+Travel;-2.3
+Utilities;-1.4
+Other Expenses;-3.8
+Expenses;-403.0
+    Advertising & Promotion
+    Depreciation & Amortization
+    Insurance
+    Maintenance
+    Office Supplies
+    Rent
+    Saleries, Benefits & Wages
+    Telecommunication
+    Travel
+    Utilities
+    Other Expenses
+
+EBIT;39.0
+    Gross Profit
+    Expenses
+
+Interest Expense;-2.5
+EBT;26.5
+    EBIT
+    Interest Expense
+
+Income Taxes;-10.9
+Net Earnings;25.5
+    EBT
+    Income Taxes

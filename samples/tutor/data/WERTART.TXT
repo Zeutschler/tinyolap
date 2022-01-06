@@ -1,0 +1,8 @@
+N	Menge
+N	Umsatz
+N	Preis
+N	variable Kosten
+C	DB1
+	Umsatz	1
+	variable Kosten	-1
+

@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from tinyolap.slice import Slice
 from tinyolap.server import Server
 
-from samples.tutor import load_tutor
+from samples.tutor.main import load_tutor
 from samples.tiny import load_tiny
 
 # TinyOlap

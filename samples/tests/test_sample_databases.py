@@ -1,10 +1,10 @@
 from unittest import TestCase
 
-from samples.finance import play_finance
+from samples.enterprise import play_finance
 from samples.tiny import play_tiny
 from samples.huge import play_huge
 from samples.tiny42 import play_tiny42
-from samples.tutor import play_tutor
+from samples.tutor.main import play_tutor
 from samples.planespotter import play_plane_spotter
 
 

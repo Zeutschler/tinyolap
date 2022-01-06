@@ -1,14 +1,33 @@
 # TinyOlap 
 
-TinyOlap is a light-weight model-driven multi-dimensional database for **financial planning, budgeting, business calculations and data analysis** written in plain Python. Sounds quite complicated, but TinyOLap is actually very easy to use, see code sample below, and should be suitable even for absolute Python beginners.
+TinyOlap is a light-weight, client-side, model-driven, cell-oriented, multi-dimensional database for 
+**planning, budgeting, reporting, analysis and many other purposes**. Although this sounds very complicated, 
+TinyOlap is actually very easy to use and should be also suitable for any Python skills levels.
 
-All calculations in TinyOlap are executed on-the-fly, any change to a adatbase is instantly refleced - perfect for planning and data entry purposes. In addition TinyOlap provides some (optional) built-in caching capabilities
+TinyOlap is written in plain Python. Not a clever idea for a database, you might think. 
+And you're right, TinyOlap is not as fast as comparable commercial products like IBM's TM/1, Jedox's Palo, 
+Infor's BI OLAP or SAP HANA or intended to replace such solution. 
 
-TinyOlap should be **fun and fast** with data models up to a million records or even slightly more. Thast said, TinyOlap is not intended to be used for any kind of mass data processing or analysis. 
+But TinyOlap is fast enough for most use cases (especially when we talk about planning). For being made of 
+simple Python arrays, dicts and sets only TinyOlap is even **impressively fast**. That said, TinyOlap is not 
+intended to be used for any kind of mass data processing, also because it's not very memory effective.  
+
+But TinyOlap has another huge advantage over the mentioned commercial products. **You can write your business 
+logic in beautiful Python** and enjoy the [pythonic way](https://www.udacity.com/blog/2020/09/what-is-pythonic-style.html). 
+of coding.
+
+Please check and play with the provided examples. **Warning**: the *company.py* example has real-world size and 
+complexity for the financial planning and reporting of a large international (fantasy) enterprise. 
+
+**Multi-user support?** TinyOlap is not a client-server database, it resides in your current Python process 
+and persists to an SQLite database file. But through the included (optional) web-API, using the great
+[Fast-API](https://fastapi.tiangolo.com), you can also build applications that can serve some handfull of users.
 
 ## How to use TinyOlap
-TinyOlap is a '*model-driven OLAP database*'. That implies, that you first build a data model representing
-your use case. Then you can import data or enter data manually (what is planning and budgeting is all about). 
+As said, TinyOlap is a '*model-driven OLAP database*'. That implies, that you first need to build a data model 
+defining your data space. Then you can import data, write data to individual cells or areas in the database or enter 
+data manually through a frontend. TiynOlap does not (yet) provide a frontend, but an Excel add-in and a web frontend 
+are on the list.
 
 ### Example
 Let's say you need to do a business plan for your car company for the next year based on actual data.
@@ -24,23 +43,24 @@ Let's say you need to do a business plan for your car company for the next year 
    - **[months]** := Jan, Feb, ... , Dec, **Q1**, ... **Q4**, **Year**
    - **[products]** := Model 3, Model S, Model X, **Total**
    - **[countries]** := USA, Canada, Mexico, **North America**, ... , **Europe**, **Total**
-   - **[masures]** := Quantity, Sales, Cost, **Income**, Tax, **Net Income**
+   - **[measures]** := Quantity, Sales, Cost, **Income**, Tax, **Net Income**
 
-2. The second and already last step is to **build a cube** - a multidimensional space - to holds your data. 
-   Let's call that space **'Tesla'**
-   - **[products]** := Model 3, Model S, Model X, **Total**
-
-not a value-driven OLAP Database. The focus is on multidimensional modelling. 
-
-
+2. The second and already last step is to **build a cube** - a multidimensional space, equivalent to a table in a 
+   relational database - to holds your data. Let's call this cube **'Tesla'**
+   - **Cube:[tesla]** := [datatype, years, monyths, products, countries, measures]
+   
 
 ## Why building an in-memory databse in plain Python? 
-TinyOlap started as a by-product of a research project - I needed a super-light-weight MOLAP database. But there was no, so I build one. TinyOlap is very suitable for educational purposes in computer science as well as in business studies. I use TinyOlap for my master class students in "Business Analytics" at the HSD University for applied science in Düsseldorf (Germany). Although Tinyolap might be of help for experimental business purposes, it is neither suitable nor recommend to be used for any kind of production purposes.
+TinyOlap started as a by-product of a research project - I simply needed a super-light-weight MOLAP database. 
+But there was no, so I build one. TinyOlap is very suitable for educational purposes in computer science as well as 
+in business studies. I use TinyOlap for my master class students in "Business Analytics" at the HSD University for 
+Applied Science in Düsseldorf (Germany). Although Tinyolap is escpecially helpfull for experimental business purposes.
 
-
-TinyOlap is also a reminiscence and homage to the early days of OLAP databases, where great products like Applix TM/1 or MIS Alea enabled business users to 
-build expressive data models with dimension, cubes and complex business logic in just a few minutes our hours. Unfortunately, these products 
-have grown up to complex and very expensive client-server database technologies, all striving for the ultimate performance on mass data processing and high number of concurrent users.
+TinyOlap is also a reminiscence and homage to the early days of OLAP databases, where great products like 
+Applix TM/1 or MIS Alea enabled business users to build expressive data models with dimension, cubes and complex 
+business logic in just a few minutes our hours. Unfortunately, these products have grown up to complex and 
+very expensive client-server database technologies, all striving for the ultimate performance on mass data 
+processing and high number of concurrent users.
 
 In contrast, TinyOlap is intended to stay **free, simple and focussed** on 
 client-side planning, budgeting, calculations and analysis purposes. TinyOlap provides sub-second 

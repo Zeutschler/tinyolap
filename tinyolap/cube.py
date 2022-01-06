@@ -24,7 +24,6 @@ class Cube:
     """Represents a multi-dimensional table."""
     __magic_key = object()
 
-
     @classmethod
     def create(cls, storage_provider: StorageProvider, name: str = None,
                dimensions: list[Dimension] = None, measures: list[str] = None,
@@ -481,7 +480,6 @@ class Cube:
 
                 for row in rows:
                     if idx_measures in facts[row]:
-                        # 25% performance gain possible, if we would not read from an array of array, but just an array.
                         value = facts[row][idx_measures]
                         if type(value) is float:
                             total += value
@@ -492,7 +490,6 @@ class Cube:
                 return total
             else:
                 raise FatalException("Depreciated. Feature Needs to be removed")
-
 
     def _set_base_level_cell(self, idx_address, idx_measure, value):
         """Writes a base level value to the cube for the given idx_address (idx_address and measures)."""

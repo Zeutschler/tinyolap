@@ -1,0 +1,132 @@
+C	Welt gesamt
+	Nord-/Südamerika	1
+	Europa (geogr.)	1
+C	Nord-/Südamerika
+	Nordamerika	1
+	Südamerika	1
+C	Nordamerika
+	USA	1
+	Kanada	1
+N	USA
+N	Kanada
+C	Südamerika
+	Brasilien	1
+	Uruguay	1
+	Argentinien	1
+	Chile	1
+	Mexiko	1
+N	Brasilien
+N	Uruguay
+N	Argentinien
+N	Chile
+N	Mexiko
+C	Europa (geogr.)
+	Nordeuropa	1
+	Nordwesteuropa	1
+	Mitteleuropa	1
+	Südeuropa	1
+	Südosteuropa	1
+C	Nordeuropa
+	Dänemark	1
+	Norwegen	1
+	Schweden	1
+	Finnland	1
+C	Nordwesteuropa
+	Großbritannien	1
+	Irland	1
+	Island	1
+C	Mitteleuropa
+	Deutschland	1
+	Frankreich	1
+	Benelux	1
+	Österreich	1
+	Schweiz	1
+	Liechtenstein	1
+	Polen	1
+	Tschechische Republik	1
+	Slowakei	1
+C	Südeuropa
+	Italien	1
+	Spanien	1
+	Portugal	1
+	Griechenland	1
+	Türkei	1
+C	Südosteuropa
+	Bulgarien	1
+	Rumänien	1
+	Ungarn	1
+N	Deutschland
+N	Frankreich
+N	Dänemark
+N	Norwegen
+N	Schweden
+N	Finnland
+N	Belgien
+N	Luxemburg
+N	Niederlande
+C	Benelux
+	Belgien	1
+	Luxemburg	1
+	Niederlande	1
+N	Großbritannien
+N	Irland
+N	Island
+N	Schweiz
+N	Liechtenstein
+N	Österreich
+N	Italien
+N	Spanien
+N	Portugal
+N	Griechenland
+N	Türkei
+N	Polen
+N	Bulgarien
+N	Rumänien
+N	Ungarn
+N	Slowakei
+N	Tschechische Republik
+C	Europäische Union
+	Österreich	1
+	Belgien	1
+	Dänemark	1
+	Frankreich	1
+	Deutschland	1
+	Großbritannien	1
+	Griechenland	1
+	Irland	1
+	Luxemburg	1
+	Niederlande	1
+	Portugal	1
+	Spanien	1
+	Italien	1
+C	Europa (OST/WEST)
+	OST-Europa	1
+	WEST-Europa	1
+C	OST-Europa
+	Bulgarien	1
+	Polen	1
+	Rumänien	1
+	Slowakei	1
+	Tschechische Republik	1
+	Ungarn	1
+C	WEST-Europa
+	Frankreich	1
+	Belgien	1
+	Niederlande	1
+	Luxemburg	1
+	Deutschland	1
+	Dänemark	1
+	Norwegen	1
+	Finnland	1
+	Schweden	1
+	Griechenland	1
+	Türkei	1
+	Italien	1
+	Spanien	1
+	Portugal	1
+	Großbritannien	1
+	Irland	1
+	Island	1
+	Liechtenstein	1
+	Österreich	1
+	Schweiz	1
