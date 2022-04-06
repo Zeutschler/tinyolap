@@ -7,7 +7,6 @@ from faker import Faker
 from dimension import Dimension
 from tinyolap.database import Database
 
-
 def create_database(name: str = "enterprise", database_directory: str = None,
                     num_legal_entities: int = 50, num_products: int = 100,
                     num_employees: int = 1_000):

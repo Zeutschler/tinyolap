@@ -9,3 +9,4 @@ enum_tools
 psutil
 art
 cryptography
+numpy

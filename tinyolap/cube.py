@@ -16,7 +16,7 @@ from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell import Cell
 from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *
-from tinyolap.fact_table import FactTable
+from tinyolap.facttable import FactTable
 from tinyolap.rules import Rule, Rules, RuleError, RuleScope, RuleInjectionStrategy
 
 

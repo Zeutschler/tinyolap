@@ -188,8 +188,14 @@ def play_tutor(console_output: bool = True):
 
     database: Database = load_tutor(console_output)
 
+
     # 1. get the cube
     cube = database.cubes["verkauf"]
+    if console_output:
+        print(f"Fact table rows of 'verkauf' := {cube.cells_count}")
+        print(f"Index size of cube 'verkauf' := {cube._facts.index.get_size()}")
+        print(f"Index count of cube 'verkauf' := {cube._facts.index.get_count()}")
+
     # Caching - to experience the raw speed of the database,
     # we'll switch it off. For real world use cases, caching
     # greatly improves performance and therefore is on (True)
