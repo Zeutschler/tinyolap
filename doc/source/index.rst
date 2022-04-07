@@ -269,6 +269,7 @@ Table of Contents
    members
    areas
    rules
+   sqlquery
    server
    license
    lowcode
