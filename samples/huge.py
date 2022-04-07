@@ -124,11 +124,9 @@ def play_huge(console_output: bool = True):
         duration = time.time() - start
         print(f"Report was executed in {duration:.3} sec on warm cache, 0 aggregations/sec")
 
-        print(f"\nNote: The actual numbers of records in the cube is {cube.cells_count:,}"
-              f"\n      this might by below the expected {numbers_of_records:,} number of records"
-              f"\n      due to the fact that randomly generated of cell addresses might overlap.")
-
-
+        print(f"\nNote: The actual numbers of records in the cube is {cube.cells_count:,}."
+              f"\n      In rare cases, this number might by below the expected {numbers_of_records:,} number of records."
+              f"\n      Reason: randomly generated cell addresses might have create duplicates and there for overlap.")
 
 
 def main():

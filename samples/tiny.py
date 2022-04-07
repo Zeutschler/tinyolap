@@ -66,6 +66,7 @@ def load_tiny(console_output: bool = False) -> Database:
                            ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
     dim_months.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
     dim_months.commit()
+    dim_months.add_subset("summer", ("Jun", "Jul", "Aug", "Sep"))
 
     dim_regions = db.add_dimension("regions")
     dim_regions.edit()
@@ -227,14 +228,14 @@ def play_tiny(console_output: bool = True):
 
     # Lets print the same report again
     if console_output:
-        report.title = "The same report as before, but now the cube is filled with random data."
+        report.title = "The same report as before, but now the entire cube is filled with random data."
         report.refresh()
         print(report)
 
     # ...finally, let's dump ALL data to the console
     if console_output:
         print(f"\n{'-' * 100}\nCACHING - Comparison of report execution times with Caching Off and On\n{'-' * 100}")
-        print(f"...let's run a larger report (without printing it). Caching is Off...")
+        print(f"...let's run a larger report (without displaying it). Caching is Off...")
     report_definition = {"title": "All data cells available in the Tiny data model...",
                          "columns": [{"dimension": "months"}],
                          "rows": [{"dimension": "years"}, {"dimension": "regions"}, {"dimension": "products"},
@@ -289,10 +290,12 @@ def play_tiny(console_output: bool = True):
 
     if console_output:
         print(f"\nRecommendation: Leave Caching On, whenever possible!")
-        print(f"\t- Caching is anyhow activated by default.'")
-        print(f"\t- The more aggregations and rules you have, the more you will benefit from caching.'")
-        print(f"\t- Caching On and Off will return the same result, if all your rules are non-volatile.'")
-        print(f"\t- Switch off caching only if you have rules are 'volatile'.'")
+        print(f"\t- Caching is anyhow activated by default.")
+        print(f"\t- The more aggregations and rules you have, the more you will benefit from caching.")
+        print(f"\t- Caching On and Off will return the same result, if all your rules are non-volatile.")
+        print(f"\t- Switch off caching only if you have rules that are 'volatile', returning non-deterministic results.")
+
+    return database
 
 
 def play_advanced_business_logic(database: Database = load_tiny()):

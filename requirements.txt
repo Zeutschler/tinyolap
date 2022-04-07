@@ -10,3 +10,4 @@ psutil
 art
 cryptography
 numpy
+sqlparse

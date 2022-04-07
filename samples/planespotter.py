@@ -161,7 +161,6 @@ def play_plane_spotter(console_output: bool = True):
         print(f"\tRebuild TinyOlap data model and import flight data in {duration_tinyolap:.3} sec.")
 
 
-
 def main():
     play_plane_spotter()
 

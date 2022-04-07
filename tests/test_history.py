@@ -13,6 +13,7 @@ class TestHistory(TestCase):
         self.db = load_tiny()
         self.cube = self.db.cubes["sales"]
 
+    @unittest.skip("Feature not yet implemented.")
     def test_history_initialization(self):
 
         tm = self.db.history
