@@ -9,8 +9,6 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.append('..')
-
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -19,8 +17,10 @@ from fastapi.responses import FileResponse
 from tinyolap.slice import Slice
 from tinyolap.server import Server
 
-from samples.tutor.main import load_tutor
+from samples.tutor import load_tutor
 from samples.tiny import load_tiny
+
+sys.path.append('..')
 
 # TinyOlap
 server = Server()
@@ -33,7 +33,7 @@ server["tutor"].cubes["Verkauf"].caching = caching
 report_def = None
 
 
-def render_report(refresh_only: bool= False) -> str:
+def render_report(refresh_only: bool = False) -> str:
     # Renders a random report
     cube = server["tutor"].cubes["Verkauf"]
     cube.reset_counters()
@@ -50,24 +50,30 @@ def render_report(refresh_only: bool= False) -> str:
         column_dims = [{"dimension": dims[len(header_dims)]["dimension"]}]
         row_dims = [{"dimension": d["dimension"]} for d in dims[len(header_dims) + 1:]]
         report_def = {"title": f"Random Report from Tutor Database (caching is {str(cube.caching)})",
-                             "header": header_dims, "columns": column_dims, "rows": row_dims}
+                      "header": header_dims, "columns": column_dims, "rows": row_dims}
     # Execute the report
     start = time.time()
-    report = Slice(cube, report_def)
+    slice = Slice(cube, report_def)
     duration = time.time() - start
     footer = f"\tReport refreshed in {duration:.6} sec. {cube.counter_cell_requests:,}x cell requests, " \
              f"{cube.counter_aggregations:,}x aggregations calculated and " \
              f"{cube.counter_rule_requests:,}x rules executed."
-    return report.as_html(footer=footer)
+    return slice.as_html(footer=footer)
 
 
 # FastAPI
 app = FastAPI(title="TinyOlap API")
 
 
+@app.get("/", response_class=HTMLResponse)
+async def report():
+    return render_report(True)
+
+
 @app.get("/report", response_class=HTMLResponse)
 async def report():
     return render_report(True)
+
 
 @app.get("/nextreport", response_class=HTMLResponse)
 async def report():
@@ -80,7 +86,7 @@ async def tinyolap_logo():
     return FileResponse(file_name)
 
 
-@app.get("/", response_class=JSONResponse)
+@app.get("/info", response_class=JSONResponse)
 async def root():
     db_list = list({"name": name} for name, db in server._databases.items())
     return {"service": "TinyOlap",

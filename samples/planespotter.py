@@ -12,15 +12,16 @@ from decorators import rule
 from tinyolap.database import Database
 from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
-from samples.flight_data import FlightData, Location
+from samples.planespotter_model.flight_data import FlightData, Location
 
-radius = 250
-raster_size = 50  # 50 >>> creates a 10 x 10 raster from -250 to 250
-flight_data = FlightData(Location(52.5200, 13.4050), radius)  # Berlin (Germany) and 250 km around
+location = Location(52.5200, 13.4050)  # Berlin (Germany)
+radius = 250  # around the location
+raster_size = 50  # 50 >>> creates a 10 x 10 raster from -250 km to 250 km
+flight_data = FlightData(location, radius)  # returns real-time flight data from https://opensky-network.org
 
 
-def load(console_output: bool = False):
-    """Creates a dynamic database with air plane data 200km around Frankfurt."""
+def create_database(console_output: bool = False):
+    """Creates a dynamic database with airplane data from the defined location and radius."""
 
     if console_output:
         print(f"Creating the 'plane-spotter' data model. Please wait...")
@@ -28,7 +29,7 @@ def load(console_output: bool = False):
     # 1. create a new database
     db = Database("planespotter", in_memory=True)
 
-    # 2. create some dimensions
+    # 2. create required dimensions
     # Create 2 dimensions to make a 2-D raster of 10 km blocks to count planes
     dim_horz = db.add_dimension("horz").edit()
     dim_vert = db.add_dimension("vert").edit()
@@ -37,11 +38,13 @@ def load(console_output: bool = False):
         dim_vert.add_member("Total", f"{i:+} km")
     dim_horz.commit()
     dim_vert.commit()
-    # Create a dimension for plane names
+
+    # Create a dimension for plane names (the actual plane names will be added later)
     dim_plane = db.add_dimension("planes").edit()
     dim_plane.add_member("some plane")
     dim_plane.add_member("All", "some plane")
     dim_plane.commit()
+
     # Create a dimension for plane data
     dim_data = db.add_dimension("data").edit()
     dim_data.add_member(["count", "altitude"])
@@ -58,6 +61,9 @@ def load(console_output: bool = False):
 
 @rule("planes", ["altitude"], scope=tinyolap.rules.RuleScope.AGGREGATION_LEVEL)
 def rule_average_altitude(c: tinyolap.cell.Cell):
+    """
+    Rule to calculate the average altitude for all aggregated cells.
+    """
     altitude = c["altitude", c.BYPASS_RULES]
     count = c["count"]
     if count != 0.0:
@@ -66,6 +72,7 @@ def rule_average_altitude(c: tinyolap.cell.Cell):
 
 
 def update_database_from_flight_data(db: Database):
+    """Updates the flight data and the database based on the new data."""
     dim_planes = db.dimensions["planes"]
     cube = db.cubes["planes"]
 
@@ -74,7 +81,8 @@ def update_database_from_flight_data(db: Database):
     duration_flight_data = time.time() - start
 
     start = time.time()
-    # update planes dimension (build a hierarchy by plane's countries)
+
+    # update planes dimension. Also build a hierarchy by plane's countries.
     dim_planes.edit()
     new_planes = list(plane[0] for plane in data)
     countries = list(plane[1] for plane in data)
@@ -125,7 +133,7 @@ def play_plane_spotter(console_output: bool = True):
     if console_output:
         tprint("TinyOlap", font="Slant")
 
-    database = load(console_output)
+    database = create_database(console_output)
 
     if console_output:
         print(f"\tRetrieving real-time flight data from 'OpenSky'. Please wait...")

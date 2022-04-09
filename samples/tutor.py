@@ -20,6 +20,8 @@ from tinyolap.rules import RuleScope
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 
+FILES_FOLDER = "tutor_model"
+
 def load_tutor(console_output: bool = False):
     """
     Loads the **Tutor** data model from TXT source files (this may take
@@ -62,7 +64,7 @@ def load_tutor(console_output: bool = False):
     # JAHRE.TXT, DATENART.TXT, REGIONEN.TXT, PRODUKTE.TXT, MONATE.TXT, WERTART.TXT
     dimensions = []
     for dim_name in dimension_names:
-        file_name = os.path.join(root_path, "data", dim_name.upper() + ".TXT")
+        file_name = os.path.join(root_path, FILES_FOLDER, dim_name.upper() + ".TXT")
         # add a new dimension to the database
         dim = db.add_dimension(dim_name)
         # open the dimension for editing (adding or removing members)
@@ -111,7 +113,7 @@ def load_tutor(console_output: bool = False):
     cube.register_rule(rule_price)
 
     # 4. Now it's time to import the data from a CSV file into the cube
-    file_name = os.path.join(root_path, "data", cube_name.upper() + ".TXT")
+    file_name = os.path.join(root_path, FILES_FOLDER, cube_name.upper() + ".TXT")
     empty_rows = 0
     r = 0
     with open(file_name, encoding='latin-1') as file:

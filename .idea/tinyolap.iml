@@ -11,11 +11,4 @@
     <orderEntry type="jdk" jdkName="Python 3.9 (tinyolap)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
-  <component name="PyNamespacePackagesService">
-    <option name="namespacePackageFolders">
-      <list>
-        <option value="$MODULE_DIR$/api" />
-      </list>
-    </option>
-  </component>
 </module>

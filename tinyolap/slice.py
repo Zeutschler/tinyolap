@@ -2,7 +2,6 @@
 # TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
 import enum
 import time
 
@@ -11,7 +10,7 @@ from tinyolap.cube import Cube
 
 class Slice:
     """Represents a slice from a cube. Slices can be seen as a report in Excel with filters on top,
-     row- and column-headers and the requested data itself. See demo.py for sample usage."""
+     row- and column-headers and the requested data itself. See 'samples/web_demo.py' for demo usage."""
 
     class ColorSchema:
 
@@ -101,17 +100,7 @@ class Slice:
         addresses = [tuple(arg[5]) + (arg[6],) for arg in self.grid]
         start = time()
         if parallel_execution:
-            # duration, results = report._experimental_refresh_grid(False)
-            # duration, results = report._experimental_refresh_grid(False)
-            # print(f"Non-parallel execution (for arg in grid  loop) of slice refresh in {duration:.4} sec.")
-            # duration, results = report._experimental_refresh_grid(True)
-            # print(f"Parallel execution (using ProcessPoolExecutor) of slice refresh in {duration:.4} sec.")
-
-            # finding: NOT suitable for stateful processing. ERROR on weakref serialization via pickle
-            #          This tries to replicate the entire database in multiple other process rooms. HORROR!
-            # with ProcessPoolExecutor() as executor:
-
-            # finding: NOT faster then non-parallel execution
+            # note/finding: NOT faster than non-parallel execution
             with ThreadPoolExecutor() as executor:
                 for result in executor.map(self._experimental_refresh_grid_cell, addresses):
                     # put results into correct output list:
@@ -406,17 +395,14 @@ class Slice:
                 self.axis[axis_index] = members
 
     def __zero_suppression(self):
-        # todo: implement this
+        # todo: implementation missing
         self.zero_cols = None
         self.zero_rows = None
 
-    def as_console_output(self, color_schema: ColorSchema = ColorSchema) -> str:
-        """Renders an output suitable for printing to the console only. The output most probably contains
-        control characters and color definitions and is therefore not suitable for other use cases."""
-        # title, description
-        # print headers
-        # print col headers
-        # print row headers and values
+    def as_console_output(self, color_schema: ColorSchema = ColorSchema, hide_zeros: bool = True) -> str:
+        """Renders the slice suitable for console output. The output contains
+        control characters and color definitions and is therefore not suitable
+        for other use cases."""
 
         cell_width = 14
         row_header_width = 16
@@ -461,10 +447,13 @@ class Slice:
             value = cell[2]
             format = cell[7]
             if type(value) is float:
-                if format:
-                    value = format.format(value).rjust(cell_width)
+                if hide_zeros and value == 0.0:
+                    value = f"-".rjust(cell_width)
                 else:
-                    value = f"{value:,.2f}".rjust(cell_width)
+                    if format:
+                        value = format.format(value).rjust(cell_width)
+                    else:
+                        value = f"{value:,.2f}".rjust(cell_width)
             elif value is None:
                 value = f"-".rjust(cell_width)
             else:
@@ -490,14 +479,9 @@ class Slice:
 
         return text
 
-    def as_html(self, footer="") -> str:
-        """Renders an output suitable for printing to the html only. The output most probably contains
-        control characters and color definitions and is therefore not suitable for other use cases."""
-        # title, description
-        # print headers
-        # print col headers
-        # print row headers and values
-
+    def as_html(self, footer="", dropdowns=None) -> str:
+        """Renders the slice as a complete html page. Not suitable for other purposes.
+        This is a hardcoded quick and dirty implementation for use in the 'samples/web_demo.py'."""
         start = time.time()
 
         row_dims = len(self.grid[0][4])
@@ -505,8 +489,6 @@ class Slice:
 
         tro = "<tr>"
         trc = "</tr>\n"
-        tdo = "<td>"
-        tdc = "</td>"
 
         text = ""
         # title
@@ -542,7 +524,6 @@ class Slice:
                 text += f'<th scope="col" class="text-center" style="width: 80px">' \
                         f'{self.grid[i][3][c]}' \
                         f'</th>\n'
-                # text += tdo + self.grid[i][3][c].center(cell_width) + tdc
         text += trc
         text += '</thead">\n'
 
@@ -561,7 +542,6 @@ class Slice:
                     text += trc
                     text += tro
                 for pos, member in enumerate(cell[4]):
-                    #text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
                     if pos in previous:
                         if previous[pos] != member:
                             text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
@@ -570,8 +550,6 @@ class Slice:
                     else:
                         text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
                     previous[pos] = member
-
-
 
             if type(value) is float:
                 if format:
@@ -587,7 +565,6 @@ class Slice:
         text += trc
         text += "</table></div>"
         text += '</div>'
-
 
         style = 'table.table-fit {width: auto !important;table-layout: auto !important;}' \
                 'table.table-fit thead th, table.table-fit tfoot th {width: auto !important;}' \

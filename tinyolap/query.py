@@ -10,15 +10,27 @@ class Query:
     Basic implementation of a SQL query interface for TinyOlap cubes.
     """
 
-    def __init__(self, db: Database, sql: str = None):
+    def __init__(self, db: Database, sql: str = None,
+                 include_column_names: bool = False):
         """
         Create a new query object for the given database.
         :param db: The database to query against.
         :param sql: (optional) An SL statement to be executed.
+        :param include_column_names: Include column names in the resultset.
+        :param include_cube_name: Include a cube name column in the resultset.
         """
         self.database = db
         self.sql = sql
         self._records = []
+        self._include_column_names = include_column_names
+
+    @property
+    def include_column_names(self):
+        return self._include_column_names
+
+    @include_column_names.setter
+    def include_column_names(self, value: bool):
+        self._include_column_names = value
 
     @property
     def records(self):
@@ -49,6 +61,7 @@ class Query:
 
         tokens = self.__remove_whitespace_tokens(self.parsed.tokens)
         cube: Cube
+        cube_name = None
 
         # resolve the cube. The token after the 'FROM' keyword should contain the cube name
         from_index = -1
@@ -62,6 +75,7 @@ class Query:
                 cube = self.database.cubes.lookuptry(cube_name)
                 if not cube:
                     raise KeyError(f"Cube '{cube_name}' does not exit in database '{self.database.name}'.")
+                cube_name = cube.name
                 break
         else:
             raise SyntaxError("<FROM> clause missing in statement.")
@@ -73,6 +87,8 @@ class Query:
 
         # execute the query
         records = []
+        if self._include_column_names:
+            records.append(self.__get_column_names(query_def))
         members_tuples = [tuple(dimension["members"]) for dimension in query_def["dims"]]
         addresses = itertools.product(*members_tuples)
         if not select_slicer:
@@ -111,6 +127,25 @@ class Query:
 
         self._records = records
         return True
+
+    def __get_column_names(self, query_def):
+        col_names = []
+        value_already_appended = False
+        if "fields" in query_def:
+            for field in query_def["fields"]:
+                if field == -1:
+                    col_names.append("value")
+                    value_already_appended = True
+                elif type(field) is dict:
+                    col_names.append(f"{field['dimension'].name}.{field['attribute']}")
+                else:
+                    col_names.append(query_def["dims"][field]["dimension"].name)
+        else:
+            for dimension in query_def["dims"]:
+                col_names.append(dimension["dimension"].name)
+        if not value_already_appended:
+            col_names.append("value")
+        return col_names
 
     def __resolve_where_clause(self, tokens):
         where_slicer = []
