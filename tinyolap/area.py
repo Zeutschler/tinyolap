@@ -456,6 +456,8 @@ class Area:
                                 f"supported for members in Area definition.")
 
         # ensure all members are from the same dimension
+        # todo: NO!!! Wrong behaviour! Areas shifts should support multiple dimensions.
+        #       We need this to be possible: ... area(('Jan', 'Feb), '2021', 'name of subset')
         idx_dim = idx_dims[0]
         for idx in idx_dims[1:]:
             if idx != idx_dim:

@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(1, os.path.abspath('../../'))
 sys.path.insert(2, os.path.abspath('../../tinyolap'))
+sys.path.insert(2, os.path.abspath('../../venv/lib/python3.9/site-packages'))
 
 # -- Project information -----------------------------------------------------
 

@@ -32,7 +32,7 @@ setup(
     version=VERSION,
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
-    classifiers=CLASSIFIERS,
+    # classifiers=[CLASSIFIERS],
     author="Thomas Zeutschler",
     keywords=['database', 'olap', 'molap', 'planning', 'simulation', 'forecasting',
               'multidimensional', 'cube', 'business rules', 'calculation'],

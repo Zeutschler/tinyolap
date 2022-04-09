@@ -6,7 +6,7 @@ Feature Backlog
 
 TinyOlap is work in progress. This is a **high-level** overview of the core features and overall development status.
 
-*Last Updated 16. November 2021*
+*Last Updated 9. April 2022*
 
 -----------------
 
@@ -58,7 +58,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 -----------------------------
 
 - **Slice** - Minimal implementation of a static report layout for console output.
-  Intended for TinyOlap development purposes mainly.
+  Intended for TinyOlap development and demo purposes mainly.
 
 - **SQLite Backend** - (default) for persistence of TinyOlap databases in a file. Stores
   all artefacts of a TinyOlap database incl. rules and history (upcoming) in an SQLite
@@ -68,12 +68,12 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
   database.
 
   .. note::
-        The SQLite backend is just for persistence. It is not used for any calcuation
-        purposes, therefore just stores json objects.
+        The SQLite backend is just for persistence. It is not used for any calculation
+        purposes, therefore mainly just stores json objects.
 
-- **Backend encryption** - SQlite databases do not support encryption. So everyone
-  with access to an SQLite database file can open and read the contents of the database.
-  TinyOlap supports three levels of encryption.
+- **Backend encryption** - SQlite databases themselves do not support proper encryption.
+  So everyone with access to an SQLite database file can open and read the contents of the database.
+  But TinyOlap supports three levels of encryption on the data level.
 
   - **NoEncryption** - (default) data is saved as is. This is the fastest approach.
 
@@ -83,7 +83,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
   - **Encryption** - Data is encrypted using Fernet symetric encryption. This can be
     seen as a secure encryption (although you'll never know). Please be aware, that
-    if you forget the password of an enrypted TinyOlap database, your work and data
+    if you forget the password of an encrypted TinyOlap database, your work and data
     is lost. For further information, please visit: https://github.com/fernet/spec
 
 -----------------
@@ -105,7 +105,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
     .. note::
           The *Finance Database* is quite complex example, that would take days or even weeks
-          for a consultant to build. Most of the code is related to create meaningfull sample data,
+          for a consultant to build. Most of the code is related to create meaningful sample data,
           therefore the code to create the database and ingest data is what you should look at
           to not get confused.
 
@@ -120,13 +120,19 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
   - **Tutor Database** - A small to medium sized OLAP data model for sales data. Based on a
     historic set of CSV and custom files from 1994. The dataset contains a 6-dimensional
-    data model containg 134,433 records and was shipped as a the sample database with
-    MIS Alea at that time (on a 3½-inch floppy disk).
+    data model containg 134,433 records and was shipped as the sample database with
+    MIS Alea at that time (and came on a single 3½-inch floppy disk).
+
+  - **Tutor Web Demo** - A super rudimentary web frontend on top of the Tutor database.
+    The idea was to provide something visual that help you to understand what an OLAP
+    database actually looks like. The one and ony `FastAPI <https://fastapi.tiangolo.com>`
+    was used to spin up a web-service.
 
 2. Under Development
 --------------------
 
-- **Web API** - A web API server, utilizing FastAPI, to serve TinyOlap databases.
+- **Web API** - A web API server, utilizing `FastAPI <https://fastapi.tiangolo.com>`, to
+  serve TinyOlap databases to web frontends and other clients.
 
 -----------------
 
@@ -139,7 +145,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
   .. attention::
     This is undoubtedly the most important component for the overall **success of TinyOlap**.
 
-  - **TextEditor** - For natutal language data processing through spacy. Some links
+  - **TextEditor** - For natural language processing through spacy. Some links
 
     - Monaco is th editor of choice:
       - Microsoft's Monaco Editor (VS-Code) https://microsoft.github.io/monaco-editor/
@@ -157,9 +163,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
     Available alternatives:
 
     - overview: https://github.com/FancyGrid/awesome-grid
-
     - overview https://jspreadsheets.com
-
     - high quality commercial component: https://handsontable.com
     - free and sufficient? http://w2ui.com/web/home
 
@@ -247,7 +251,7 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
             # aggregate all member of the subset 'new cars' of dimension 'cars'
             total_of_new_cars = c["cars:new cars"]     # specific
-            total_of_new_cars = c["new cars"]          # will work, if no conflicts occur
+            total_of_new_cars = c["new cars"]          # will also work, if no name conflicts occur
 
     - **Attribute Aggregations** - Aggregations based on member attribute values.
 
@@ -327,13 +331,6 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
 -----------------
 
-- **Samples Databases** - More samples.
-
-  - **Personal Expense Tracker Database** A simple data model to track and manage
-    monthly spend.
-
------------------
-
 - **CI/CD** - Automated CI/CD pipeline to publish to `tinyolap.com <https://www.tinyolap.com>`_.
 
 -----------------
@@ -361,8 +358,10 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
   TinyOlap database directly from within the browser as a client side application. Performance
   should be comparable to the current Python implementation.
 
------------------
+  As an alternative TinyOlap could be wrapped in **WASM** to run in a browser.
 
 - **Public Data Model Repository** - A community driven directory of data models for various purposes.
   Either to provide data models to others or data. Either as code and files (preferrable) or as
   prebuild TinyOlap databases, with data or without.
+
+- **Excel Client** - A client to view and edit (enter data) TinyOlap databases.

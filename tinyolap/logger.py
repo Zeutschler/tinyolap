@@ -1,6 +1,6 @@
 import logging
+import os
 from enum import Enum
-from os import path
 from pathlib import Path
 from timeit import default_timer as timer
 
@@ -39,7 +39,7 @@ class Logger:
     def delete_log_file(self):
         """Deletes the database log file."""
         try:
-            if path.exists(self.log_file):
+            if os.path.exists(self.log_file):
                 os.remove(self.log_file)
             return True
         except OSError:

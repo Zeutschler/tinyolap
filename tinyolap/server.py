@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-from typing import Dict
 
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.database import Database
@@ -12,7 +11,8 @@ from tinyolap.database import Database
 
 class Server:
     """
-    Represents a TinyOlap server instance serving one or more _databases.
+    Represents a TinyOlap server instance serving one or more databases.
+    Only needed when multiple databases need to be served through a single object.
     """
 
     class Settings:
@@ -144,5 +144,4 @@ class Server:
         if cube not in self._databases[database].cubes:
             raise KeyError(f"Cube '{cube}' of database '{database}' not found.")
         self._databases[database].cubes[cube]._register(func, pattern)
-
     # endregion

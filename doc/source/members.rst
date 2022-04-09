@@ -4,6 +4,6 @@
 Members
 ===============
 
-.. autoclass:: tinyolap.member_context.Member
+.. autoclass:: tinyolap.member.Member
     :members:
     :noindex:

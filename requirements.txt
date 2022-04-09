@@ -1,4 +1,8 @@
-dependency-injector>=4.0,<5.0
+# used by the core TinyOlap database engine
+cryptography
+sqlparse
+
+# used for samples and testing
 uvicorn
 fastapi
 Sphinx
@@ -8,6 +12,3 @@ sphinx-toolbox
 enum_tools
 psutil
 art
-cryptography
-numpy
-sqlparse

@@ -292,8 +292,8 @@ class Database:
             writing to the database file.
 
         :param name: Either a simple name or a fully qualified file path. If
-           the name does not represent a path, then the databse file will be
-           created in the default location '/db' or whatever is specified in
+           the name does not represent a path, then the database file will be
+           created in the default location */db* or whatever is specified in
            the config file for ``database_folder``.
 
         :param overwrite_if_exists: Defines if an already existing file should
@@ -301,12 +301,12 @@ class Database:
            an FileExistsError will be raised.
 
         :param in_memory: Identifies if the database should run in memory only (no persistence) or should persist
-        all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
-        given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
-        use the ``save()``method of the database object.
+           all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
+           given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
+           use the ``save()``method of the database object.
 
         :param encryption: Encryption method for database contents when ``ìn-memory = True``.
-        By default no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
+          By default no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
 
         .. note::
             If encryption is required, using ``encryption = EncryptionMethodEnum.Obfuscation`` should
@@ -316,7 +316,7 @@ class Database:
             password consisting of upper- and lower-case chatacter, number and special characters.
 
         :param password: Password for encryption. Require if any other encryption method is required than
-        ``encryption = EncryptionMethodEnum.NoEnryption``. Please ensure to remember the password.
+           ``encryption = EncryptionMethodEnum.NoEnryption``. Please ensure to remember the password.
 
         :return:
         """
@@ -408,7 +408,7 @@ class Database:
     def dimension_remove(self, dimension):
         """Removes a :ref:´dimension <dimensions>´ from the database.
 
-        :param dimension: Name of the dimension, or the :ref:`dimension <dimensions>´ object to be removed.
+        :param dimension: Name of the dimension, or the :ref:`dimension <dimensions>` object to be removed.
         :raises KeyNotFoundError: If the dimension not exists.
         """
         if type(dimension) is str:
@@ -440,18 +440,17 @@ class Database:
     # region Cube related methods
     def add_cube(self, name: str, dimensions: list, measures=None, description: str = None):
         """
-        Creates a new :ref:´cube<cubes>´ and adds it to the database.
-
+        Creates a new :ref:`cube<cubes>` and adds it to the database.
 
         :param name: Name of the cube to be created.
-        :param dimensions: A list of either names of existing dimensions of the database or
-        :ref:`dimension <dimensions>` objects contained in the database.
+        :param dimensions: A list of either names of existing dimensions of the database
+           or :ref:`dimension <dimensions>` objects contained in the database.
         :param measures: (optional) a measure name or a list of measures names for the cube.
-        If argument 'measures' is not defined, that a default measure named 'value' will be created.
+           If argument 'measures' is not defined, that a default measure named 'value' will be created.
         :param description: (optional) description for the cube.
         :return: The added cube object.
         :raises CubeCreationException: Raised if the creation of the cubed failed due to one
-        of the following reasons:
+           of the following reasons:
 
         * The cube name is not invalid. Cube have to consist of lower case alphanumeric characters
             or underscore only, blanks or special characters are not allowed.

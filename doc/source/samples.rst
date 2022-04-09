@@ -28,8 +28,8 @@ figures.
 2. Financial Planning Database
 ------------------------------
 
-.. note::
-   Coming soon. Under development.
+.. attention::
+   Under development. Coming soon.
 
 **Usage:** Open and/or start the script *...tinyolap/samples/finance.py*
 
@@ -63,8 +63,9 @@ It provides the following features, leveraging many of TinyOlap's capabilities:
 
 Purpose of the Huge data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The **Huge** data model is - in contrast - larger demo database (at least for TinyOlap),
-created by some lines of Python code. It shows how TinyOlap behaves on larger data sets.
+
+The **Huge** data model is a already a larger database, at least for TinyOlap.
+It shows how TinyOlap behaves on larger data sets.
 You can play around with the parameters ``numbers_of_records``  (default = 1,000,000),
 ``numbers_of_dimensions`` (default = 8) and ``members_per_dimension (default = 100) to
 check how the database behaves and perform.
@@ -115,15 +116,30 @@ one of the first *true* MOLAP databases available. MIS Alea was developed by the
 Darmstadt, Germany. Actutally MIS Alea was a clone of TM/1, which itself was developed
 by `Manny Perez <https://cubewise.com/history/>`_ at Sinper Corp., USA. After several
 company transitions, MIS Alea is still successful in the BI market and is now owned
-by Infor and currently called **Infor d/EPM v12**, if I'm not mistaken.
+by Infor and currently called **Infor d/EPM**, if I'm not already changed.
 
 The Tutor database is in german language, but it should be understandable for everyone.
 The TXT files in the folder *tutor* are the original files ship with the database on a
 3½-inch disk at around 1995, they are single-byte **latin-1** encoded (ISO 8859-1).
 
---------------------------------------
-6. Tiny42 - TinyOlap multi-processsing
---------------------------------------
+-------------------------------
+6. Tutor Web Demo
+-------------------------------
+
+**Usage:** Open and/or start the script *...tinyolap/samples/tutor_web_demo.py*
+
+Purpose of the Tutor WEb Demo
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The **tutor web demo** simply spins up very rudimentary web service on top of
+the Tutor data model described above.
+
+The implementation is lousy (I'm not a frontend guy) and is intended to showcase
+the slice feature of TinyOlap and to provide a nicer visual interface. All other samples
+just create console output.
+
+----------------------------------------
+7. Tiny42 - TinyOlap parallel-processing
+----------------------------------------
 
 **Usage:** Open and/or start the script *...tinyolap/samples/tiny42.py*
 

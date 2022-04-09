@@ -96,17 +96,19 @@ class TestArea(TestCase):
         cube.clear()
         self.fill_all_cells(cube, 1.0)
 
-        # area = area * factor
+        # an address from within target range 'Feb"
         address = ("2020", "Feb", "North", "A", "Sales")
         value_before = cube.get(address)
         self.assertEqual(1.0, value_before)
 
         area = cube.area("2020")
 
+        # copy a modified source area to a target area
         area["Feb"] = area["Jan"] * 3.0
         value_after = cube.get(address)
         self.assertEqual(3.0, value_after)
 
+        # direct mathematical operations
         area["Feb"] /= 3.0
         value_after = cube.get(address)
         self.assertEqual(1.0, value_after)
@@ -122,9 +124,13 @@ class TestArea(TestCase):
         with self.assertRaises(Exception):
             area["Feb"] = area["2021"]
 
+        # todo: NO!!! Wrong behaviour! Areas shifts should support multiple dimensions.
+        #       We need this to be possible: ... area(('Jan', 'Feb), '2021', 'name of subset')
+        #       see: area.py.__get_members(...)
+        with self.assertRaises(Exception):
+            area["2020", "Feb"] = area["Jan", "2021"]
         with self.assertRaises(Exception):
             area["Feb"] = area["Jan", "2021"]
-
 
 
     def create_database(self):
