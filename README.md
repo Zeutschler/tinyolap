@@ -1,4 +1,5 @@
-![TinyOlap logo](/doc/source/_logos/cube16.png)  TinyOlap is still under active development and not yet on PyPi.
+![TinyOlap logo](/doc/source/_logos/cube16.png)  TinyOlap is still under active development and not 
+yet available on [PyPi.org](https://pypi.org).
 # TinyOlap 
 
 TinyOlap is a light-weight, client-side, model-driven, cell-oriented, multi-dimensional OLAP 
