@@ -15,10 +15,10 @@ Let's try to build a data model to support the quarterly business planning proce
 
     from tinyolap.database import Database
 
-    # setup a new database
+    # setup a new TinyOlap database
     db = Database("tesla")
 
-    # define dimensions
+    # create some dimensions 
     data_type = db.dimension_add("datatype")
                 .member_add(["Actual", "Plan", "Act vs. Pl"])
     years = db.dimension_add("years")
@@ -42,7 +42,7 @@ that the order of the dimension members in the slicer really matters.
     cube["Actual", "2021", "Q2", "West", "Model S"] = 500.0
     cube["Actual", "2021", "Q3", "West", "Model 3"] = 20.0
 
-    # read values
+    # read some values
     v = cube["Actual", "2021", "Q1", "North", "Model S"]  # returns 1000.0
     v = cube["Actual", "2025", "Q1", "East", "Model X"]   # returns 0.0
     v = cube["Actual", "2021", "Year", "West", "Total"]   # returns 1500.0
