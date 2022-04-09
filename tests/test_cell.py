@@ -2,14 +2,14 @@ import math
 import unittest
 from unittest import TestCase
 
-from samples.tiny import load_tiny
+from samples.tiny import create_tiny_database
 from tinyolap.exceptions import InvalidCellAddressException
 
 
 class TestCell(TestCase):
 
     def setUp(self) -> None:
-        self.db = load_tiny()
+        self.db = create_tiny_database()
         self.cube = self.db.cubes["sales"]
 
     def test_initialization(self):

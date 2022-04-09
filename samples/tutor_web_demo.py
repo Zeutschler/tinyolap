@@ -18,14 +18,14 @@ from tinyolap.slice import Slice
 from tinyolap.server import Server
 
 from samples.tutor import load_tutor
-from samples.tiny import load_tiny
+from samples.tiny import create_tiny_database
 
 sys.path.append('..')
 
 # TinyOlap
 server = Server()
 server.add_database(load_tutor())
-server.add_database(load_tiny())
+server.add_database(create_tiny_database())
 
 caching = False  # Switch True / False to enable / disable caching in cubes
 server["tutor"].caching = caching

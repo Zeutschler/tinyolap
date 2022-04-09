@@ -46,6 +46,8 @@ class Area:
         self._rows = set()
         self._modifiers = []
         self._func = None
+        self._pinned = False
+        self._pinned_records = []
 
     def __len__(self):
         if not self._rows:
@@ -57,15 +59,21 @@ class Area:
 
     # region Area manipulation via indexing/slicing
     def __getitem__(self, args):
-        return self.clone().alter(args)
+        area = self.clone().alter(args)
+        # We need to pin (freeze) the current state and data of the area
+        # as source and target area in area-operations can overlap (or even be identical)
+        # and would cause inconsistent operations. Lazy operations (using 'yield') would fail.
+        area._pinned = True
+        area._pinned_records = area._raw_records()
+        return area
 
     def __setitem__(self, args, value):
         if type(value) is Area:
-            item_area = self.clone().alter(args)
-            item_area._apply_other_area(args, value)
+            area = self.clone().alter(args)
+            area._apply_other_area(args, value)
         else:
-            item_area = self.clone().alter(args)
-            item_area.set_value(value)
+            area = self.clone().alter(args)
+            area.set_value(value)
 
     def __delitem__(self, args):
         item_area = self.clone().alter(args)
@@ -98,6 +106,30 @@ class Area:
 
             yield record
 
+    def _raw_records(self) -> list:
+        """
+        Generator to loop over existing items of the data area.
+        Returns nested tuples in the form ((dim_member1, ... , dim_memberN), value).
+        """
+        # if not self._rows:
+        # refresh dat area
+        rows = self._cube._facts.query_area(self._idx_area_def)
+        self._rows = rows
+        records = []
+        facts = self._cube._facts
+        idx_measure = 0
+        super_level = 0
+        for row in self._rows:
+            # idx_address = facts.addresses[row]
+            record = list(facts.addresses[row])
+            # for key in facts.facts[row]:
+            #     value = facts.facts[row][key]
+            #     record.append(value)
+
+            # create a (idx_address, value) tuple for direct use
+            records.append((record, dict(facts.facts[row])))
+        return records
+
     def addresses(self, include_cube_name: bool = False):
         """
         Generator to loop over existing addresses of the data area.
@@ -116,6 +148,7 @@ class Area:
     def alter(self, *args) -> Area:
         """Alters the data area, based on the given arguments."""
         self._validate(args, alter=True)
+        # self._modifiers = []
         self.refresh()
         return self
 
@@ -491,26 +524,46 @@ class Area:
                                f"a['Jan'] = a['2022'] would not be valid, because of different dimensions.")
 
             if not self.identical_modifiers(self._modifiers, other._modifiers):
-                self.clear()
+                self.clear()  # clear the target area
 
-            if not other._rows:
+            if other._pinned:
+                for record in other._pinned_records:
+                    idx_address = record[0]
+                    values = record[1]
+
+                    for modifier in self._modifiers:
+                        idx_dim = modifier[0]
+                        idx_member = modifier[2][0]
+                        idx_address[idx_dim] = idx_member
+
+                    for key in values:
+                        value = values[key]
+                        if other._func:
+                            value = other._func(value)
+                        bolt = (0, tuple(idx_address), key)
+                        self._cube._set(bolt, value)
+                        # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+
+            else:
+                if not other._rows:
+                    other.refresh()
                 other.refresh()
 
-            facts = other._cube._facts
-            for row in other._rows:
-                idx_address = list(facts.addresses[row])
-                for modifier in self._modifiers:
-                    idx_dim = modifier[0]
-                    idx_member = modifier[2][0]
-                    idx_address[idx_dim] = idx_member
+                facts = other._cube._facts
+                for row in other._rows:
+                    idx_address = list(facts.addresses[row])
+                    for modifier in self._modifiers:
+                        idx_dim = modifier[0]
+                        idx_member = modifier[2][0]
+                        idx_address[idx_dim] = idx_member
 
-                for key in facts.facts[row]:
-                    value = facts.facts[row][key]
-                    if other._func:
-                        value = other._func(value)
-                    bolt = (0, tuple(idx_address), key)
-                    self._cube._set(bolt, value)
-                    # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+                    for key in facts.facts[row]:
+                        value = facts.facts[row][key]
+                        if other._func:
+                            value = other._func(value)
+                        bolt = (0, tuple(idx_address), key)
+                        self._cube._set(bolt, value)
+                        # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
 
     def identical_modifiers(self, modifiers_a, modifiers_b) -> bool:
         if len(modifiers_a) != len(modifiers_b):

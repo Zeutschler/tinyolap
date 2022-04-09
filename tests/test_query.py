@@ -1,7 +1,7 @@
 from unittest import TestCase
 import time
 from tinyolap.query import Query
-from samples.tiny import load_tiny, play_tiny
+from samples.tiny import create_tiny_database, play_tiny
 
 
 class TestQuery(TestCase):
