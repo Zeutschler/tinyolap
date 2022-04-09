@@ -5,7 +5,9 @@ database for **planning, budgeting, reporting, analysis and many other purposes*
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
 be also suitable for all Python and database skills levels.
 
-To get started, please visit our documentation: https://tinyolap.com 
+To get started, please visit our documentation: [https://tinyolap.com](https://tinyolap.com)
+
+If you're curious, just clone the repo and check out and run /samples/tiny.py [tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
 
 TinyOlap is written in plain Python. Not a clever idea for a database, you might think. 
 And you're right, TinyOlap is not as fast as comparable commercial products like 
