@@ -1,5 +1,4 @@
-![TinyOlap logo](/doc/source/_logos/cube32.png) This repo is under active development...
-
+![TinyOlap logo](/doc/source/_logos/cube16.png)  Please note that TinyOlap is still under active development.
 # TinyOlap 
 
 TinyOlap is a light-weight, client-side, model-driven, cell-oriented, multi-dimensional OLAP 
