@@ -10,10 +10,10 @@ be suitable for all levels of Python and database skills. Enjoy...
 ## Getting started
 **To get started**, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)
 
-Or, for the curious, just clone the repo and run our most basic sample [/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
+Or, for the curious, just clone this repo and run the most basic sample [/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
 
 ## How To Set up A Simple Database
-Let's try to build a data model to support the quarterly business planning process of a well-known car manufacturer.
+Let's see how you can build a TinyOlap data model, e.g., to support the quarterly business planning process of a well-known car manufacturer.
 
     from tinyolap.database import Database
 
@@ -39,7 +39,7 @@ Now that our 5-dimensional database is setup, we can start to write data to and 
 TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant cell access. PLease be aware,
 that the order of the dimension members in the slicer really matters.
 
-    # write some value to the cube
+    # write some values to the cube
     cube["Actual", "2021", "Q1", "North", "Model S"] = 1000.0
     cube["Actual", "2021", "Q2", "West", "Model S"] = 500.0
     cube["Actual", "2021", "Q3", "West", "Model 3"] = 20.0
@@ -47,16 +47,14 @@ that the order of the dimension members in the slicer really matters.
     # read some values
     v = cube["Actual", "2021", "Q1", "North", "Model S"]  # returns 1000.0
     v = cube["Actual", "2025", "Q1", "East", "Model X"]   # returns 0.0
-    v = cube["Actual", "2021", "Year", "West", "Total"]   # returns 1500.0
-    v = cube["Actual", "2021", "Year", "Total", "Total"]  # returns 1520.0
+    v = cube["Actual", "2021", "Year", "West", "Total"]   # returns 1500.0, an aggregated number
+    v = cube["Actual", "2021", "Year", "Total", "Total"]  # returns 1520.0, an aggregated number
 
 To dive deeper, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)
 
 ## Why Building An In-Memory Database In Plain Python? 
 TinyOlap started as a by-product of a research project - we simply needed a super-light-weight MOLAP database. 
-But there was none that fits our needs, so I build one. TinyOlap is very suitable for educational purposes in computer 
-science as well as in business studies. I also used TinyOlap for my master class students in "Business Analytics" 
-at the HSD University for Applied Science in Düsseldorf (Germany) to show case the use of an OLAP database. 
+But there was none that fits our needs, so I build one.
 
 TinyOlap is also a reminiscence and homage to the early days of OLAP databases, where great products like 
 Applix TM/1 or MIS Alea enabled business users to build expressive data models with dimension, cubes and complex 
