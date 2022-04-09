@@ -3,30 +3,11 @@
 TinyOlap is a light-weight, client-side, model-driven, cell-oriented, multi-dimensional OLAP 
 database for **planning, budgeting, reporting, analysis and many other purposes**. 
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
-be also suitable for all Python and database skills levels.
+be suitable for all levels of Python and database skills. Enjoy...
 
-To get started, please visit our documentation: [https://tinyolap.com](https://tinyolap.com)
+**To get started**, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)
 
-If you're curious, just clone the repo and check out and run /samples/tiny.py [tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
-
-TinyOlap is written in plain Python. Not a clever idea for a database, you might think. 
-And you're right, TinyOlap is not as fast as comparable commercial products like 
-IBM's TM/1, Jedox's Palo, Infor's BI OLAP or SAP HANA or intended to replace such solution. 
-
-But TinyOlap is fast enough for most use cases (especially when we talk about planning). For being made of 
-simple Python arrays, dicts and sets only TinyOlap is even **impressively fast**. That said, TinyOlap is not 
-intended to be used for any kind of mass data processing, also because it's not very memory effective.  
-
-But TinyOlap has another huge advantage over the mentioned commercial products. **You can write your business 
-logic in beautiful Python** and enjoy the [pythonic way](https://www.udacity.com/blog/2020/09/what-is-pythonic-style.html). 
-of coding.
-
-Please check and play with the provided examples. **Warning**: the *company.py* example has real-world size and 
-complexity for the financial planning and reporting of a large international (fantasy) enterprise. 
-
-**Multi-user support?** TinyOlap is not a client-server database, it resides in your current Python process 
-and persists to an SQLite database file. But through the included (optional) web-API, using the great
-[Fast-API](https://fastapi.tiangolo.com), you can also build applications that can serve some handfull of users.
+Or, just clone the repo and run our most basic sample [/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
 
 ## How to use TinyOlap
 As said, TinyOlap is a '*model-driven OLAP database*'. That implies, that you first need to build a data model 
@@ -55,7 +36,7 @@ Let's say you need to do a business plan for your car company for the next year 
    - **Cube:[tesla]** := [datatype, years, monyths, products, countries, measures]
    
 
-## Why building an in-memory databse in plain Python? 
+## Why building an in-memory database in plain Python? 
 TinyOlap started as a by-product of a research project - I simply needed a super-light-weight MOLAP database. 
 But there was no, so I build one. TinyOlap is very suitable for educational purposes in computer science as well as 
 in business studies. I use TinyOlap for my master class students in "Business Analytics" at the HSD University for 
@@ -78,22 +59,21 @@ database. If you have shared drive, it even becomes a no-brainer. In addition,
 a TinyOlap database can also directly act as a web server to serve a small group 
 of users for simple use cases (see limitations).
 
-## Limitations
-As of today, TinyOlap is built upon the relational database SQLite 
-(https://www.sqlite.org). This implies that TinyOlap is subject to certain 
-limitations, for instance:
+## Some Background Remarks
+TinyOlap is written in plain Python. Not a clever idea for a database, you might think. 
+And you're right, TinyOlap is not as fast as comparable commercial OLAP databases like 
+IBM's TM/1, Jedox's Palo, Infor's BI OLAP or SAP HANA. Especially TinyOlap is not intended to replace such solution. 
 
-- SQLite is not a client-server database, so TinyOlap is not one.
-  Saying that, TinyOlap in server-mode should serve a team of up to 10 users 
-  just fine.
-- TinyOlap is not intended for mass data processing. Although also more than
-  1 million records will work fine, it can get a bit too slow for your use. 
-  case. That said, 1 million records is already huge amount of data a planning
-  & reporting purposes.
-- The calculations capabilities of TinyOlap are sufficient for most
-  planning uses cases. But still - especially when comapre to products like 
-  TM/1 - they maybe not sufficient for advanced use cases. 
+But **TinyOlap is fast enough** for most use cases (especially when we talk about planning). While being made of 
+simple Python arrays, dicts and sets only, TinyOlap is even **impressively fast**. That said, TinyOlap is not 
+intended to be used for any kind of mass data processing, also because it's not super memory efficient.  
 
-## Usage 
+But TinyOlap has another huge advantage over the mentioned commercial products. **You can write your business 
+logic in beautiful Python** and enjoy the [pythonic way](https://www.udacity.com/blog/2020/09/what-is-pythonic-style.html). of coding great applications.
 
-Please give it a try
+Please check and play with the provided samples.
+
+**Multi-user support?** TinyOlap is not a client-server database, it resides in your current Python process 
+and persists to an SQLite database file. But through the included (optional) web-API, using the great
+[Fast-API](https://fastapi.tiangolo.com), you can also build applications that can serve some handfull of users.
+
