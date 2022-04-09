@@ -5,75 +5,63 @@ database for **planning, budgeting, reporting, analysis and many other purposes*
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
 be suitable for all levels of Python and database skills. Enjoy...
 
+## Getting started
 **To get started**, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)
 
-Or, just clone the repo and run our most basic sample [/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
+Or, for the curious, just clone the repo and run our most basic sample [/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
 
-## How to use TinyOlap
-As said, TinyOlap is a '*model-driven OLAP database*'. That implies, that you first need to build a data model 
-defining your data space. Then you can import data, write data to individual cells or areas in the database or enter 
-data manually through a frontend. TiynOlap does not (yet) provide a frontend, but an Excel add-in and a web frontend 
-are on the list.
+## How To Set up A Simple Database
+Let's try to build a data model to support the quarterly business planning process of a well-known car manufacturer.
 
-### Example
-Let's say you need to do a business plan for your car company for the next year based on actual data.
-1. The first step is to think about the **dimensions** that best describe your business. e.g., you want plan 
-   monthly figures for the upcoming year. The best way is to split this up into 2 separate dimensions, one for 
-   the **monthes** and one for the **years**. 
+    from tinyolap.database import Database
+
+    # setup a new database
+    db = Database("tesla")
+
+    # define dimensions
+    data_type = db.dimension_add("datatype")
+                .member_add(["Actual", "Plan", "Act vs. Pl"])
+    years = db.dimension_add("years")
+                .member_add(["2021", "2022", "2023", "2024", "2025"])
+    periods = db.dimension_add("periods")
+                .member_add("Year", ["Q1", "Q2", "Q3", "Q4"])
+    regions = db.dimension_add("regions")
+                .member_add("Total", ["North", "South", "West", "East"])
+    products = db.dimension_add("products")
+                .member_add("Total", ["Model S", "Model 3", "Model X", "Model Y"])
+
+    # create a cube
+    cube = db.cube_add("sales", [data_type, years, periods, regions, products])
+
+Now that our 5-dimensional database is setup, we can start to write data to and read data from the cube.
+TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant cell access. PLease be aware,
+that the order of the dimension members in the slicer really matters.
+
+    # write some value to the cube
+    cube["Actual", "2021", "Q1", "North", "Model S"] = 1000.0
+    cube["Actual", "2021", "Q2", "West", "Model S"] = 500.0
+    cube["Actual", "2021", "Q3", "West", "Model 3"] = 20.0
+
+    # read values
+    v = cube["Actual", "2021", "Q1", "North", "Model S"]  # returns 1000.0
+    v = cube["Actual", "2025", "Q1", "East", "Model X"]   # returns 0.0
+    v = cube["Actual", "2021", "Year", "West", "Total"]   # returns 1500.0
+    v = cube["Actual", "2021", "Year", "Total", "Total"]  # returns 1520.0
    
-   Then you have your **products**, and the **countries** you sell 
-   them to. Finally, you need to differentiate between actual and plan, and also have some figures like Sales, 
-   Cost and Income. All this accumulates in the following **6 dimensions** fully representing your business:
-   - **[datatype]** := Actual, Plan, Forecast
-   - **[years]** := 2020, 2021, 2022, ...
-   - **[months]** := Jan, Feb, ... , Dec, **Q1**, ... **Q4**, **Year**
-   - **[products]** := Model 3, Model S, Model X, **Total**
-   - **[countries]** := USA, Canada, Mexico, **North America**, ... , **Europe**, **Total**
-   - **[measures]** := Quantity, Sales, Cost, **Income**, Tax, **Net Income**
 
-2. The second and already last step is to **build a cube** - a multidimensional space, equivalent to a table in a 
-   relational database - to holds your data. Let's call this cube **'Tesla'**
-   - **Cube:[tesla]** := [datatype, years, monyths, products, countries, measures]
-   
-
-## Why building an in-memory database in plain Python? 
-TinyOlap started as a by-product of a research project - I simply needed a super-light-weight MOLAP database. 
-But there was no, so I build one. TinyOlap is very suitable for educational purposes in computer science as well as 
-in business studies. I use TinyOlap for my master class students in "Business Analytics" at the HSD University for 
-Applied Science in Düsseldorf (Germany). Although Tinyolap is escpecially helpfull for experimental business purposes.
+## Why Building An In-Memory Database In Plain Python? 
+TinyOlap started as a by-product of a research project - we simply needed a super-light-weight MOLAP database. 
+But there was none that fits our needs, so I build one. TinyOlap is very suitable for educational purposes in computer 
+science as well as in business studies. I also used TinyOlap for my master class students in "Business Analytics" 
+at the HSD University for Applied Science in Düsseldorf (Germany) to show case the use of an OLAP database. 
 
 TinyOlap is also a reminiscence and homage to the early days of OLAP databases, where great products like 
 Applix TM/1 or MIS Alea enabled business users to build expressive data models with dimension, cubes and complex 
 business logic in just a few minutes our hours. Unfortunately, these products have grown up to complex and 
-very expensive client-server database technologies, all striving for the ultimate performance on mass data 
-processing and high number of concurrent users.
+expensive client-server database technologies, all striving for the ultimate performance on mass data 
+processing and high number of concurrent users - there is no small and cheap MOLAP database anymore.
 
 In contrast, TinyOlap is intended to stay **free, simple and focussed** on 
 client-side planning, budgeting, calculations and analysis purposes. TinyOlap provides sub-second 
 response for most queries (see limitations below) and supports instant 
 *dimensional modelling* - e.g., adding new members to dimensions or adding new calculations.
-
-To support at least some kind of **multiuser scenarios**, TinyOlap provides a very simple, file-based 
-asynchronous data synchronization between multiple users and instances of a
-database. If you have shared drive, it even becomes a no-brainer. In addition, 
-a TinyOlap database can also directly act as a web server to serve a small group 
-of users for simple use cases (see limitations).
-
-## Some Background Remarks
-TinyOlap is written in plain Python. Not a clever idea for a database, you might think. 
-And you're right, TinyOlap is not as fast as comparable commercial OLAP databases like 
-IBM's TM/1, Jedox's Palo, Infor's BI OLAP or SAP HANA. Especially TinyOlap is not intended to replace such solution. 
-
-But **TinyOlap is fast enough** for most use cases (especially when we talk about planning). While being made of 
-simple Python arrays, dicts and sets only, TinyOlap is even **impressively fast**. That said, TinyOlap is not 
-intended to be used for any kind of mass data processing, also because it's not super memory efficient.  
-
-But TinyOlap has another huge advantage over the mentioned commercial products. **You can write your business 
-logic in beautiful Python** and enjoy the [pythonic way](https://www.udacity.com/blog/2020/09/what-is-pythonic-style.html). of coding great applications.
-
-Please check and play with the provided samples.
-
-**Multi-user support?** TinyOlap is not a client-server database, it resides in your current Python process 
-and persists to an SQLite database file. But through the included (optional) web-API, using the great
-[Fast-API](https://fastapi.tiangolo.com), you can also build applications that can serve some handfull of users.
-
