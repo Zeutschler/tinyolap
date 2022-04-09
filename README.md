@@ -47,7 +47,8 @@ that the order of the dimension members in the slicer really matters.
     v = cube["Actual", "2025", "Q1", "East", "Model X"]   # returns 0.0
     v = cube["Actual", "2021", "Year", "West", "Total"]   # returns 1500.0
     v = cube["Actual", "2021", "Year", "Total", "Total"]  # returns 1520.0
-   
+
+To dive deeper, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)
 
 ## Why Building An In-Memory Database In Plain Python? 
 TinyOlap started as a by-product of a research project - we simply needed a super-light-weight MOLAP database. 
