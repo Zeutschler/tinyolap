@@ -164,7 +164,7 @@ TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant 
 
 To learn more on how to build :ref:`databases<databases>`, :ref:`dimensions <dimensions>`
 and :ref:`cubes <cubes>` and all the cool and advanced feature of TinyOlap, please continue
-with the :ref:`getting started guide<setup>`.
+with the :ref:`getting started guide<getting_started>`.
 
 
 

@@ -3,6 +3,7 @@
 ===============
 Rules
 ===============
+
 A multidimensional database - like TinyOlap - that can aggregate numbers over hierarchies is already a nice thing.
 But the real fun begins, when you want to add business logic to your database. In a relational database you can use
 triggers and write ystore procedures, or define you business logic at query time either by individual SQL statements
@@ -54,6 +55,7 @@ Rules usually consists of 3 main parts:
 
 
 .. code:: python
+
     @rule(cube="sales", trigger=["delta"])
     def rule_profit(c: Cell):
         return c["actual"] - c["plan"]
@@ -65,6 +67,8 @@ Simple Rules
 Sample of a proper rule:
 
 .. code:: python
+
+    @rule("sales", ["avg. price"], scope=RuleScope.ALL_LEVELS, volatile=False)
     def rule_average_price(c : tinyolap.context):
         quantity = c["quantity"]
         sales = c["sales"]
@@ -72,14 +76,10 @@ Sample of a proper rule:
         if quantity is float and sales is float:
             if quantity != 0.0:
                 return sales / quantity
-            return "n.a."  # the developer decided to return some text, what is totally fine.
+            return "n.a."  # the rule developer decided to return some text. That is totally fine.
         return c.CONTINUE
 
 
-
-
-in Python
-model-driven databases starts when you define business
 
 .. autoenum:: tinyolap.rules.RuleScope
     :members:

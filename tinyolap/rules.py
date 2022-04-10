@@ -16,10 +16,10 @@ enum_tools.documentation.INTERACTIVE = True
 @enum_tools.documentation.document_enum
 class RuleError(Enum):
     """Defines error values raised by rules, useing an Excel-alike error format."""
-    DIV0 = "#DIV/0!"   # doc: Devision by zero.
+    DIV0 = "#DIV/0!"  # doc: Devision by zero.
     VALUE = "#VALUE!"  # doc: Invalid argument type, e.g. a number was used instead of an expected string.
-    REF = "#REF!"      # doc: Invalid reference to a member, dimension, attribute or cube name.
-    ERROR = "#ERR!"    # doc: An unknown or unhandable error occurred.
+    REF = "#REF!"  # doc: Invalid reference to a member, dimension, attribute or cube name.
+    ERROR = "#ERR!"  # doc: An unknown or unhandable error occurred.
 
 
 @enum_tools.documentation.document_enum
@@ -32,7 +32,7 @@ class RuleScope(IntEnum):
     BASE_LEVEL = 3  # doc: Indicates that the rule should be executed for base level cells only.
     ROLL_UP = 4  # doc: Indicates that the rule should replace the base level cell value from the database by the results of the rule. This can dramatically slow down aggregation speed. Requires a special trigger to be set.
     ON_ENTRY = 5  # doc: Indicates that these rules should be executed when cell values are set or changed. This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
-    COMMAND = 6 # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
+    COMMAND = 6  # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
 
     def __eq__(self, other):
         return self.value == int(other)
@@ -64,7 +64,7 @@ class RuleInjectionStrategy(IntEnum):
     database and persist it with the database. The next time the database will be opened,
     your code will be automatically instantiated and run from within the TinyOlap engine
     itself. You can at anytime override / replace these injected rules with your own
-    code by calling calling the ``add_rule(...)`` method provide by the *cube* class.
+    code by calling  the ``add_rule(...)`` method provide by the *cube* class.
 
     There are 4 different strategies available how to inject rules into a TinyOlap
     database. Depending on your use case, you should try to use the most restrictive
@@ -94,8 +94,9 @@ class Rule:
     """
     Represents a rule, defining custom calculations or business logic to be assigned to a cube.
     """
-    def __init__(self, function, name:str, cube: str, trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
-                 scope: RuleScope, injection: RuleInjectionStrategy, code: str = None ):
+
+    def __init__(self, function, name: str, cube: str, trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
+                 scope: RuleScope, injection: RuleInjectionStrategy, code: str = None):
         self.function = function
         self.cube: str = cube
         self.name: str = name
@@ -111,12 +112,16 @@ class Rules:
     """Represemts a list of rules. Rules define custom calculations or business logic to be assigned to a cube.
 
     Rules consist two main components:
+
     * A trigger or trigger, defining the context for which the rule should be executed
+
     * A scope, defining to which level of data the rule should be applied.
       Either for base level cells, aggregated cells, all cells or on write back of values.
+
     * A function, defining the custom calculation or business logic. This can be any Python method or function.
 
-    .. information::
+    .. attention::
+
         Rules functions have to be implemented as a simple Python function with just one single parameter and
         a return value. The single parameter should be called 'c' and will contain an TinyOlap Cell, representing
         the current cell context the rule should be calculated for.
@@ -126,15 +131,18 @@ class Rules:
         constants which are directly available from within a cursor object.
 
         * **NONE** - Indicates that rules function was not able return a proper result (why ever).
+
         * **CONTINUE** - Indicates that either subsequent rules should continue and do the calculation work
            or that the cell value, either from a base-level or an aggregated cell, form the underlying cube should
            be used.
+
         * **ERROR** - Indicates that the rules functions run into an error. Such errors will be pushed up to initially
           calling cell request.
 
         Sample of a proper rule:
 
         .. code:: python
+
             def rule_average_price(c : tinyolap.context):
                 quantity = c["quantity"]
                 sales = c["sales"]
@@ -189,7 +197,7 @@ class Rules:
         else:
             # add first rule and pattern for this scope
             self.rules[scope] = [rule]
-            self.patterns[scope] =[rule.idx_trigger_pattern]
+            self.patterns[scope] = [rule.idx_trigger_pattern]
 
     def match(self, scope: RuleScope, idx_address: list[tuple[int, int]]) -> (bool, object):
         """
@@ -198,18 +206,19 @@ class Rules:
         :param scope: The rule scope for which a matching rule is requested.
         :param idx_address: The cell address (in index int format) to be evaluated.
         :return: Returns a tuple (True, *function*) if at least one trigger matches,
-        *function* is the actual rules function to call, or (False, None) if none
-        of the patterns matches the given cell idx_address.
+            *function* is the actual rules function to call, or (False, None) if none
+            of the patterns matches the given cell idx_address.
+
         """
         patterns = self.patterns.get(scope)
         if patterns:
             for idx, function_pattern in enumerate(patterns):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
-                for dim_pattern in function_pattern:   # e.g. (0,3) >> dim0 = member3
+                for dim_pattern in function_pattern:  # e.g. (0,3) >> dim0 = member3
                     if idx_address[dim_pattern[0]] != dim_pattern[1]:
                         break
                 else:
                     return True, self.rules[scope][idx].function  # this statement will be executed only,
-                                                                  # if the inner loop did NOT break
+                    # if the inner loop did NOT break
 
         return False, None
 
@@ -269,14 +278,15 @@ class Rules:
 
         :param idx_address: The cell address in index number_format.
         :return: Returns a tuple (True, *function*) if at least one trigger matches,
-        *function* is the actual rules function to call, or (False, None) if none
-        of the patterns matches the given cell idx_address.
+            *function* is the actual rules function to call, or (False, None) if none
+            of the patterns matches the given cell idx_address.
+
         """
-        for idx, function_pattern in enumerate(self.pattern_idx):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
-            for dim_pattern in function_pattern:   # e.g. (0,3) >> dim0 = member3
+        for idx, function_pattern in enumerate(
+                self.pattern_idx):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
+            for dim_pattern in function_pattern:  # e.g. (0,3) >> dim0 = member3
                 if idx_address[dim_pattern[0]] != dim_pattern[1]:
                     break
             else:
                 return True, self.functions[idx]  # this will be executed only if the inner loop did NOT break
         return False, None
-
