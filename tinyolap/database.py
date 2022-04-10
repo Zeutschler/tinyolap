@@ -31,7 +31,7 @@ class Database:
     # Note: 32 dimensions is already huge for a model-driven OLAP database.
     MAX_MEASURES_PER_CUBE = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS_PER_CUBE)
 
-    def __init__(self, name: str = None, in_memory: bool = False,
+    def __init__(self, name: str = None, in_memory: bool = True,
                  encryption: EncryptionMethodEnum = EncryptionMethodEnum.NoEnryption,
                  password: str = None):
         """

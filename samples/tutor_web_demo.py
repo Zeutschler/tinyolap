@@ -27,7 +27,7 @@ server = Server()
 server.add_database(load_tutor())
 server.add_database(create_tiny_database())
 
-caching = False  # Switch True / False to enable / disable caching in cubes
+caching = True  # Switch True / False to enable / disable caching in cubes
 server["tutor"].caching = caching
 server["tutor"].cubes["Verkauf"].caching = caching
 report_def = None

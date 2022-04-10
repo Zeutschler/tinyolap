@@ -564,6 +564,29 @@ class Dimension:
             children.append(self.members[idx][self.NAME])
         return children
 
+    def member_get_leave_children(self, member: str):
+        """
+        Returns a list of all leave (base level) children (or grand children) of a member.
+
+        :param member: Name of the member to be evaluated.
+        :return: List of children.
+        :raises KeyError: Raised if the member does not exist.
+        """
+        if member not in self._member_idx_lookup:
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+        if self.members[self._member_idx_lookup[member]][self.LEVEL] == 0:
+            # already a base member, return that
+            return [member, ]
+        children = []
+        for idx in self.members[self._member_idx_lookup[member]][self.CHILDREN]:
+            if self.members[idx][self.LEVEL] > 0:
+                members = self.member_get_leave_children(self.members[idx][self.NAME])
+                children.extend(members)
+            else:
+                children.append(self.members[idx][self.NAME])
+        return children
+
+
     def member_get_level(self, member: str):
         """
         Returns the level of a member within the member hierarchy.

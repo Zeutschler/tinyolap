@@ -40,7 +40,7 @@ class TestDatabasePersistence(TestCase):
         self.assertTrue(Path(file_path).exists(), "Database file exists.")
 
         # (re)open the database
-        db = Database(self.db_name)
+        db = Database(self.db_name, in_memory=False)
         self.assertEqual(True, db.dimension_exists(dim_name1), f"Dimension '{dim_name1}' exists.")
         self.assertEqual(True, db.dimension_exists(dim_name2), f"Dimension '{dim_name2}' exists.")
         self.assertEqual(True, len(db.dimensions) == 2, f"Dimension '{dim_name2}' exists.")

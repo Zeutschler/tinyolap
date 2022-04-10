@@ -96,46 +96,68 @@ So you will predominately define and manipulate :ref:`cells <cells>` and so call
 
 How To Setup A Simple Database
 ------------------------------
-Let's try to build a data model to support the quarterly business planning process of a well-known car manufacturer.
+Let's try to build a data model to support the quarterly business planning process of a well-known owner
+of electric car manufacturing company. So, here's how Elon Musk is doing his business planning - allegedly!
 
 .. code:: python
 
     from tinyolap.database import Database
 
-    # setup a new database
-    db = Database("tesla")
+    @rule("sales", ["Deviation"])
+    def deviation(c: Cell):
+        return c["Actual"] - c["Plan"]
 
-    # define dimensions
-    data_type = db.dimension_add("datatype")
-                .member_add(["Actual", "Plan", "Act vs. Pl"])
-    years = db.dimension_add("years")
-                .member_add(["2021", "2022", "2023", "2024", "2025"])
-    periods = db.dimension_add("periods")
-                .member_add("Year", ["Q1", "Q2", "Q3", "Q4"])
-    regions = db.dimension_add("regions")
-                .member_add("Total", ["North", "South", "West", "East"])
-    products = db.dimension_add("products")
-                .member_add("Total", ["Model S", "Model 3", "Model X", "Model Y"])
+    @rule("sales", ["Deviation %"])
+    def deviation_percent(c: Cell):
+        if c["Plan"]:  # prevent potential division by zero errors
+            return c["Deviation"] / c["Plan"]
+        return None
 
-    # create a cube
-    cube = db.cube_add("sales", [data_type, years, periods, regions, products])
+    def main():
+        # define your data space
+        db = Database("tesla")
+        cube = db.add_cube("sales", [
+            db.add_dimension("datatypes").edit().add_member(
+                ["Actual", "Plan", "Deviation", "Deviation %"]).commit(),
+            db.add_dimension("years").edit().add_member(
+                ["2021", "2022", "2023"]).commit(),
+            db.add_dimension("periods").edit().add_member(
+                "Year", ["Q1", "Q2", "Q3", "Q4"]).commit(),
+            db.add_dimension("regions").edit().add_member(
+                "Total", ["North", "South", "West", "East"]).commit(),
+            db.add_dimension("products").edit().add_member(
+                "Total", ["Model S", "Model 3", "Model X", "Model Y"]).commit()
+        ])
+        # add your custom business logic
+        cube.register_rule(deviation)
+        cube.register_rule(deviation_percent)
 
 Now that our 5-dimensional database is setup, we can start to write data to and read data from the cube.
-TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant cell access. PLease be aware,
-that the order of the dimension members in the slicer really matters.
+TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant cell access.
 
 .. code:: python
 
-    # write some value to the cube
-    cube["Actual", "2021", "Q1", "North", "Model S"] = 1000.0
-    cube["Actual", "2021", "Q2", "West", "Model S"] = 500.0
-    cube["Actual", "2021", "Q3", "West", "Model 3"] = 20.0
+    # Add some 'Plan' data
+    cube["Plan", "2021", "Q1", "North", "Model S"] = 400.0  # write to a single cell
+    # The Elon Musk way of planning - what a lazy boy ;-)
+    # Note: the following 'True' argument will force writing the number 500.0
+    #       to all years, periods, regions and products in one shot.
+    #       If skipped or set to 'False' only the single existing value 400.0
+    #       would be overwritten.
+    cube["Plan"].set_value(500.0, True)  # this will write 3 x 4 x 4 x 4 = 192 values to the cube
+    cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50  # Elon is skyrocketing, 50% more for 2023
 
-    # read values
-    v = cube["Actual", "2021", "Q1", "North", "Model S"]  # returns 1000.0
-    v = cube["Actual", "2025", "Q1", "East", "Model X"]   # returns 0.0
-    v = cube["Actual", "2021", "Year", "West", "Total"]   # returns 1500.0
-    v = cube["Actual", "2021", "Year", "Total", "Total"]  # returns 1520.0
+    # Add some 'Actual' data
+    cube["Actual"].set_value(elons_random_number)  # really? Elon is going for a shortcut.
+
+    # Let's check Elon"s performance
+    v = cube["Actual", "2021", "Q1", "North", "Model S"]
+    p = cube["Plan", "2023", "Year", "Total", "Total"]
+    d = cube["Deviation", "2023", "Year", "Total", "Total"]
+    dp = cube["Deviation %", "2023", "Year", "Total", "Total"]
+    if console_output:
+        print(f"Elon's CAGR performance in 2023 is {dp:.2%}. Congrats!")  # CAGR := compound annual growth rate
+
 
 To learn more on how to build :ref:`databases<databases>`, :ref:`dimensions <dimensions>`
 and :ref:`cubes <cubes>` and all the cool and advanced feature of TinyOlap, please continue

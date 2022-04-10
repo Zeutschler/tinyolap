@@ -310,6 +310,7 @@ class FactTable:
                             sets.append(get_rows(i, idx_member))
 
         if not sets:
+            return set()
             # todo: This is not an error! return all rows instead
             raise ValueError(f"Invalid query_area. At least one dimension needs to be specified.")
 

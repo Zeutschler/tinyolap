@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+import itertools
+from inspect import signature
+
 import copy
 from collections import Iterable
 
@@ -130,9 +133,55 @@ class Area:
             records.append((record, dict(facts.facts[row])))
         return records
 
-    def addresses(self, include_cube_name: bool = False):
+    def addresses(self, include_cube_name: bool = False, enumerate_data_space: bool = False):
         """
         Generator to loop over existing addresses of the data area.
+        Returns tuples in the form (dim_member1, ... , dim_memberN).
+        :param include_cube_name: Identifies if the name of the cube should be
+        included in the address tuple.
+        :param enumerate_data_space: Identifies if the entire data space, independent of
+        value exists or not should be returned. Caution, the data space can be hugh.
+        """
+        if enumerate:
+            member_lists =[]
+            for dim_idx, axis in enumerate(self._idx_area_def):
+                dimension = self._cube._dimensions[dim_idx]
+                if axis:
+                    member_list = []
+                    if type(axis) is int:
+                        member = dimension.members[axis][1]
+                        member_list.extend(dimension.member_get_leave_children(member))
+                    else:
+                        for item in axis:
+                            member = dimension.members[item][1]
+                            member_list.extend(dimension.member_get_leave_children(member))
+                    member_lists.append(member_list)
+                else:
+                    # get all base members from dimension
+                    member_lists.append(dimension.get_leave_members())
+
+            if include_cube_name:
+                cube = [self._cube.name, ]
+                for address in itertools.product(*member_lists):
+                    yield cube + address
+            else:
+                for address in itertools.product(*member_lists):
+                    yield address
+
+        else:
+            if not self._rows:
+                # refresh dat area
+                rows = self._cube._facts.query_area(self._idx_area_def)
+                self._rows = rows
+
+            facts = self._cube._facts
+            for row in self._rows:
+                idx_address = facts.addresses[row]
+                yield self._cube._idx_address_to_address(idx_address, include_cube_name=include_cube_name)
+
+    def enumerate(self, include_cube_name: bool = False):
+        """
+        Generator to loop over all addresses of the data area. It enumerates the entire space.
         Returns tuples in the form (dim_member1, ... , dim_memberN).
         """
         if not self._rows:
@@ -144,6 +193,7 @@ class Area:
         for row in self._rows:
             idx_address = facts.addresses[row]
             yield self._cube._idx_address_to_address(idx_address, include_cube_name=include_cube_name)
+
 
     def alter(self, *args) -> Area:
         """Alters the data area, based on the given arguments."""
@@ -171,17 +221,36 @@ class Area:
         self._cube._facts.remove_records(rows)
         self._rows = set()
 
-    def set_value(self, value):
+    def set_value(self, value, enumerate_data_space: bool = False):
         """
         Sets all existing cells of the data area to a specific value.
         :param value: The value to be set.
         """
-        rows = self._cube._facts.query_area(self._idx_area_def)
-        self._rows = rows
-        facts = self._cube._facts.facts
-        for row in rows:
-            for k in facts[row]:
-                facts[row][k] = value
+        if enumerate_data_space:
+            rows = None
+        else:
+            rows = self._cube._facts.query_area(self._idx_area_def)
+        if not rows:
+            # empty data area
+            # write to the entire data space
+            if callable(value):
+                for address in self.addresses(False, True):
+                    self._cube.set(address, value())
+            else:
+                for address in self.addresses(False, True):
+                    self._cube.set(address, value)
+        else:
+            self._rows = rows
+            facts = self._cube._facts.facts
+            if callable(value):
+                for row in rows:
+                    for k in facts[row]:
+                        facts[row][k] = value()
+            else:
+                for row in rows:
+                    for k in facts[row]:
+                        facts[row][k] = value
+
 
     def multiply(self, factor: float):
         """
@@ -580,7 +649,9 @@ class Area:
         return True
 
     def modifiers_of_same_scope(self, modifiers_a, modifiers_b) -> bool:
-        if len(modifiers_a) != len(modifiers_b):
+        if len(modifiers_a) == 0 or len(modifiers_b) == 0:
+            return True
+        elif len(modifiers_a) != len(modifiers_b):
             return False
         for a, b in zip(modifiers_a, modifiers_b):
             idx_dim_a, members_a, idx_members_a, level_members_a = a

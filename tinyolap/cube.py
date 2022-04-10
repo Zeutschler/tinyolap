@@ -361,16 +361,25 @@ class Cube:
 
     # region Cell access via indexing/slicing
     def __getitem__(self, item):
-        bolt = self._address_to_bolt(item)
-        return self._get(bolt)
+        if len(item) == self._dim_count:
+            bolt = self._address_to_bolt(item)
+            return self._get(bolt)
+        else:
+            return self.area(item)
 
     def __setitem__(self, item, value):
-        bolt = self._address_to_bolt(item)
-        self._set(bolt, value)
+        if len(item) == self._dim_count:
+            bolt = self._address_to_bolt(item)
+            self._set(bolt, value)
+        else:
+            self.area(item).set_value(value)
 
     def __delitem__(self, item):
-        bolt = self._address_to_bolt(item)
-        self._set(bolt, None)
+        if len(item) == self._dim_count:
+            bolt = self._address_to_bolt(item)
+            self._set(bolt, None)
+        else:
+            self.area(item).clear()
 
     # endregion
 

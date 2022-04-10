@@ -48,7 +48,7 @@ class TestDatabase(TestCase):
         self.assertTrue(db._storage_provider.exists(), "Database file exists.")
 
         # (re)open the database
-        db = Database(file_path)
+        db = Database(file_path, in_memory=False)
         cube = db.cubes["sales"]
         # check all cells with values
         members = [
@@ -92,7 +92,7 @@ class TestDatabase(TestCase):
         self.assertTrue(db._storage_provider.exists(), "Database file exists.")
 
         # (re)open the database
-        db = Database(file_path)
+        db = Database(file_path, in_memory=False)
         cube = db.cubes["sales"]
 
         # get initial values
