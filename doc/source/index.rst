@@ -3,6 +3,8 @@
 
    Please refer :ref:`feature backlog <backlog>` for a high-level status overview of the development process.
 
+...back to **`TinyOlap.com <https://tinyolap.com>`**
+
 =================
 TinyOlap
 =================
