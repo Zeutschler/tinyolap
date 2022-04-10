@@ -27,6 +27,9 @@ of electric car manufacturing company. So, here's how Elon Musk is doing his bus
         if c["Plan"]:  # prevent potential division by zero errors
             return c["Deviation"] / c["Plan"]
         return None
+
+    def elons_random_number(low: float = 1000.0, high: float = 2000.0):
+        return random.uniform(low, high)
     
     def main():
         # define your data space
