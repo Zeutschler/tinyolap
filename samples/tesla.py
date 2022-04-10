@@ -2,7 +2,7 @@
 # TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import sys
+# http://hilite.me
 import random
 import timeit
 from tinyolap.cell import Cell
@@ -53,7 +53,7 @@ def play_tesla(console_output: bool = True):
     #       If skipped or set to 'False' only the single existing value 400.0
     #       would be overwritten.
     cube["Plan"].set_value(500.0, True)  # this will write 3 x 4 x 4 x 4 = 192 values to the cube
-    cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50  # Elon is skyrocketing, 50% more for 2023
+    # cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50  # Elon is skyrocketing, 50% more for 2023
 
     # Add some 'Actual' data
     cube["Actual"].set_value(elons_random_number)  # really? Elon is going for a shortcut.

@@ -3,7 +3,7 @@
 
    Please refer :ref:`feature backlog <backlog>` for a high-level status overview of the development process.
 
-...back to **`TinyOlap.com <https://tinyolap.com>`**
+...back to `tinyolap.com <https://tinyolap.com>`_
 
 =================
 TinyOlap
@@ -214,8 +214,8 @@ NumPy arrays and also a true ROLAP implementation using in-memory SQLite.
 Interestingly, the usage of the build-in Python objects clearly outperforms all the other approaches,
 e.g. 10x to 50x faster than SQLite for most real world uses cases.
 
-But there is much room for improvements,e.g. bitmap indexes, like the genius
-`Roaring Bitmaps <https://roaringbitmap.org>` are not yet used, but could potentially help
+But there is much room for improvements, e.g. compressed bitmap indexes, like the genius
+`Roaring Bitmaps <https://roaringbitmap.org>`_ are not yet used, but could potentially help
 to minimize the memory footprint and maximize performance of TinyOlap.
 
 .. _about_performance:
@@ -242,8 +242,16 @@ execute up to 100k individual cell read requests per second against an 8-dimensi
 an average aggregation- and calculation-throughput of up to 1m cells on a M1 Mac, without
 caching.
 
-Also, **the build in caching greatly improves the user experience**. In read mostly scenarios - like reporting -
-TinyOlap can get even super fast, as when the cache has warmed up, most values are returned from a fast
+Finally perfromance very much depends on the use case. You'll need to try.
+Some facts (M1 Macbook Air, no caching):
+
+* 1M records will require ∼1GB RAM (I need to admit, 1k per record is not that efficient)
+* ∼100k records/sec when doing data imports
+* ∼2.5M aggregations/sec (8-dim cube) for a mixed workload of base level and aggregated cells
+* ∼25T cell-queries/sec (*with caching on and warm cache you can expect ∼150T cell-queries/sec.*)
+
+You see, **the build in caching greatly improves the user experience**. In read mostly scenarios - like reporting -
+TinyOlap can get even super fast. When the cache has warmed up, most values are returned from a very fast Python
 dictionary lookup.
 
 .. note:: That said, TinyOlap should not be mistaken as a database for serious high performance
