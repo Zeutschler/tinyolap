@@ -154,12 +154,10 @@ TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant 
     cube["Actual"].set_value(elons_random_number)  # really? Elon is going for a shortcut.
 
     # Let's check Elon"s performance
-    v = cube["Actual", "2021", "Q1", "North", "Model S"]
-    p = cube["Plan", "2023", "Year", "Total", "Total"]
-    d = cube["Deviation", "2023", "Year", "Total", "Total"]
-    dp = cube["Deviation %", "2023", "Year", "Total", "Total"]
+    cagr = cube["Deviation %", "2023", "Year", "Total",  "Total"]
     if console_output:
-        print(f"Elon's CAGR performance in 2023 is {dp:.2%}. Congrats!")  # CAGR := compound annual growth rate
+        print(f"Elon's CAGR performance in 2023 is {cagr:.2%}. Congrats!")  # CAGR := compound annual growth rate
+
 
 
 To learn more on how to build :ref:`databases<databases>`, :ref:`dimensions <dimensions>`
