@@ -1,7 +1,10 @@
-"""Provides various commands for undo/redo actions within TinyOlap."""
+# -*- coding: utf-8 -*-
+# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import datetime
 from abc import ABC, abstractmethod
-import time
 from collections import Iterable
 
 

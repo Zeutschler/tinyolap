@@ -142,7 +142,7 @@ class Area:
         :param enumerate_data_space: Identifies if the entire data space, independent of
         value exists or not should be returned. Caution, the data space can be hugh.
         """
-        if enumerate:
+        if enumerate_data_space:
             member_lists =[]
             for dim_idx, axis in enumerate(self._idx_area_def):
                 dimension = self._cube._dimensions[dim_idx]

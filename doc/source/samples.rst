@@ -12,7 +12,7 @@ the **samples** folder.
 1. Tiny Database
 ----------------
 
-**Usage:** Open and/or start the script *...tinyolap/samples/tiny.py*
+**Usage:** Open and/or run the script *...tinyolap/samples/tiny.py*
 
 Purpose of the Tiny data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -24,14 +24,25 @@ And also how to create and print a simple report to the console.
 The data model contains 5 dimensions for years, months, products, regions and some sales
 figures.
 
+-----------------
+2. Tesla Database
+-----------------
+
+**Usage:** Open and/or run the script *...tinyolap/samples/tesla.py*
+
+Purpose of the Tesla data model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The **Tesla** is the famous example that we use in the documentation and on the `TinyOlap website <https://tinyolap.com>`_ .
+It show cases some corecapabilities of TinyOlap.
+
 ------------------------------
-2. Financial Planning Database
+3. Financial Planning Database
 ------------------------------
 
 .. attention::
    Under development. Coming soon.
 
-**Usage:** Open and/or start the script *...tinyolap/samples/finance.py*
+**Usage:** Open and/or run the script *...tinyolap/samples/finance.py*
 
 Purpose of the Finance data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -52,14 +63,14 @@ It provides the following features, leveraging many of TinyOlap's capabilities:
   anything but is not allowed to change data.
 
 ------------------------------
-3. Huge (the opposite of tiny)
+4. Huge (the opposite of tiny)
 ------------------------------
 
 .. warning::
    Please be aware that your RAM is limited. **Don't overdo it!** Python will crash when
    your running out of memory.
 
-**Usage:** Open and/or start the script *...tinyolap/samples/huge.py*
+**Usage:** Open and/or run the script *...tinyolap/samples/huge.py*
 
 Purpose of the Huge data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -73,10 +84,10 @@ check how the database behaves and perform.
 As a rule of thumb, TinyOlap databases consume an average ±1.5kb per record (incl data model).
 
 ----------------
-4. Plane Spotter
+5. Plane Spotter
 ----------------
 
-**Usage:** Open and/or start the script *...tinyolap/samples/planespotter.py*
+**Usage:** Open and/or run the script *...tinyolap/samples/planespotter.py*
 
 Purpose of the Plane Spotter data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -88,10 +99,10 @@ more or less real time. Although the request for flight data will need some time
 seconds), the actual update and import of the data model only takes a few milliseconds.
 
 -------------------------------
-5. Tutor - A vintage data model
+6. Tutor - A vintage data model
 -------------------------------
 
-**Usage:** Open and/or start the script *...tinyolap/samples/tutor.py*
+**Usage:** Open and/or run the script *...tinyolap/samples/tutor.py*
 
 Purpose of the Tutor data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,10 +134,10 @@ The TXT files in the folder *tutor* are the original files ship with the databas
 3½-inch disk at around 1995, they are single-byte **latin-1** encoded (ISO 8859-1).
 
 -------------------------------
-6. Tutor Web Demo
+7. Tutor Web Demo
 -------------------------------
 
-**Usage:** Open and/or start the script *...tinyolap/samples/tutor_web_demo.py*
+**Usage:** Open and/or run the script *...tinyolap/samples/tutor_web_demo.py*
 
 Purpose of the Tutor WEb Demo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -138,10 +149,10 @@ the slice feature of TinyOlap and to provide a nicer visual interface. All other
 just create console output.
 
 ----------------------------------------
-7. Tiny42 - TinyOlap parallel-processing
+8. Tiny42 - TinyOlap parallel-processing
 ----------------------------------------
 
-**Usage:** Open and/or start the script *...tinyolap/samples/tiny42.py*
+**Usage:** Open and/or run the script *...tinyolap/samples/tiny42.py*
 
 Purpose of the Tiny42 data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

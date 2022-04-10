@@ -10,6 +10,7 @@ import os
 MEMBER_NAME_CHARS = set(string.ascii_letters + string.digits + '.-_/#+-*:,;|{}()"')
 DB_OBJECT_NAME_CHARS = set(string.ascii_letters + string.digits + '_')
 
+
 def is_valid_member_name(name: str):
     """Checks if a given name is valid (only contains characters by MEMBER_NAME_CHARS)."""
     return set(name) <= MEMBER_NAME_CHARS
