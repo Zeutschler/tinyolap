@@ -3,12 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import json
+from __future__ import annotations
 from enum import Enum, IntEnum, IntFlag
 import inspect
 import enum_tools.documentation
-
-from exceptions import RuleException
 
 enum_tools.documentation.INTERACTIVE = True
 

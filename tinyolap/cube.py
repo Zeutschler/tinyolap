@@ -3,14 +3,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
 import collections
 import collections.abc
-# from inspect import isroutine, getsource, getfile, getsourcefile
 import inspect
 import json
 from collections.abc import Iterable
 
-from storage.storageprovider import StorageProvider
+from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.area import Area
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell import Cell

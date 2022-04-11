@@ -4,9 +4,9 @@ import time
 from unittest import TestCase
 import string
 import random
-from storage.sqlite import SqliteStorage
-from storage.mock import MockStorage
-from storage.storageprovider import StorageProvider
+from tinyolap.storage.sqlite import SqliteStorage
+from tinyolap.storage.mock import MockStorage
+from tinyolap.storage.storageprovider import StorageProvider
 
 
 def some_json(data=None, size: int = 16):

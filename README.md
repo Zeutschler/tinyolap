@@ -9,7 +9,11 @@ be suitable for all levels of Python and database skills. Enjoy...
 ## Getting started
 **To get started**, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)
 
-Or, for the curious, just clone this repo and check our introduction sample [/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
+If you want to use the TinyOlap package only, without the samples, then you can install TinyOlap using pip:
+
+    pip install tinyolap
+
+For the curious, just clone this repo and check our introduction sample [/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py).
 
 ## How To Set up A Simple Database
 Let's try to build a data model to support the quarterly business planning process of a well-known owner 

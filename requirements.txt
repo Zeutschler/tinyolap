@@ -1,6 +1,7 @@
 # used by the core TinyOlap database engine
 cryptography
 sqlparse
+enum_tools
 
 # used for samples and testing
 uvicorn
@@ -9,6 +10,5 @@ Sphinx
 furo
 Faker
 sphinx-toolbox
-enum_tools
 psutil
 art

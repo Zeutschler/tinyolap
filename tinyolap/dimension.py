@@ -4,11 +4,10 @@
 # the LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-
 import collections.abc
 import json
 
-from storage.storageprovider import StorageProvider
+from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.member import Member
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.exceptions import *
