@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 from setuptools import setup
 
-# ...to run the build process:
+# ...to run the build and deploy process to PyPi.org:
 # python3 setup.py sdist bdist_wheel   # note: Wheel need to be installed: pip install wheel
 # twine upload dist/*                  # note: Twine need to be installed pip install twine
+
+# ... via Github actions
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
 
 VERSION = '0.8.0'
 DESCRIPTION = "TinyOlap: A multi-dimensional in-memory OLAP database in plain Python 3."
