@@ -2,9 +2,12 @@
 # TinyOlap 
 
 TinyOlap is a light-weight, client-side, model-driven, cell-oriented, multi-dimensional OLAP 
-database for **planning, budgeting, reporting, analysis and many other purposes**. 
+database for **planning, budgeting, reporting, analysis and many other numerical purposes**. 
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
-be suitable for all levels of Python and database skills. Enjoy...
+be suitable for all levels of Python and database skills.
+
+TinyOlap is also quite handy as a more **comfortable alternative to Pandas DataFrames** when your data
+is multidimensional, requires hierarchical aggregations or complex calculations. 
 
 ## Getting started
 **To get started**, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)

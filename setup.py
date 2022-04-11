@@ -8,7 +8,7 @@ from setuptools import setup
 # ... via Github actions
 # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
 
-VERSION = '0.8.9'
+VERSION = '0.8.10'
 DESCRIPTION = "TinyOlap: A multi-dimensional in-memory OLAP database in plain Python 3."
 LONG_DESCRIPTION = """
 TinyOlap is a minimal in-process in-memory multi-dimensional database with numerical aggregations 
@@ -19,7 +19,10 @@ in also provided. All calculations will be executed on the fly. Optionally, pers
 through SQLite. TinyOlap is a byproduct of a research project, intended to mimic the behavior and 
 capabilities of real-world MOLAP databases (e.g. IBM TM/1, SAP HANA or Jedox PALO) but with a super 
 minimal footprint. TinyOlap is best suited for interactive planning, forecasting, simulation and 
-general multidimensional numerical problems.          
+general multidimensional numerical problems.   
+
+TinyOlap is also quite handy as a more comfortable alternative to Pandas DataFrames when your data
+is multidimensional, requires hierarchical aggregations or complex calculations.          
 """
 
 setup(
