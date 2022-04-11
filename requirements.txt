@@ -12,3 +12,4 @@ Faker
 sphinx-toolbox
 psutil
 art
+pandas
