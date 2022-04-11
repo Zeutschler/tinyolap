@@ -148,8 +148,11 @@ class Database:
         """Returns the file path of the database."""
         if self._storage_provider:
             file = self._storage_provider.uri
+            if file.startswith("file:///"):
+                file = file[8:]
             if file.startswith("file://"):
                 file = file[7:]
+            file + os.path.normpath(file)
             return file
         return ""
 
