@@ -6,6 +6,7 @@
 from __future__ import annotations
 import json
 import os.path
+import sys
 from collections.abc import Iterable
 from copy import deepcopy
 from typing import Tuple
@@ -153,6 +154,10 @@ class Database:
             if file.startswith("file://"):
                 file = file[7:]
             file + os.path.normpath(file)
+            if sys.platform != "win32":
+                if not file.startswith(os.sep):
+                    file = os.sep + file
+
             return file
         return ""
 
