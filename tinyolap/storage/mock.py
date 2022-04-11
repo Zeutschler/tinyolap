@@ -4,8 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-from abc import ABC, abstractmethod
+
 import datetime
+from abc import abstractmethod
+
 from tinyolap.storage.storageprovider import StorageProvider
 
 
@@ -176,7 +178,7 @@ class MockStorage(StorageProvider):
         :return: The data stored for the given address.
            If the address does not exist, ``None`` will be returned.
         """
-        return None
+        return ""
 
     def get_records(self, cube_name: str):
         """
@@ -203,7 +205,7 @@ class MockStorage(StorageProvider):
         Returns the configuration of a meta item in json format.
         :return: A json string.
         """
-        return None
+        return ""
     # endregion
 
     # region Cube related methods

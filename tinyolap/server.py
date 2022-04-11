@@ -50,6 +50,7 @@ class Server:
 
     def __delitem__(self, args):
         self.deletes_database(args[0])
+
     # endregion
 
     def open_database(self, database_file: str):
@@ -66,7 +67,7 @@ class Server:
             return False
         if database.name in self._databases:
             raise KeyError(f"Method 'open_database()' failed. "
-                                    f"A database named '{database.name}' already exists.")
+                           f"A database named '{database.name}' already exists.")
         self._databases[database.name] = database
         return True
 

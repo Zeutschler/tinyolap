@@ -317,8 +317,7 @@ def play_tiny(console_output: bool = True):
         print(f"\t- Caching On and Off will return the same result, if all your rules are non-volatile.")
         print(f"\t- Switch off caching only if you have rules that are 'volatile', returning non-deterministic results.")
 
-
-    print(f"\nMany thanks for trying TinyOlap 👍")
+        print(f"\nMany thanks for trying TinyOlap 👍")
 
     return database
 

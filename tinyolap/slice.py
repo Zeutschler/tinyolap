@@ -136,8 +136,8 @@ class Slice:
 
         # iterate over columns and rows
         row = 0
-        col_members = []
-        row_members = []
+        []
+        []
         for row_member_set in self.axis[2]:
             row_members = []
             for row_member in row_member_set:
@@ -447,13 +447,13 @@ class Slice:
             col = cell[0]
             row = cell[1]
             value = cell[2]
-            format = cell[7]
+            num_format = cell[7]
             if type(value) is float:
                 if hide_zeros and value == 0.0:
                     value = f"-".rjust(cell_width)
                 else:
-                    if format:
-                        value = format.format(value).rjust(cell_width)
+                    if num_format:
+                        value = num_format.format(value).rjust(cell_width)
                     else:
                         value = f"{value:,.2f}".rjust(cell_width)
             elif value is None:
@@ -586,12 +586,12 @@ class Slice:
                  '<li><a href="#" class="nav-link px-2 text-white">Baz</a></li>' \
                  '</ul>' \
                  '<form action="/report" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
-                 '<div class="btn-toolbar">'\
+                 '<div class="btn-toolbar">' \
                  '<button type="submit" class="btn btn-warning">Refresh</button>' \
                  '</div>' \
                  '</form>' \
                  '<form action="/nextreport" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
-                 '<div class="btn-toolbar">'\
+                 '<div class="btn-toolbar">' \
                  '<button type="submit" class="btn btn-warning">Next</button>' \
                  '</div>' \
                  '</form>' \
@@ -611,7 +611,7 @@ class Slice:
                  '}' \
                  'document.addEventListener("DOMContentLoaded", onLoad)'
 
-        duration = f'<div class="font-italic font-weight-light">HTML rendered in {time.time()- start:.6} sec.</div>'
+        duration = f'<div class="font-italic font-weight-light">HTML rendered in {time.time() - start:.6} sec.</div>'
 
         html = f'<!doctype html><html lang="en"><head><!-- Required meta tags --><meta charset="utf-8">' \
                f'<meta name="viewport" content="width=device-width, initial-scale=1">' \

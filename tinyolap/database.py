@@ -82,9 +82,9 @@ class Database:
         self._file_name: str = name
 
         self._in_memory = in_memory
+        self._storage_provider: StorageProvider = None
         if in_memory:
             self._encryptor: Encryptor = NotAnEncryptor()
-            self._storage_provider: StorageProvider = None
         else:
             # setup encryption
             if encryption == EncryptionMethodEnum.NoEnryption:
@@ -141,7 +141,7 @@ class Database:
         """Returns the uri of the database."""
         if self._storage_provider:
             return self._storage_provider.uri
-        return None
+        return ""
 
     @property
     def file_path(self) -> str:
@@ -151,7 +151,7 @@ class Database:
             if file.startswith("file://"):
                 file = file[7:]
             return file
-        return None
+        return ""
 
     @property
     def caching(self) -> bool:
@@ -301,11 +301,6 @@ class Database:
         :param overwrite_if_exists: Defines if an already existing file should
            be overwritten or not. If set to ``False`` and the file already exist,
            an FileExistsError will be raised.
-
-        :param in_memory: Identifies if the database should run in memory only (no persistence) or should persist
-           all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
-           given database name will not be opened, changed or overwritten. To save a database running in in memory mode,
-           use the ``save()``method of the database object.
 
         :param encryption: Encryption method for database contents when ``ìn-memory = True``.
           By default no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.

@@ -148,7 +148,8 @@ def load_tutor(console_output: bool = False):
     # That's it...
     duration = time.time()
     db.export(db.name + "_export", True)
-    print(f"export database in {time.time() - duration:.3} sec")
+    if console_output:
+        print(f"export database in {time.time() - duration:.3} sec")
     return db
 
 

@@ -6,7 +6,8 @@
 from __future__ import annotations
 from itertools import chain
 
-_RaiseKeyError = object() # singleton for no-default behavior
+_RaiseKeyError = object()  # singleton for no-default behavior
+
 
 class CaseInsensitiveDict(dict):
     # dicts take a mapping or iterable as their optional first argument
@@ -23,8 +24,10 @@ class CaseInsensitiveDict(dict):
 
     def __getitem__(self, k):
         return super(CaseInsensitiveDict, self).__getitem__(k.lower())
+
     def lookup(self, k):
         return super(CaseInsensitiveDict, self).get(k.lower())
+
     def lookuptry(self, k):
         try:
             return super(CaseInsensitiveDict, self).__getitem__(k.lower())

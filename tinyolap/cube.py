@@ -4,13 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-import collections
-import collections.abc
+
 import inspect
 import json
 from collections.abc import Iterable
 
-from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.area import Area
 from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell import Cell
@@ -18,6 +16,7 @@ from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *
 from tinyolap.facttable import FactTable
 from tinyolap.rules import Rule, Rules, RuleError, RuleScope, RuleInjectionStrategy
+from tinyolap.storage.storageprovider import StorageProvider
 
 
 class Cube:
@@ -50,7 +49,6 @@ class Cube:
 
         cube_creation_from_json = bool(dimensions)
 
-        #self.data = [1.0 for i in range(1_200_000)]
         self._name = name
         self._description = description
         if cube_creation_from_json:
@@ -65,7 +63,7 @@ class Cube:
         self._facts = FactTable(self._dim_count, self)
 
         self._database = None
-        self._storage_provider: StorageProvider = None
+        self._storage_provider: StorageProvider  # = None
 
         # new approach
         self._rules = Rules(self._name)
@@ -179,7 +177,8 @@ class Cube:
 
         # setup and add rule
         idx_pattern = self._pattern_to_idx_pattern(trigger)
-        rule = Rule(function=function, name= function_name, cube=self.name, trigger=trigger, idx_trigger_pattern=idx_pattern,
+        rule = Rule(function=function, name=function_name, cube=self.name, trigger=trigger,
+                    idx_trigger_pattern=idx_pattern,
                     scope=scope, injection=injection, code=code)
         self._rules.add(rule)
 
@@ -245,6 +244,7 @@ class Cube:
             idx_dim, idx_member, member_level = c._get_member(p)
             idx_pattern.append((idx_dim, idx_member))
         return idx_pattern
+
     # endregion
 
     # region Properties
@@ -537,7 +537,7 @@ class Cube:
                         self._rule_request_counter += 1
                         func(cursor)
                     except Exception as err:
-                       pass
+                        pass
 
         else:
             raise InvalidOperationException(f"Write back to aggregated cells in not (yet) supported.")
@@ -610,7 +610,7 @@ class Cube:
     def _address_to_idx_address(self, address):
         """
         Converts an address to an idx_address index with member ids.
-        :param idx_address:
+        :param address: The address to be converted.
         :return:
         """
         bolt = self._address_to_bolt(address)
@@ -624,8 +624,9 @@ class Cube:
         dim_count = self._dim_count
         measures_count = len(address) - dim_count
         if measures_count < 0:
-            raise InvalidCellAddressException(f"Invalid idx_address. At least {self._dim_count} members expected "
-                                              f"for cube '{self._name}, but only {len(address)} where passed in.")
+            raise InvalidCellOrSliceAddressException(
+                f"Invalid idx_address. At least {self._dim_count} members expected "
+                f"for cube '{self._name}, but only {len(address)} where passed in.")
         # Validate members
         dimensions = self._dimensions
         idx_address = [None] * dim_count
@@ -635,8 +636,8 @@ class Cube:
                 idx_address[i] = dimensions[i]._member_idx_lookup[member]
                 super_level += dimensions[i].members[idx_address[i]][6]
             else:
-                raise InvalidCellAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
-                                                  f"dimension '{dimensions[i].name}' in cube {self._name}.")
+                raise InvalidCellOrSliceAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
+                                                         f"dimension '{dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
         # validate measures (if defined)
@@ -646,7 +647,7 @@ class Cube:
             idx_measures = []
             for measure in address[self._dim_count:]:
                 if measure not in self._measures:
-                    raise InvalidCellAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
+                    raise InvalidCellOrSliceAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
                 idx_measures.append(self._measures[measure])
             if measures_count == 1:
                 idx_measures = idx_measures[0]
@@ -695,7 +696,6 @@ class Cube:
         and deserialization of cubes. The json returned by this function is
         the same as the one used by storage providers (if available).
 
-        :param beautify: Identifies if the json code should be beautified (multiple rows + indentation).
         :return: A json string representing the cube.
         """
         dim_names = [dim.name for dim in self._dimensions]
@@ -759,7 +759,7 @@ class Cube:
             functions = self._database._code_manager.get_functions(self._name)
             for f in functions:
                 self.register_rule(function=f.function, trigger=f.trigger,
-                                   scope= f.scope, injection=f.injection, code=f._code)
+                                   scope=f.scope, injection=f.injection, code=f._code)
 
         except Exception as err:
             raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")

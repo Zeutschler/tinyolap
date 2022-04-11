@@ -82,6 +82,7 @@ class FactTable:
                             new_row_set.add(shifts[shifter])
 
                     self._index[i][member_idx] = new_row_set
+
         def get_size(self) -> int:
             size = 0
             for i in range(0, self.dims):

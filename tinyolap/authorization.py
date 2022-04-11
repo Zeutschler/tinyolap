@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 class Role:
     pass
 
@@ -20,7 +21,7 @@ class Viewer(Role):
 class Editor(Role):
     """
     All viewer permissions, plus permissions to modify data in cubes, such as writing
-    values to cubes, splashing of values over cubes, importing data and using the history.
+    values into cubes, splashing of values over cubes, importing data and using the history.
     """
     pass
 
@@ -50,7 +51,6 @@ class User:
 
     def rename(self, new_name: str):
         self._name = new_name
-
 
     @property
     def role(self) -> Role:

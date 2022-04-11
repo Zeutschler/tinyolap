@@ -25,9 +25,6 @@ class TestArea(TestCase):
             area = cube.area(123)  # wrong data type
 
         with self.assertRaises(Exception):
-            area = cube.area(["Jan", "2022"])  # member from different dimensions on one axis
-
-        with self.assertRaises(Exception):
             area = cube.area(["2021", "2022"], ["2022", "2023"])  # multiple use of a dimension
 
     def test_area_create_modify_clear(self):
@@ -122,16 +119,15 @@ class TestArea(TestCase):
         self.assertEqual(3.0, value_after)
 
         with self.assertRaises(Exception):
-            area["Feb"] = area["2021"]
+            area["Feb"] = area["2021"]  # different dimensions
 
-        # todo: NO!!! Wrong behaviour! Areas shifts should support multiple dimensions.
-        #       We need this to be possible: ... area(('Jan', 'Feb), '2021', 'name of subset')
-        #       see: area.py.__get_members(...)
-        with self.assertRaises(Exception):
-            area["2020", "Feb"] = area["Jan", "2021"]
-        with self.assertRaises(Exception):
-            area["Feb"] = area["Jan", "2021"]
 
+        with self.assertRaises(Exception):
+            area["2020", "Feb"] = area["Jan", "2021"]  # different dimensions
+        with self.assertRaises(Exception):
+            area["Feb"] = area["Jan", "2021"]  # different dimensions
+
+        area["Feb", "2022"] = area["Jan", "2021"]  # correct = matching dimensions
 
     def create_database(self):
         db = Database("sales", in_memory=True)

@@ -3,7 +3,7 @@ import unittest
 from unittest import TestCase
 
 from samples.tiny import create_tiny_database
-from tinyolap.exceptions import InvalidCellAddressException
+from tinyolap.exceptions import InvalidCellOrSliceAddressException
 
 
 class TestCell(TestCase):
@@ -16,7 +16,7 @@ class TestCell(TestCase):
         c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
         with self.assertRaises(Exception) as context:
             c = self.cube.cell("2022", "Jan")
-        self.assertEqual(type(InvalidCellAddressException()), type(context.exception))
+        self.assertEqual(type(InvalidCellOrSliceAddressException()), type(context.exception))
 
     def test_cell_manipulation(self):
         a = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")

@@ -232,6 +232,7 @@ class Rules:
         """
         Registers a rules function (a Python method or function).
 
+        :param cube: The cube the rule should be registered for.
         :param injection: The injection strategy defined for the rule.
         :param code: (optional) the source code of the rule.
         :param scope: The scope of the rule function.

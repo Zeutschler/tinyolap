@@ -31,8 +31,8 @@ def rule(cube: str, trigger: list[str], scope: RuleScope = RuleScope.ALL_LEVELS,
     def decorator_rule(func):
         @functools.wraps(func)
         def wrapper_rule(*args, **kwargs):
-            #args = str(inspect.signature(func))
-            #args = args[1: len(args) - 1].split(",")
+            # args = str(inspect.signature(func))
+            # args = args[1: len(args) - 1].split(",")
             return func(*args, **kwargs)
 
         wrapper_rule.cube = cube
@@ -44,4 +44,3 @@ def rule(cube: str, trigger: list[str], scope: RuleScope = RuleScope.ALL_LEVELS,
         return wrapper_rule
 
     return decorator_rule
-

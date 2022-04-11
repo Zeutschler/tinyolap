@@ -19,22 +19,26 @@ For the curious, just clone this repo and check our introduction sample [/sample
 Let's try to build a data model to support the quarterly business planning process of a well-known owner 
 of electric car manufacturing company. So, here's how Elon Musk is doing his business planning - allegedly!
 
+    import random
+    import timeit
+    from tinyolap.cell import Cell
+    from tinyolap.decorators import rule
     from tinyolap.database import Database
-
+    
     @rule("sales", ["Deviation"])
     def deviation(c: Cell):
         return c["Actual"] - c["Plan"]
     
     @rule("sales", ["Deviation %"])
     def deviation_percent(c: Cell):
-        if c["Plan"]:  # prevent potential division by zero errors
+        if c["Plan"]:  # prevent potential division by zero
             return c["Deviation"] / c["Plan"]
         return None
-
+    
     def elons_random_number(low: float = 1000.0, high: float = 2000.0):
         return random.uniform(low, high)
     
-    def main():
+    def play_tesla(console_output: bool = True):
         # define your data space
         db = Database("tesla")
         cube = db.add_cube("sales", [
@@ -53,27 +57,30 @@ of electric car manufacturing company. So, here's how Elon Musk is doing his bus
         cube.register_rule(deviation)
         cube.register_rule(deviation_percent)
 
-
 Now that our 5-dimensional database is setup, we can start to write data to and read data from the cube.
 TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant cell access. 
 
     # Add some 'Plan' data
     cube["Plan", "2021", "Q1", "North", "Model S"] = 400.0  # write to a single cell
+    cube["Plan", "2021", "Q1", "North", "Model X"] = 200.0  # write to a single cell
     # The Elon Musk way of planning - what a lazy boy ;-)
-    # Note: the following 'True' argument will force writing the number 500.0
-    #       to all years, periods, regions and products in one shot.
-    #       If skipped or set to 'False' only the single existing value 400.0
-    #       would be overwritten.
+    # The next statement will address all EXISTING 'Plan' data for all years, periods, regions
+    # and products to the 500.0. Currently, there are only two values in the cube: 400.0 and 200.0.
+    cube["Plan"] = 500.0
+    if cube["Plan", "2021", "Q1", "North", "Model S"] != 500.00:
+        raise ValueError("TinyOlap is cheating...")
+    # The 'True' argument in the following statement will force writing the number 500.0
+    # to REALLY ALL years, periods, regions and products by enumerating the entire data space in one shot.
     cube["Plan"].set_value(500.0, True)  # this will write 3 x 4 x 4 x 4 = 192 values to the cube
     cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50  # Elon is skyrocketing, 50% more for 2023
-
+    
     # Add some 'Actual' data
-    cube["Actual"].set_value(elons_random_number)  # really? Elon is going for a shortcut.
-
-    # Let's check Elon"s performance
-    cagr = cube["Deviation %", "2023", "Year", "Total",  "Total"]
+    cube["Actual"].set_value(elons_random_number)  # really? Elon is going for a shortcut here.
+    
+    # Let's check Elon"s performance. 'dev_percent' is calculated by the rule 'deviation_percent()'
+    dev_percent = cube["Deviation %", "2023", "Year", "Total",  "Total"]
     if console_output:
-        print(f"Elon's CAGR performance in 2023 is {cagr:.2%}. Congrats!")  # CAGR := compound annual growth rate
+        print(f"Elon's performance in 2023 is {dev_percent:.2%}. Congrats!") 
 
 
 To dive deeper, please visit the **TinyOlap website and documentation** at [https://tinyolap.com](https://tinyolap.com)

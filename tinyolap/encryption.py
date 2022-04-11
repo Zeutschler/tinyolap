@@ -152,7 +152,7 @@ class FernetEncryptor(Encryptor):
 
     def _fernet_decrypt(self, tokens: bytes, password: str) -> bytes:
         decoded = b64d(tokens)
-        salt, iter, token = decoded[:16], decoded[16:20], b64e(decoded[20:])
-        iterations = int.from_bytes(iter, 'big')
+        salt, iterator, token = decoded[:16], decoded[16:20], b64e(decoded[20:])
+        iterations = int.from_bytes(iterator, 'big')
         key = self._derive_key(password.encode(), salt)
         return Fernet(key).decrypt(token)

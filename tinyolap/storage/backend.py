@@ -29,8 +29,8 @@ class Backend:
     LOG_LEVEL = logging.INFO
 
     def __init__(self, database_name: str, in_memory: bool = False):
-        self.conn: sqlite3.Connection = None
-        self.cursor: sqlite3.Cursor = None
+        self.conn: sqlite3.Connection  # = None
+        self.cursor: sqlite3.Cursor  # = None
         self._in_memory: bool = in_memory
         self.database_name: str = database_name
         self.is_open = False
@@ -234,7 +234,6 @@ class Backend:
         sql = f"DROP TABLE IF EXISTS {table};"
         self.__execute(sql)
         self.logger.info(f"Cube '{cube_name}' removed: {sql}")
-
 
     def __initialize_db(self):
         """Initializes a new and empty database by adding several meta tables."""

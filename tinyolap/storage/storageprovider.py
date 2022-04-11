@@ -74,6 +74,7 @@ class StorageProvider(ABC):
         :return: True if the log file was deleted successfully or if the log file not exist.
         """
         pass
+
     # endregion
 
     # region History related methods
@@ -130,7 +131,7 @@ class StorageProvider(ABC):
 
     @abstractmethod
     def get_history_from_time_window(self, from_time_stamp: datetime.datetime = datetime.datetime.min,
-                                     to_time_stamp: datetime.datetime = datetime.datetime.max)\
+                                     to_time_stamp: datetime.datetime = datetime.datetime.max) \
             -> list[tuple[datetime.datetime, str, str, str, int]]:
         """
         Returns the history records for a given time window.
@@ -157,6 +158,7 @@ class StorageProvider(ABC):
         Returns the number of records in the history.
         """
         pass
+
     # endregion
 
     # region Cell (data record) related methods
@@ -205,6 +207,7 @@ class StorageProvider(ABC):
         :return: All records of the cube.
         """
         pass
+
     # endregion
 
     # region meta data related methods
@@ -224,9 +227,8 @@ class StorageProvider(ABC):
         :return: A json string.
         """
         pass
+
     # endregion
-
-
 
     # region Cube related methods
     @abstractmethod
@@ -290,6 +292,7 @@ class StorageProvider(ABC):
         :return: The number of records in cube table.
         """
         pass
+
     # endregion
 
     # region Dimension related methods
@@ -336,7 +339,3 @@ class StorageProvider(ABC):
         """
         pass
     # endregion
-
-
-
-

@@ -27,6 +27,7 @@ class Query:
         """
         self.database = db
         self.sql = sql
+        self.parsed = None
         self._records = []
         self._include_column_names = include_column_names
 
@@ -128,7 +129,6 @@ class Query:
 
                 records.append(record)
 
-
             pass
 
         self._records = records
@@ -164,7 +164,7 @@ class Query:
 
     def __resolve_select_clause(self, from_index, tokens):
         select_tokens = tokens[1:from_index]
-        if len(select_tokens) == 1 and select_tokens[0].normalized =="*":
+        if len(select_tokens) == 1 and select_tokens[0].normalized == "*":
             return []  # special case: SELECT * FROM ...
         select_slicer = self.__resolve_identifiers(
             [token for token in select_tokens[0].tokens])
@@ -180,8 +180,8 @@ class Query:
 
         # Process the WHERE statement
         unresolved_dims = list(range(dim_count))
-        for slice in where_slicer:
-            dim, member = self.__dim_member_split(slice)
+        for slice_arg in where_slicer:
+            dim, member = self.__dim_member_split(slice_arg)
             if dim:  # a dimension name is defined, e.g.: years:'2022'
                 for index, dimension in enumerate(query_def["dims"]):
                     if dimension["dimension"].name.lower() == dim.lower():
@@ -225,7 +225,7 @@ class Query:
                 else:
                     # If it's not a member then it might be a list of members or the name of a subset.
 
-                    raise KeyError(f"Unresolvable member '{slice}' in WHERE statement found.")
+                    raise KeyError(f"Unresolvable member '{slice_arg}' in WHERE statement found.")
 
         # for all unresolved dimensions, get the (default) first member of the dimension.
         for d in unresolved_dims:
@@ -240,32 +240,32 @@ class Query:
 
         # Process the SELECT statement
         fields = []
-        for slicer in select_slicer:
+        for slicer_arg in select_slicer:
             found = False
 
             # search for 'value' keyword
-            if slicer.lower() == "value":
+            if slicer_arg.lower() == "value":
                 fields.append(-1)
                 found = True
 
             # search for dimension names, if found remember their index
             if not found:
                 for d in range(dim_count):
-                    if query_def["dims"][d]["dimension"].name.lower() == slicer.lower():
+                    if query_def["dims"][d]["dimension"].name.lower() == slicer_arg.lower():
                         found = True
                         fields.append(d)
                         break
 
             # search for attribute names
             if not found:
-                dim, attribute = self.__dim_attribute_split(slicer)
+                dim, attribute = self.__dim_attribute_split(slicer_arg)
                 found = attribute is not None
                 if found:
                     found = False
                     for d in range(dim_count):
                         if query_def["dims"][d]["dimension"].name.lower() == dim.lower():
                             if query_def["dims"][d]["dimension"].has_attribute(attribute):
-                                fields.append({"dimension":query_def["dims"][d]["dimension"],
+                                fields.append({"dimension": query_def["dims"][d]["dimension"],
                                                "attribute": attribute,
                                                "member_index": d})
                                 found = True
@@ -276,7 +276,7 @@ class Query:
 
             # not supported or unable to resolve
             if not found:
-                raise KeyError(f"Unresolvable field or keyword '{slice}' "
+                raise KeyError(f"Unresolvable field or keyword '{slice_arg}' "
                                f"after SELECT statement found.")
 
         query_def["fields"] = fields

@@ -329,6 +329,7 @@ class History:
     def append_cube_set(self, cube: str, address, value_before, value_after):
         """
         Appends a cube cell value change to the the History log.
+        :param cube: The cube of the cell to be added.
         :param address: address of the cell to be added
         :param value_before: The previous value of the cell.
         :param value_after: The new value of the cell.

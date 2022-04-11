@@ -4,12 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-import itertools
-from inspect import signature
 
 import copy
+import itertools
 from collections import Iterable
 
+from tinyolap.exceptions import InvalidCellOrSliceAddressException
 from tinyolap.member import Member
 
 
@@ -25,7 +25,7 @@ class Area:
         area.clear()
 
         # Copies all data from 'Actual', '2022', increases all values by 15% and writes them to the 'Plan' for '2023'.
-        # Info: All data in the target area will be deleted before hand.
+        # Info: All data in the target area will be deleted beforehand.
         # Info: Depending on the amount of data to be copied, such operations may take some time (a few seconds).
         cube.area("Plan", "2023") = cube.area("Actual", "2022") * 1,15
 
@@ -119,8 +119,8 @@ class Area:
         self._rows = rows
         records = []
         facts = self._cube._facts
-        idx_measure = 0
-        super_level = 0
+        0
+        0
         for row in self._rows:
             # idx_address = facts.addresses[row]
             record = list(facts.addresses[row])
@@ -132,7 +132,8 @@ class Area:
             records.append((record, dict(facts.facts[row])))
         return records
 
-    def addresses(self, include_cube_name: bool = False, enumerate_data_space: bool = False):
+    def addresses(self, include_cube_name: bool = False, enumerate_data_space: bool = False,
+                  include_value: bool = False):
         """
         Generator to loop over existing addresses of the data area.
         Returns tuples in the form (dim_member1, ... , dim_memberN).
@@ -140,9 +141,10 @@ class Area:
         included in the address tuple.
         :param enumerate_data_space: Identifies if the entire data space, independent of
         value exists or not should be returned. Caution, the data space can be hugh.
+        :param include_value: Identifies if the actual values of the records should be returned.
         """
         if enumerate_data_space:
-            member_lists =[]
+            member_lists = []
             for dim_idx, axis in enumerate(self._idx_area_def):
                 dimension = self._cube._dimensions[dim_idx]
                 if axis:
@@ -160,12 +162,18 @@ class Area:
                     member_lists.append(dimension.get_leave_members())
 
             if include_cube_name:
-                cube = [self._cube.name, ]
+                cube = (self._cube.name,)
                 for address in itertools.product(*member_lists):
-                    yield cube + address
+                    if include_value:
+                        yield cube + address + (self._cube[address],)
+                    else:
+                        yield cube + address
             else:
                 for address in itertools.product(*member_lists):
-                    yield address
+                    if include_value:
+                        yield address + (self._cube[address],)
+                    else:
+                        yield address
 
         else:
             if not self._rows:
@@ -193,7 +201,6 @@ class Area:
             idx_address = facts.addresses[row]
             yield self._cube._idx_address_to_address(idx_address, include_cube_name=include_cube_name)
 
-
     def alter(self, *args) -> Area:
         """Alters the data area, based on the given arguments."""
         self._validate(args, alter=True)
@@ -220,36 +227,111 @@ class Area:
         self._cube._facts.remove_records(rows)
         self._rows = set()
 
+    def _compatible(self, other: Area) -> (bool, str):
+        """Evaluates if two areas are compatible.
+           Checks whether the dimensions are identical,
+           1 member per defined dimension only
+           and if all members are base level members.
+            :param other: The other area to be checked.
+        """
+        if self._cube != other._cube:
+            return False, f"Incompatible areas from different cubes."
+
+        for d in range(self._cube.dimensions_count):
+            if self._area_def[d] and other._area_def[d]:
+                dimension = self._cube._dimensions[d]
+                # check for 1 member per dimension
+                if len(self._area_def[d]) > 1:
+                    return False, f"Incompatible areas. The left area of the operation defines " \
+                                  f"{len(self._area_def[d])} members for dimension '{dimension.name}', " \
+                                  f"but only 1 member per dimension is allowed."
+                if len(other._area_def[d]) > 1:
+                    return False, f"Incompatible areas. The right area of the operation defines " \
+                                  f"{len(other._area_def[d])} members for dimension '{dimension.name}', " \
+                                  f"but only 1 member per dimension is allowed."
+
+                # check for members are base level members
+                if not dimension.member_is_leave(self._area_def[d][0]):
+                    return False, f"Incompatible areas. The left side of operations defines the member " \
+                                  f"'{self._area_def[d]}' for dimension '{dimension.name}' which is not a " \
+                                  f"leave-level member. Only leave-level members are supported."
+                if not dimension.member_is_leave(other._area_def[d][0]):
+                    return False, f"Incompatible areas. The right side of operations defines the member " \
+                                  f"'{other._area_def[d]}' for dimension '{dimension.name}' which is not a " \
+                                  f"leave-level member. Only leave-level members are supported."
+
+            elif (not self._area_def[d]) and (not other._area_def[d]):
+                pass  # dimension not defined for both areas, that's ok!
+            else:
+                if not self._area_def[d]:
+                    return False, f"Incompatible areas. Left side of operations does not define a member " \
+                                  f"for dimension '{self._cube._dimensions[d].name}', but the right side does."
+                else:
+                    return False, f"Incompatible areas. Right side of operations does not define a member " \
+                                  f"for dimension '{self._cube._dimensions[d].name}', but the left side does."
+
+        return True, None
+
     def set_value(self, value, enumerate_data_space: bool = False):
         """
         Sets all existing cells of the data area to a specific value.
+        :param enumerate_data_space: Will force the enumerate the entire data space.
         :param value: The value to be set.
         """
-        if enumerate_data_space:
-            rows = None
-        else:
-            rows = self._cube._facts.query_area(self._idx_area_def)
-        if not rows:
-            # empty data area
-            # write to the entire data space
-            if callable(value):
-                for address in self.addresses(False, True):
-                    self._cube.set(address, value())
-            else:
-                for address in self.addresses(False, True):
-                    self._cube.set(address, value)
-        else:
-            self._rows = rows
-            facts = self._cube._facts.facts
-            if callable(value):
-                for row in rows:
-                    for k in facts[row]:
-                        facts[row][k] = value()
-            else:
-                for row in rows:
-                    for k in facts[row]:
-                        facts[row][k] = value
 
+        if type(value) is Area:
+            # copy data from one area to another
+            scr: Area = value
+            dest: Area = self
+            # ensure if dimensions are identical and 1 member per dimension and all members are base level members
+            compatible, message = self._compatible(dest)
+            if not compatible:
+                raise InvalidCellOrSliceAddressException(f"Set value failed. {message}")
+
+            # clear the destination first
+            dest.clear()
+
+            # copy data from source to destination
+            idx = [d for d, v in enumerate(self._area_def) if v]  # evalue which indexes need to be processed
+            for address in scr.addresses(False, True, True):
+                # adjust source address to target area
+                new_address = list(address[:-1])
+                for i in idx:
+                    new_address[i] = self._area_def[i][0]  # adjust source address to target area
+
+                new_value = address[-1]
+                if scr._func:
+                    new_value = scr._func(new_value)
+                self._cube.set(new_address, new_value)
+
+
+
+        else:
+
+            if enumerate_data_space:
+                rows = None
+            else:
+                rows = self._cube._facts.query_area(self._idx_area_def)
+            if not rows:
+                # empty data area
+                # write to the entire data space
+                if callable(value):
+                    for address in self.addresses(False, True):
+                        self._cube.set(address, value())
+                else:
+                    for address in self.addresses(False, True):
+                        self._cube.set(address, value)
+            else:
+                self._rows = rows
+                facts = self._cube._facts.facts
+                if callable(value):
+                    for row in rows:
+                        for k in facts[row]:
+                            facts[row][k] = value()
+                else:
+                    for row in rows:
+                        for k in facts[row]:
+                            facts[row][k] = value
 
     def multiply(self, factor: float):
         """
@@ -481,6 +563,10 @@ class Area:
             self._levels_area_def = [None] * dim_count
 
         already_used = set()
+        if type(args) is tuple and len(args):
+            if type(args[0]) is tuple:
+                args = args[0]
+
         for arg in args:
             idx_dim, members, idx_members, level_members = self.__get_members(arg)
 
@@ -529,8 +615,9 @@ class Area:
         idx_dim = idx_dims[0]
         for idx in idx_dims[1:]:
             if idx != idx_dim:
-                raise TypeError(f"Invalid member definition argument '{str(item)}'. Members do not belong "
-                                f"to one dimension only, multiple dimensions found.")
+                # raise InvalidCellOrSliceAddressException(f"Invalid member definition argument '{str(item)}'. Members do not belong "
+                #                f"to one dimension only, multiple dimensions found.")
+                a = 1
 
         return idx_dim, members, idx_members, level_members
 
@@ -664,4 +751,3 @@ class Area:
     def merge_modifier_into(self, modifiers_a, modifiers_b) -> bool:
         # todo: implement this...
         raise NotImplementedError()
-

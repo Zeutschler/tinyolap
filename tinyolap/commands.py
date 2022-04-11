@@ -11,6 +11,7 @@ from collections import Iterable
 
 class Command(ABC):
     """Command base class for TinyOlap commands."""
+
     def __init__(self):
         super().__init__()
         self.timestamp = datetime.datetime.now()
@@ -19,6 +20,7 @@ class Command(ABC):
     @abstractmethod
     def undo(self, database) -> bool:
         """Undo the command."""
+
     @abstractmethod
     def redo(self, database) -> bool:
         """Redo the command."""
@@ -27,7 +29,8 @@ class Command(ABC):
 class CompoundCommand(Command):
     """Command that represents a list of related commands,
      e.g. a multi-value transaction."""
-    def __init__(self, commands = None):
+
+    def __init__(self, commands=None):
         super().__init__()
         self.undone = False
         self.commands: list[Command] = []
@@ -52,16 +55,16 @@ class CompoundCommand(Command):
         self.undone = False
         return result
 
-    def add(self, command:Command):
+    def add(self, command: Command):
         self.commands.append(command)
 
     def __len__(self):
         return len(self.commands)
 
-    
 
 class CubeSetCommand(Command):
     """Command to set a cube value."""
+
     def __init__(self, cube: str, idx_address: tuple[int], before, after):
         super().__init__()
         self.undone = False
@@ -85,6 +88,7 @@ class CubeSetCommand(Command):
 
 class AttributeSetCommand(Command):
     """Command to set a dimension attribute."""
+
     def __init__(self, dimension: str, attribute, member: str, before, after):
         super().__init__()
         self.undone = False
@@ -105,4 +109,3 @@ class AttributeSetCommand(Command):
         database.dimensions[self.dimension].set_attribute(self.attribute, self.member, self.after)
         self.undone = False
         return True
-

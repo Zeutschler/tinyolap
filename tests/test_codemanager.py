@@ -20,7 +20,7 @@ class TestCodeFunction(TestCase):
     def setUp(self) -> None:
         self.json = ""
 
-    def test_codemanager(self):
+    def test_codemanager(self, console_output:bool = False):
 
         expected = []
         returned = []
@@ -52,14 +52,16 @@ class TestCodeFunction(TestCase):
 
         # convert code to json
         self.json = manager.to_json()
-        print(self.json)
+        if console_output:
+            print(self.json)
 
         # rebuild code in a new code manager instance
         another_manager = CodeManager().from_json(self.json)
         # execute all functions
         for function in another_manager.functions.values():
             returned.append(function.function('Hello World'))
-            #print(f"Rebuild function call '{function.name}('Hello World') returned: {function.function('Hello World')}")
+            if console_output:
+                print(f"Rebuild function call '{function.name}('Hello World') returned: {function.function('Hello World')}")
 
         # compare results
         for exp, ret in zip(expected, returned):

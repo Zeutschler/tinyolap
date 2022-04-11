@@ -12,6 +12,7 @@ class Test(TestCase):
     """Tests all available samples, except the web_demo (for errors / fatal failure only)."""
     def setUp(self) -> None:
         self.console_output = False  # set to False for unattended testing
+        self.play_huge_sample = False
 
     def test_sample_database_tiny(self):
         play_tiny(console_output=self.console_output)
@@ -20,8 +21,9 @@ class Test(TestCase):
         play_tesla(console_output=self.console_output)
 
     # the following test would take 10+ seconds to execute and eats a lot of RAM.
-    # def test_sample_database_huge(self):
-    #    play_huge(console_output=self.console_output)
+    def test_sample_database_huge(self):
+        if self.play_huge_sample:
+            play_huge(console_output=self.console_output)
 
     def test_sample_database_planespotter(self):
         play_plane_spotter(console_output=self.console_output)

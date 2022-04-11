@@ -17,7 +17,7 @@ from tinyolap.member import Member
 class Cell(SupportsFloat):
     """
     A Cell is an immutable pointer to a data cell in a cube. Cell objects can
-    be used to navigate through data space. In addition they can be directly
+    be used to navigate through data space. In addition, they can be directly
     used in mathematical calculations, as they (almost) behave like a 'float' value.
 
     .. note::
@@ -241,15 +241,15 @@ class Cell(SupportsFloat):
                     idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
-                                                  f"in cube '{self._cube.name}. Found in '{member}'.")
+                    raise InvalidCellOrSliceAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                                                             f"in cube '{self._cube.name}. Found in '{member}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member = member[pos + 1:].strip()
             if member not in dimensions[idx_dim]._member_idx_lookup:
-                raise InvalidCellAddressException(f"Invalid member key. '{member}'is not a member of "
-                                              f"dimension '{dim_name}' in cube '{self._cube.name}.")
+                raise InvalidCellOrSliceAddressException(f"Invalid member key. '{member}'is not a member of "
+                                                         f"dimension '{dim_name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member]
 
             member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]
@@ -276,8 +276,8 @@ class Cell(SupportsFloat):
                 idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
-                                                  f"in cube '{self._cube.name}. Found in '{member}'.")
+                    raise InvalidCellOrSliceAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                                                             f"in cube '{self._cube.name}. Found in '{member}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             idx_member = self._bolt[1][idx_dim]

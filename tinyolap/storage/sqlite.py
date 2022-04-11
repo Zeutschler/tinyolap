@@ -4,20 +4,19 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
+
 import datetime
-from abc import ABC, abstractmethod
 import logging
 import os
-import string
 import sqlite3
-from collections.abc import Iterable
+import string
 from os import path
 from pathlib import Path
 from timeit import default_timer as timer
-import tinyolap.utils
-from tinyolap.storage.storageprovider import StorageProvider
-from tinyolap.exceptions import *
+
 from tinyolap.encryption import Encryptor, NotAnEncryptor
+from tinyolap.exceptions import *
+from tinyolap.storage.storageprovider import StorageProvider
 
 
 class SqliteStorage(StorageProvider):
@@ -58,8 +57,8 @@ class SqliteStorage(StorageProvider):
         self.folder = None
         self.file_path = None
         self.is_open = False
-        self.conn: sqlite3.Connection = None
-        self.cursor: sqlite3.Cursor = None
+        self.conn: sqlite3.Connection  # = None
+        self.cursor: sqlite3.Cursor    # = None
 
     # region basic database handling - open , close, delete, ...
     @property
@@ -421,7 +420,7 @@ class SqliteStorage(StorageProvider):
             value = str(result[0][0])
             value = self.encryptor.decrypt(value)
             return value
-        return None
+        return ""
 
     # endregion
 
@@ -581,6 +580,7 @@ class SqliteStorage(StorageProvider):
               f"ON CONFLICT(key) DO UPDATE SET config = EXCLUDED.config;"
         self._execute(sql, data)
         self._commit()
+        return True
 
     def remove_dimension(self, dimension_name: str):
         """
@@ -772,6 +772,7 @@ class SqliteStorage(StorageProvider):
             else:
                 result = self.cursor.execute(sql)
 
+            return result
         except (sqlite3.Error, Exception) as err:
             msg = f"{self.LOG_PREFIX}Failed to execute SQL statement. {str(err)} SQL := {sql}"
             if self.logging:

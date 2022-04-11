@@ -4,17 +4,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
+
 import logging
 import os
-from enum import Enum
-from pathlib import Path
-from timeit import default_timer as timer
 
 import utils
 
 
 class Logger:
-
     LOG_FILE_EXTENSION = ".log"
 
     def __init__(self, name: str = "tinyolap", level=logging.INFO):
@@ -32,7 +29,6 @@ class Logger:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         self.logger.setLevel(self.level)
-
 
     def __setup_logger(self):
         self.logger = logging.getLogger("storage_provider")

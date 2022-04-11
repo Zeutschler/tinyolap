@@ -10,7 +10,7 @@ class TestQuery(TestCase):
         # delete database if exists
         self.database = play_tiny(False)
 
-    def test_execute_sql_queries(self, console_output: bool = True, dump_records: bool = True):
+    def test_execute_sql_queries(self, console_output: bool = False, dump_records: bool = True):
         # None of the following statements should through an error.
         queries = [
             {"sql": "SELECT months, products FroM sAles WHERE '2021', months=summer, North, products='*', 'Sales'"},

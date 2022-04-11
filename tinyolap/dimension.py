@@ -128,7 +128,7 @@ class Dimension:
         self.highest_idx = 0
 
         self.database = None
-        self._storage_provider: StorageProvider = None
+        self._storage_provider: StorageProvider  # = None
         self.edit_mode: bool = False
         self.recovery_json = ""
         self.recovery_idx = set()
@@ -331,8 +331,8 @@ class Dimension:
         for member in member_list:
             if member not in self._member_idx_lookup:
                 raise DimensionEditModeException(f"Failed to remove member(s). "
-                                             f"At least 1 of {len(member_list)} member ('{member}') is not "
-                                             f"a member of dimension {self.name}")
+                                                 f"At least 1 of {len(member_list)} member ('{member}') is not "
+                                                 f"a member of dimension {self.name}")
 
         # remove from directly related members
         for member in member_list:
@@ -394,7 +394,7 @@ class Dimension:
         idx_member = self._member_idx_lookup[member]
         if alias in self.alias_idx_lookup:
             raise DuplicateKeyException(f"Duplicate alias. The alias '{alias}' is already used "
-                                    f"by member '{self.members[idx_member][self.NAME]}' of dimension'{self.name}'")
+                                        f"by member '{self.members[idx_member][self.NAME]}' of dimension'{self.name}'")
         self.alias_idx_lookup[alias] = idx_member
 
     def remove_alias(self, alias: str):
@@ -484,7 +484,8 @@ class Dimension:
         :return: Returns the number_format string for the member, or ``None`` if no number_format string is defined.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"Failed to return member number_format. '{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(
+                f"Failed to return member number_format. '{member}' is not a member of dimension'{self.name}'")
         idx_member = self._member_idx_lookup[member]
         return self.members[idx_member][self.FORMAT]
 
@@ -495,7 +496,8 @@ class Dimension:
         :param member: Name of the member to remove the number_format for.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"Failed to remove member number_format. '{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(
+                f"Failed to remove member number_format. '{member}' is not a member of dimension'{self.name}'")
         idx_member = self._member_idx_lookup[member]
         self.members[idx_member][self.FORMAT] = None
 
@@ -585,7 +587,6 @@ class Dimension:
                 children.append(self.members[idx][self.NAME])
         return children
 
-
     def member_get_level(self, member: str):
         """
         Returns the level of a member within the member hierarchy.
@@ -597,6 +598,18 @@ class Dimension:
         if member not in self._member_idx_lookup:
             raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
         return self.members[self._member_idx_lookup[member]][self.LEVEL]
+
+    def member_is_leave(self, member: str):
+        """
+        Returns True if the member is a leave-level member (member.level = 0) within the member hierarchy.
+
+        :param member: Name of the member to be evaluated.
+        :return: True if the member is a leave-level member, False otherwise.
+        :raises KeyError: Raised if the member does not exist.
+        """
+        if member not in self._member_idx_lookup:
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+        return self.members[self._member_idx_lookup[member]][self.LEVEL] == 0
 
     # endregion
 
@@ -679,7 +692,7 @@ class Dimension:
         """
         for idx_member in self.members:
             return self.members[idx_member][self.NAME]
-        return None
+        return ""
 
     # endregion
 
@@ -793,11 +806,11 @@ class Dimension:
         """
         if not is_valid_db_object_name(attribute_name):
             raise InvalidKeyException(f"'{attribute_name}' is not a valid dimension attribute name. "
-                                  f"Lower case alphanumeric characters and underscore supported only, "
-                                  f"no whitespaces, no special characters.")
+                                      f"Lower case alphanumeric characters and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
         if attribute_name in self.attributes:
             raise DuplicateKeyException(f"Failed to add attribute to dimension. "
-                                    f"A dimension attribute named '{attribute_name}' already exists.")
+                                        f"A dimension attribute named '{attribute_name}' already exists.")
         self.attributes[attribute_name] = value_type
 
     def rename_attribute(self, attribute_name: str, new_attribute_name: str):
@@ -811,9 +824,9 @@ class Dimension:
         """
         if not is_valid_db_object_name(new_attribute_name):
             raise InvalidKeyException(f"Failed to rename dimension attribute. "
-                                  f"'{new_attribute_name}' is not a valid dimension attribute name. "
-                                  f"Lower case alphanumeric characters and underscore supported only, "
-                                  f"no whitespaces, no special characters.")
+                                      f"'{new_attribute_name}' is not a valid dimension attribute name. "
+                                      f"Lower case alphanumeric characters and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
         if attribute_name not in self.attributes:
             raise KeyError(f"Failed to rename dimension attribute. "
                            f"A dimension attribute named '{attribute_name}' does not exist.")
@@ -884,11 +897,11 @@ class Dimension:
         """
         if not is_valid_db_object_name(subset_name):
             raise InvalidKeyException(f"'{subset_name}' is not a valid dimension subset name. "
-                                  f"Lower case alphanumeric characters and underscore supported only, "
-                                  f"no whitespaces, no special characters.")
+                                      f"Lower case alphanumeric characters and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
         if subset_name in self.subsets:
             raise DuplicateKeyException(f"Failed to add subset to dimension. "
-                                    f"A dimension subset named '{subset_name}' already exists.")
+                                        f"A dimension subset named '{subset_name}' already exists.")
 
         # validate members list
         if not ((type(members) is list) or (type(members) is tuple)):
@@ -950,8 +963,8 @@ class Dimension:
         """
         if not is_valid_db_object_name(new_subset_name):
             raise InvalidKeyException(f"'{new_subset_name}' is not a valid dimension subset name. "
-                                  f"Lower case alphanumeric characters and underscore supported only, "
-                                  f"no whitespaces, no special characters.")
+                                      f"Lower case alphanumeric characters and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
         if not subset_name in self.subsets:
             raise KeyError(f"Failed to rename subset. "
                            f"'{subset_name}' is not a subset of dimension {self.name}.")
@@ -1123,10 +1136,10 @@ class Dimension:
             self.members[parent_idx][self.CHILDREN].remove(member_idx)
 
             raise DimensionEditModeException(f"Circular reference detected on adding parent <-> child relation "
-                                         f"'{self.members[parent_idx][self.NAME]}' <-> "
-                                         f"'{self.members[member_idx][self.NAME]}' "
-                                         f"to dimension {self.name}. Both members were added, "
-                                         f"but the relation was not created.")
+                                             f"'{self.members[parent_idx][self.NAME]}' <-> "
+                                             f"'{self.members[member_idx][self.NAME]}' "
+                                             f"to dimension {self.name}. Both members were added, "
+                                             f"but the relation was not created.")
 
         # update all-parents list, only relevant for base level members
         self.__update_all_parents(member_idx, parent_idx)
@@ -1151,7 +1164,7 @@ class Dimension:
         for idx in self._member_idx_lookup.values():
             if self.__circular_reference_detection(idx, idx):
                 raise DimensionEditModeException(f"Failed to commit dimension. Circular reference detected "
-                                             f"for member {self.members[idx][self.NAME]}.")
+                                                 f"for member {self.members[idx][self.NAME]}.")
 
     def __circular_reference_detection(self, start: int, current: int, visited=None):
         if visited is None:
