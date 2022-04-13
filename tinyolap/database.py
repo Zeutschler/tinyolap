@@ -440,6 +440,11 @@ class Database:
         :returns bool: Returns ``True`` if the dimension exists, ``False`` otherwise."""
         return name in self.dimensions
 
+    def get_dimension(self, name: str):
+        if name in self.dimensions:
+            return self.dimensions[name]
+        raise InvalidKeyException(f"A dimension named '{name}' does not exist in databse '{self._name}'.")
+
     # endregion
 
     # region Cube related methods
@@ -575,8 +580,8 @@ class Database:
             # initialize dimensions
             data = provider.get_dimensions()
             for dim_tuple in data:
-                dim_name, dim_json = dim_tuple
-                dimension = self.add_dimension(dim_name)
+                name, dim_json = dim_tuple
+                dimension = self.add_dimension(name)
                 dimension.from_json(dim_json)
 
             # initialize cubes

@@ -58,7 +58,7 @@ class Cube:
             self._dim_count = 0
             self._dimensions = tuple()
 
-        self._dim_names = []
+        self._names = []
         self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(self._dimensions)])
         self._facts = FactTable(self._dim_count, self)
 
@@ -698,13 +698,13 @@ class Cube:
 
         :return: A json string representing the cube.
         """
-        dim_names = [dim.name for dim in self._dimensions]
+        names = [dim.name for dim in self._dimensions]
         rules_count = len(self._rules_roll_up) + len(self._rules_on_entry) \
                       + len(self._rules_all_levels) + len(self._rules_base_level) + len(self._rules_aggr_level)
         config = {"content": "cube",
                   "name": self.name,
                   "description": self._description,
-                  "dimensions": dim_names,
+                  "dimensions": names,
                   "caching": self._caching,
                   "rules": rules_count,
                   }
@@ -730,12 +730,12 @@ class Cube:
             config = json.loads(json_string)
             self._name = config["name"]
             self._description = config["description"]
-            new_dim_names = config["dimensions"]
-            self._dimensions = tuple([self._database.dimensions[dim_name] for dim_name in new_dim_names])
+            new_names = config["dimensions"]
+            self._dimensions = tuple([self._database.dimensions[name] for name in new_names])
             self._caching = config["caching"]
 
             self._dim_count = len(self._dimensions)
-            self._dim_names = []
+            self._names = []
             self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(self._dimensions)])
             self._facts = FactTable(self._dim_count, self)
 

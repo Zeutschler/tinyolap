@@ -445,7 +445,7 @@ class Area:
 
         :param compact: Identifies is the data area should be compacted.
         """
-        return NotImplemented
+        raise NotImplementedError()
 
     def from_json(self, json: str, validate: bool = False) -> bool:
         """
@@ -453,14 +453,16 @@ class Area:
         writes (imports) all values contained in the data area definition into the cube.
 
         :param json: A json string containing the data area definition.
+
         :param validate: If set to ``True`` , the data area will be validated before importing.
-        By this you can ensure that all values of the data area can be written to the cube.
-        If at least one value of the data area can not be written to the cube, then ```from_json()``
-        will stop and return ``False`` , otherwise the method will continue and start to write
-        (import) values to the cube.
-        :return Returns ``True``if the import was successful, ``False``otherwise.
+            By this you can ensure that all values of the data area can be written to the cube.
+            If at least one value of the data area can not be written to the cube, then ``from_json()`` will
+            stop and return ``False`` , otherwise the method will continue and start to write
+            (import) values to the cube.
+
+        :return: Returns ``True`` if the import was successful, ``False`` otherwise.
         """
-        return NotImplemented
+        raise NotImplementedError()
 
     def to_dict(self, compact: bool = True):
         """
@@ -470,7 +472,7 @@ class Area:
 
         :param compact: Identifies is the data area should be compacted.
         """
-        return NotImplemented
+        raise NotImplementedError()
 
     def from_dict(self, area_dict: dict, validate: bool = False) -> bool:
         """
@@ -478,14 +480,16 @@ class Area:
         writes (imports) all values contained in the data area definition into the cube.
 
         :param area_dict: A Python dict object containing the data area definition.
+
         :param validate: If set to ``True`` , the data area will be validated before importing.
-        By this you can ensure that all values of the data area can be written to the cube.
-        If at least one value of the data area can not be written to the cube, then ```from_dict()``
-        will stop and return ``False`` , otherwise the method will continue and start to write
-        (import) values to the cube.
-        :return Returns ``True``if the import was successful, ``False``otherwise.
+            By this you can ensure that all values of the data area can be written to the cube.
+            If at least one value of the data area can not be written to the cube, then ``from_dict()`` will
+            stop and return ``False`` , otherwise the method will continue and start to write
+            (import) values to the cube.
+
+        :return: Returns ``True`` if the import was successful, ``False`` otherwise.
         """
-        return NotImplemented
+        raise NotImplementedError()
 
     # region operator overloading for numerical operations
     def __add__(self, other):  # + operator
@@ -572,7 +576,7 @@ class Area:
                 idx_dim, members, idx_members, level_members = self._get_members(arg)
             except:
                 raise InvalidCellOrAreaAddressException(f"Invalid member definition. Argument '{str(arg)}' is not "
-                                                         f"a member of any dimension in cube '{self._cube.name}'")
+                                                        f"a member of any dimension in cube '{self._cube.name}'")
 
             if not alter:
                 if idx_dim in already_used:
@@ -591,7 +595,7 @@ class Area:
         members = []
         idx_members = []
         level_members = []
-        dim_names = [key for key in self._cube._dim_lookup.keys()]
+        names = [key for key in self._cube._dim_lookup.keys()]
 
         if type(item) is str or not isinstance(item, Iterable):
             item = (item,)
@@ -604,7 +608,7 @@ class Area:
                 level_members.append(member._member_level)
 
             elif type(member) is str:
-                idx_dim, idx_member, member_level = self._get_member(dim_names, member)
+                idx_dim, idx_member, member_level = self._get_member(names, member)
                 idx_dims.append(idx_dim)
                 members.append(member)
                 idx_members.append(idx_member)
@@ -625,7 +629,7 @@ class Area:
 
         return idx_dim, members, idx_members, level_members
 
-    def _get_member(self, dim_names, member_name: str):
+    def _get_member(self, names, member_name: str):
         level = self._cube._dimensions[0].LEVEL
         dimensions = self._cube._dimensions
         idx_dim = -1
@@ -633,25 +637,25 @@ class Area:
         pos = member_name.find(":")
         if pos != -1:
             # lets extract the dimension name and check if it is valid, e.g., c["months:Mar"]
-            dim_name = member_name[:pos].strip()
+            name = member_name[:pos].strip()
 
             # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
-            if dim_name.isdigit():
-                ordinal = int(dim_name)
-                if 0 <= ordinal < len(dim_names):
+            if name.isdigit():
+                ordinal = int(name)
+                if 0 <= ordinal < len(names):
                     # that's a valid dimension position number
                     idx_dim = ordinal
             if idx_dim == -1:
-                if dim_name not in self._cube._dim_lookup:
-                    raise KeyError(f"Invalid member key. '{dim_name}' is not a dimension "
+                if name not in self._cube._dim_lookup:
+                    raise KeyError(f"Invalid member key. '{name}' is not a dimension "
                                    f"in cube '{self._cube.name}. Found in '{member_name}'.")
-                idx_dim = self._cube._dim_lookup[dim_name]
+                idx_dim = self._cube._dim_lookup[name]
 
             # adjust the member name
             member_name = member_name[pos + 1:].strip()
             if member_name not in dimensions[idx_dim]._member_idx_lookup:
                 raise KeyError(f"Invalid member key. '{member_name}'is not a member of "
-                               f"dimension '{dim_name}' in cube '{self._cube.name}.")
+                               f"dimension '{name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
 
             member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]

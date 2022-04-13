@@ -136,8 +136,6 @@ class Slice:
 
         # iterate over columns and rows
         row = 0
-        []
-        []
         for row_member_set in self.axis[2]:
             row_members = []
             for row_member in row_member_set:
@@ -160,12 +158,13 @@ class Slice:
                         address[dim_ordinal] = col_member[1]
 
                 # check formats
-                number_format = None
+                number_format = '{:,.0f}' # default format
                 for idx, member in enumerate(tuple(address)):
                     if member not in formats:
                         member_format = self.cube.get_dimension_by_index(idx).member_get_format(member)
                         if member_format:
                             number_format = member_format
+                            break
                         formats[member] = member_format
                     else:
                         number_format = formats[member]

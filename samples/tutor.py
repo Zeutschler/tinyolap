@@ -63,10 +63,10 @@ def load_tutor(console_output: bool = False):
     # 2. create dimensions from the following 6 dimension files:
     # JAHRE.TXT, DATENART.TXT, REGIONEN.TXT, PRODUKTE.TXT, MONATE.TXT, WERTART.TXT
     dimensions = []
-    for dim_name in dimension_names:
-        file_name = os.path.join(root_path, FILES_FOLDER, dim_name.upper() + ".TXT")
+    for name in dimension_names:
+        file_name = os.path.join(root_path, FILES_FOLDER, name.upper() + ".TXT")
         # add a new dimension to the database
-        dim = db.add_dimension(dim_name)
+        dim = db.add_dimension(name)
         # open the dimension for editing (adding or removing members)
         dim.edit()
 

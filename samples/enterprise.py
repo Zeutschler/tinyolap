@@ -10,7 +10,7 @@
 # *****************************************************************************
 
 from art import *
-from samples.enterprise_model.database import create_database
+from samples.enterprise_model.model import create_database
 from tinyolap.database import Database
 
 
@@ -28,9 +28,9 @@ def play_enterprise(console_output=True):
     #       e.g. separate 'profit and loss calculations and KPIs' from 'HR logic'.
     db: Database = create_database(name="TinyCorp",
                                    database_directory=None,  # 'None' create an in-memory database only.
-                                   num_legal_entities=100,
+                                   num_legal_entities=25,
                                    num_products=100,
-                                   num_employees=1_000)
+                                   num_employees=1000)
 
 
 if __name__ == "__main__":

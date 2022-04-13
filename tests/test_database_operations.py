@@ -14,9 +14,9 @@ class TestDatabaseOperations(TestCase):
         self.db.delete()
 
     def test_database_member_removal_and_add_again(self):
-        dim_name1 = "foo"
+        name1 = "foo"
         members1 = ["a", "b", "c"]
-        dim_name2 = "bar"
+        name2 = "bar"
         members2 = ["x", "y", "z"]
         total_member = "total"
         cube_name = "cube"
@@ -24,10 +24,10 @@ class TestDatabaseOperations(TestCase):
         # setup database
         db = Database(self.db_name, in_memory=True)
         self.db = db
-        dim1 = db.add_dimension(dim_name1).edit()
+        dim1 = db.add_dimension(name1).edit()
         dim1.add_member(total_member, members1)
         dim1.commit()
-        dim2 = db.add_dimension(dim_name2).edit()
+        dim2 = db.add_dimension(name2).edit()
         dim2.add_member(total_member, members2)
         dim2.commit()
         cube = db.add_cube(cube_name, [dim1, dim2])

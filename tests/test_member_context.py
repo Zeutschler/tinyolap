@@ -39,8 +39,7 @@ class TestMember(TestCase):
 
         all = self.dim.member("All")
         self.assertFalse(all.has_previous())
-        with self.assertRaises(Exception):
-            x = all.previous()
+        self.assertEqual(all.previous(), None)
 
         a = self.dim.member("A")
         self.assertTrue(a.has_previous())

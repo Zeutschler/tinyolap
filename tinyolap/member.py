@@ -152,7 +152,8 @@ class Member:
         if self._ordinal > 0:
             idx_member = self._dimension._member_idx_list[self._ordinal - 1]
             return self.__get_member(idx_member)
-        raise IndexError(f"Member '{self.member_name}' is already the first member.")
+        return None
+        # raise IndexError(f"Member '{self.member_name}' is already the first member.")
 
     def last(self) -> Member:
         """

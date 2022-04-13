@@ -38,11 +38,11 @@ def load_huge(console_output: bool = False):
     dimensions = []
     member_lists = []
     for d in range(numbers_of_dimensions):
-        dim_name = f"dim{d + 1}"
-        dim = db.add_dimension(dim_name).edit()
+        name = f"dim{d + 1}"
+        dim = db.add_dimension(name).edit()
         members = []
         for m in range(members_per_dimension):
-            member_name = f"{dim_name}-member{m + 1}"
+            member_name = f"{name}-member{m + 1}"
             dim.add_member(member_name)
             members.append(member_name)
         # create one additional aggregated member to sum up all members.

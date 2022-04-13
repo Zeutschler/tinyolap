@@ -52,18 +52,18 @@ class Cell(SupportsFloat):
 
     # region Initialization
     @classmethod
-    def create(cls, cube, dim_names, address, bolt):
+    def create(cls, cube, names, address, bolt):
         cell = Cell()
         cell._cube = cube
-        cell._dim_names = dim_names
-        cell._dim_count = len(dim_names)
+        cell._names = names
+        cell._dim_count = len(names)
         cell._address = address
         cell._bolt = bolt
         return cell
 
     def __init__(self):
         self._cube = None
-        self._dim_names = None
+        self._names = None
         self._address = None
         self._bolt = None
         self._dim_count = -1
@@ -139,7 +139,7 @@ class Cell(SupportsFloat):
         for modifier in modifiers:
             idx_address[modifier[0]] = modifier[1]
         bolt = (super_level, tuple(idx_address), idx_measure)
-        return Cell.create(self._cube, self._dim_names, address, bolt)
+        return Cell.create(self._cube, self._names, address, bolt)
 
     def member(self, dimension_and_or_member_name: str) -> Member:
         """
@@ -231,25 +231,25 @@ class Cell(SupportsFloat):
         pos = member.find(":")
         if pos != -1:
             # lets extract the dimension name and check if it is valid, e.g., c["months:Mar"]
-            dim_name = member[:pos].strip()
+            name = member[:pos].strip()
 
             # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
-            if dim_name.isdigit():
-                ordinal = int(dim_name)
-                if 0 <= ordinal < len(self._dim_names):
+            if name.isdigit():
+                ordinal = int(name)
+                if 0 <= ordinal < len(self._names):
                     # that's a valid dimension position number
                     idx_dim = ordinal
             if idx_dim == -1:
-                if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                if name not in self._cube._dim_lookup:
+                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{name}' is not a dimension "
                                                              f"in cube '{self._cube.name}. Found in '{member}'.")
-                idx_dim = self._cube._dim_lookup[dim_name]
+                idx_dim = self._cube._dim_lookup[name]
 
             # adjust the member name
             member = member[pos + 1:].strip()
             if member not in dimensions[idx_dim]._member_idx_lookup:
                 raise InvalidCellOrAreaAddressException(f"Invalid member key. '{member}'is not a member of "
-                                                         f"dimension '{dim_name}' in cube '{self._cube.name}.")
+                                                         f"dimension '{name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member]
 
             member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]
@@ -267,23 +267,29 @@ class Cell(SupportsFloat):
 
         # Still nothing found ? Then it might be just a dimension name or dimension ordinal
         # to reference the current member of that dimension.
-        dim_name = member
+        name = member
         # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
-        if type(dim_name) is int or dim_name.isdigit():
-            ordinal = int(dim_name)
-            if 0 <= ordinal < len(self._dim_names):
+        if type(name) is int or name.isdigit():
+            ordinal = int(name)
+            if 0 <= ordinal < len(self._names):
                 # that's a valid dimension position number
                 idx_dim = ordinal
             if idx_dim == -1:
-                if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                if name not in self._cube._dim_lookup:
+                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{name}' is not a dimension "
                                                              f"in cube '{self._cube.name}. Found in '{member}'.")
-                idx_dim = self._cube._dim_lookup[dim_name]
+                idx_dim = self._cube._dim_lookup[name]
 
             idx_member = self._bolt[1][idx_dim]
             member_level = dimensions[idx_dim].members[idx_member][level]
             return idx_dim, idx_member, member_level
-
+        else:
+            idx_dim = self._cube.get_dimension_ordinal(name)
+            if idx_dim > -1:
+                idx_member = self._bolt[1][idx_dim]
+                member_level = dimensions[idx_dim].members[idx_member][level]
+                return idx_dim, idx_member, member_level
+                    
         # You loose...
         if idx_dim == -1:
             raise KeyError(f"'{member}' is not a member of any dimension in "

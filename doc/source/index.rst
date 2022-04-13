@@ -9,14 +9,16 @@
 TinyOlap
 =================
 
-TinyOlap is a light-weight [1]_ in-process [2]_ multi-dimensional [3]_ in-memory [4]_ **OLAP database**
-written in plain Python. TinyOlap follows the **model-driven approach** which is
-suitable for many real world use cases, especially in the area of planning, budgeting, forecasting,
-simulation, analysis, reporting and
+TinyOlap is a light-weight [1]_ in-process [2]_ multi-dimensional [3]_ in-memory [4]_ **OLAP engine**
+written in plain Python. Following the **model-first approach**, TinyOlap is suitable for many real
+world use cases, especially in the area of planning, budgeting, forecasting, simulation, reporting,
+data analysis and science, as well as other numerical data-processing problems.
 
-TinyOlap is also quite handy as a more **comfortable alternative to Pandas DataFrames** when your data
-is multidimensional, requires hierarchical aggregations or complex calculations.
+Although this sounds very complicated, TinyOlap is actually very easy to use and should
+be suitable for all levels of Python developer and database skills.
 
+TinyOlap is also quite handy as a **smart alternative to Pandas DataFrames** when your use case
+is multi-dimensional data, requires hierarchical aggregations or complex calculations.
 
 .. [1] TinyOlap is standard Python, the core library has just a very few external dependencies.
        You can spin up a new database in milliseconds by code,

@@ -22,15 +22,15 @@ class TestStorageProvider(TestCase):
         """Read, write, overwrite, delete, rewrite of cube data."""
         database_name = "sqlite_provider_end_to_end"
         cube_names = ["this", "that", "other", "foreign", "self"]
-        dim_names = ["years", "month", "regions", "models", "figures"]
+        names = ["years", "month", "regions", "models", "figures"]
 
         provider: StorageProvider = SqliteStorage(name= database_name)
         if provider.exists():
             provider.delete()
         provider.open()
 
-        for i, dim_name in enumerate(dim_names):
-            provider.add_dimension(dim_name, some_json(i))
+        for i, name in enumerate(names):
+            provider.add_dimension(name, some_json(i))
 
         for i, cube_name in enumerate(cube_names):
             provider.add_cube(cube_name, some_json(i))
@@ -121,7 +121,7 @@ class TestStorageProvider(TestCase):
         """Creation and deletion of dimensions."""
 
         database_name = "sqlite_provider_dim_test"
-        dim_names = ["years", "month", "regions", "models", "figures"]
+        names = ["years", "month", "regions", "models", "figures"]
 
         provider: StorageProvider = SqliteStorage(name=database_name)
         provider.open()
@@ -133,9 +133,9 @@ class TestStorageProvider(TestCase):
                 provider.remove_dimension(dim_tuple)
         self.assertEqual(provider.count_dimensions(), 0)
 
-        for i, dim in enumerate(dim_names):
+        for i, dim in enumerate(names):
             provider.add_dimension(dim, some_json(i))
-        self.assertEqual(provider.count_dimensions(), len(dim_names))
+        self.assertEqual(provider.count_dimensions(), len(names))
 
         # close and clean up of database
         provider.close()
