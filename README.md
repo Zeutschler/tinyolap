@@ -6,8 +6,8 @@ engine forplanning, budgeting, reporting, analysis and many other numerical purp
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
 be suitable for all levels of Python and database skills.
 
-TinyOlap is also quite handy as a more **comfortable alternative to Pandas DataFrames** when your data
-is multidimensional, requires hierarchical aggregations or complex calculations. 
+TinyOlap is also quite handy as a smart alternative to Pandas DataFrames when your use case
+is multi-dimensional data, requires hierarchical aggregations or complex calculations. 
 
 ## Getting started
 **To get started**, download the [TinyOlap cheat sheet (pdf)](https://tinyolap.com/tinyolap_cheatsheet.pdf)
