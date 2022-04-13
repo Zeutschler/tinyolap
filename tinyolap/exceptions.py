@@ -21,7 +21,7 @@ class RuleException(TinyOlapException):
     pass
 
 
-class InvalidCellOrSliceAddressException(TinyOlapException):
+class InvalidCellOrAreaAddressException(TinyOlapException):
     """Raised when an invalid cube cell idx_address is detected."""
     pass
 

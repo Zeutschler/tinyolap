@@ -116,7 +116,7 @@ class TestCubeRules(TestCase):
             return 0.0
 
     @rule("sales", ["Profit%"], RuleScope.ALL_LEVELS)
-    def rule_profit_percent(self, db: Database, c: Cell):
+    def rule_profit_percent(self, c: Cell):
         sales = c["Sales"]
         profit = c["Profit"]
         if sales != 0.0:

@@ -241,14 +241,14 @@ class Cell(SupportsFloat):
                     idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellOrSliceAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
                                                              f"in cube '{self._cube.name}. Found in '{member}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 
             # adjust the member name
             member = member[pos + 1:].strip()
             if member not in dimensions[idx_dim]._member_idx_lookup:
-                raise InvalidCellOrSliceAddressException(f"Invalid member key. '{member}'is not a member of "
+                raise InvalidCellOrAreaAddressException(f"Invalid member key. '{member}'is not a member of "
                                                          f"dimension '{dim_name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member]
 
@@ -276,7 +276,7 @@ class Cell(SupportsFloat):
                 idx_dim = ordinal
             if idx_dim == -1:
                 if dim_name not in self._cube._dim_lookup:
-                    raise InvalidCellOrSliceAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
+                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{dim_name}' is not a dimension "
                                                              f"in cube '{self._cube.name}. Found in '{member}'.")
                 idx_dim = self._cube._dim_lookup[dim_name]
 

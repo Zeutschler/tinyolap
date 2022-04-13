@@ -99,6 +99,7 @@ class TestArea(TestCase):
         self.assertEqual(1.0, value_before)
 
         area = cube.area("2020")
+        bera = cube.area()
 
         # copy a modified source area to a target area
         area["Feb"] = area["Jan"] * 3.0

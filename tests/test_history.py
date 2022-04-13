@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from samples.tiny import create_tiny_database
 from history import History
-from tinyolap.exceptions import InvalidCellOrSliceAddressException
+from tinyolap.exceptions import InvalidCellOrAreaAddressException
 
 
 class TestHistory(TestCase):

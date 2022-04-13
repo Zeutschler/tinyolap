@@ -624,7 +624,7 @@ class Cube:
         dim_count = self._dim_count
         measures_count = len(address) - dim_count
         if measures_count < 0:
-            raise InvalidCellOrSliceAddressException(
+            raise InvalidCellOrAreaAddressException(
                 f"Invalid idx_address. At least {self._dim_count} members expected "
                 f"for cube '{self._name}, but only {len(address)} where passed in.")
         # Validate members
@@ -636,7 +636,7 @@ class Cube:
                 idx_address[i] = dimensions[i]._member_idx_lookup[member]
                 super_level += dimensions[i].members[idx_address[i]][6]
             else:
-                raise InvalidCellOrSliceAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
+                raise InvalidCellOrAreaAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
                                                          f"dimension '{dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
@@ -647,7 +647,7 @@ class Cube:
             idx_measures = []
             for measure in address[self._dim_count:]:
                 if measure not in self._measures:
-                    raise InvalidCellOrSliceAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
+                    raise InvalidCellOrAreaAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
                 idx_measures.append(self._measures[measure])
             if measures_count == 1:
                 idx_measures = idx_measures[0]

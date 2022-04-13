@@ -30,6 +30,23 @@ class Member:
     def __str__(self) -> str:
         return self._name
 
+    # region Attribute access by name
+    def __getitem__(self, item):
+        """
+        Returns the value of a member attribute.
+        :param item: Name of the attribute.
+        :return: Value of the member attribute.
+        """
+        return self._dimension.get_attribute(item)
+
+    def __setitem__(self, item, value):
+        """
+        Sets the value of a member attribute.
+        :param item: Name of the attribute.
+        :param value: Value to be set.
+        """
+        self._dimension.set_attribute(item, value)
+
     # region Properties
     @property
     def name(self) -> str:

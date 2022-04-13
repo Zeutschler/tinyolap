@@ -152,6 +152,15 @@ class Dimension:
         """Returns the length (number of members) of the dimension"""
         return len(self.members)
 
+    # region Member access by name or index
+    def __getitem__(self, item):
+        """
+        Returns the Member object for a given name or member index.
+        :param item: The Member objects name or index.
+        :return: The member object.
+        """
+        return self.member(item)
+
     # region Dimension editing
     def clear(self) -> Dimension:
         """

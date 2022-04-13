@@ -9,7 +9,7 @@ import copy
 import itertools
 from collections import Iterable
 
-from tinyolap.exceptions import InvalidCellOrSliceAddressException
+from tinyolap.exceptions import InvalidCellOrAreaAddressException
 from tinyolap.member import Member
 
 
@@ -286,7 +286,7 @@ class Area:
             # ensure if dimensions are identical and 1 member per dimension and all members are base level members
             compatible, message = self._compatible(dest)
             if not compatible:
-                raise InvalidCellOrSliceAddressException(f"Set value failed. {message}")
+                raise InvalidCellOrAreaAddressException(f"Set value failed. {message}")
 
             # clear the destination first
             dest.clear()
@@ -568,7 +568,11 @@ class Area:
                 args = args[0]
 
         for arg in args:
-            idx_dim, members, idx_members, level_members = self.__get_members(arg)
+            try:
+                idx_dim, members, idx_members, level_members = self._get_members(arg)
+            except:
+                raise InvalidCellOrAreaAddressException(f"Invalid member definition. Argument '{str(arg)}' is not "
+                                                         f"a member of any dimension in cube '{self._cube.name}'")
 
             if not alter:
                 if idx_dim in already_used:
@@ -582,7 +586,7 @@ class Area:
             self._idx_area_def[idx_dim] = idx_members
             self._levels_area_def[idx_dim] = level_members
 
-    def __get_members(self, item):
+    def _get_members(self, item):
         idx_dims = []
         members = []
         idx_members = []
@@ -615,7 +619,7 @@ class Area:
         idx_dim = idx_dims[0]
         for idx in idx_dims[1:]:
             if idx != idx_dim:
-                # raise InvalidCellOrSliceAddressException(f"Invalid member definition argument '{str(item)}'. Members do not belong "
+                # raise InvalidCellOrAreaAddressException(f"Invalid member definition argument '{str(item)}'. Members do not belong "
                 #                f"to one dimension only, multiple dimensions found.")
                 a = 1
 

@@ -47,7 +47,7 @@ class Query:
         """
         return self._records
 
-    def execute(self, sql: str = None):
+    def execute(self, sql: str = None) -> Query:
         """
         Executes an SQL statement against the defined database.
         :param sql: The SQL statement to execute.
@@ -132,7 +132,7 @@ class Query:
             pass
 
         self._records = records
-        return True
+        return self
 
     def __get_column_names(self, query_def):
         col_names = []
