@@ -126,7 +126,7 @@ def play_huge(console_output: bool = True):
 
         print(f"\nNote: The actual numbers of records in the cube is {cube.cells_count:,}."
               f"\n      In rare cases, this number might by below the expected {numbers_of_records:,} number of records."
-              f"\n      Reason: randomly generated cell addresses might have create duplicates and there for overlap.")
+              f"\n      Reason: randomly generated cell addresses might have create duplicate addresses.")
 
 
 def main():
