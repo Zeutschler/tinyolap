@@ -1,8 +1,8 @@
 ![TinyOlap logo](/doc/source/_logos/cube16.png)  TinyOlap is under active development.
 # TinyOlap 
 
-TinyOlap is a light-weight, client-side, model-driven, cell-oriented, multi-dimensional OLAP 
-database for **planning, budgeting, reporting, analysis and many other numerical purposes**. 
+TinyOlap is a light-weight, in-process, model-driven, cell-oriented, multi-dimensional OLAP 
+engine for **planning, budgeting, reporting, analysis and many other numerical purposes**. 
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
 be suitable for all levels of Python and database skills.
 
