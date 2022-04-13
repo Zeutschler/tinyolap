@@ -10,7 +10,7 @@ TinyOlap is also quite handy as a more **comfortable alternative to Pandas DataF
 is multidimensional, requires hierarchical aggregations or complex calculations. 
 
 ## Getting started
-**To get started**, please visit the **TinyOlap documentation** at [https://tinyolap.com](https://tinyolap.com)
+**To get started**, please visit the **documentation** at [https://tinyolap.com](https://tinyolap.com) or download the [TinyOlap cheat sheet (pdf)](https://tinyolap.com/tinyolap_cheatsheet.pdf). 
 
 If you want to use the TinyOlap package only, without the samples, then you can install TinyOlap using pip:
 
