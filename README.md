@@ -1,7 +1,7 @@
 ![TinyOlap logo](/doc/source/_logos/cube16.png)  TinyOlap is under active development.
 # TinyOlap 
 
-TinyOlap is a light-weight, in-proces, multi-dimensional, **model-first OLAP 
+TinyOlap is a light-weight, in-process, multi-dimensional, **model-first OLAP 
 engine** for planning, budgeting, reporting, analysis and many other numerical purposes. 
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
 be suitable for all levels of Python and database skills.
