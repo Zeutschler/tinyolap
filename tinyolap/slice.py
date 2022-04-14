@@ -504,9 +504,11 @@ class Slice:
         text += '<table class="table w-auto"><tbody>\n'
         for member in self.axis[0]:
             if member[0] == -1:
-                text += f'<tr><th scope="row">Measure</th><td>{member[1]}</td></tr>\n'
+                # text += f'<tr><th scope="row">Measure</th><td>{member[1]}</td></tr>\n'
+                pass
             else:
-                text += f'<tr><th scope="row">{member[2]}</th><td>{member[1]}</td></tr>\n'
+                # text += f'<tr><th scope="row">{member[2]}</th><td>{member[1]}</td></tr>\n'
+                text += f'<tr><td>{member[2]}</td><th scope="row">{member[1]}</th></tr>\n'
         text += '</tbody></table>'
 
         text += '<div style= width: 100%">'
@@ -516,11 +518,17 @@ class Slice:
         text += '<thead">\n'
 
         # column headers
+        dim_names_inserted = False
         text += tro
         for c in range(col_dims):
             for r in range(row_dims):
-                text += f'<th scope="col" class="th-lg" style="width: 80px"></th>\n'
-                # text += tdo + " ".ljust(row_header_width) + tdc
+                if dim_names_inserted:
+                    text += f'<th scope="col" class="th-lg" style="width: 80px"></th>\n'
+                else:
+                    dim_names = ", ".join("→" + item["dimension"] for item in self.definition["columns"])
+                    dim_names = dim_names + "</br>" + ", ".join("↓" + item["dimension"] for item in self.definition["rows"])
+                    text += f'<td scope="col" class="td-lg" style="width: 80px">{dim_names}</td>\n'
+                    dim_names_inserted = True
             for i in range(self.grid_cols_count):
                 text += f'<th scope="col" class="text-center" style="width: 80px">' \
                         f'{self.grid[i][3][c]}' \
@@ -552,7 +560,9 @@ class Slice:
                         text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
                     previous[pos] = member
 
+            negative = False
             if type(value) is float:
+                negative = (value < 0.0)
                 if format:
                     value = format.format(value)
                 else:
@@ -561,7 +571,10 @@ class Slice:
                 value = "-"
             else:
                 value = ""
-            text += f'<td class="text-nowrap" style="text-align: right">{value}</td>\n'
+            if negative:
+                text += f'<td class="text-nowrap" style="text-align: right; color:darkred">{value}</td>\n'
+            else:
+                text += f'<td class="text-nowrap" style="text-align: right">{value}</td>\n'
 
         text += trc
         text += "</table></div>"
@@ -575,14 +588,11 @@ class Slice:
                  '<div class="container">' \
                  '<div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">' \
                  '<a href="/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">' \
-                 '<img width="48" height="48" src="/logo.png" aria-label="TinyOlap"></img>' \
-                 ' <a class="navbar-brand px-2 text-white">TinyOlap</a>' \
+                 '<img width="182" height="48" src="/tinylogo.png" aria-label="TinyOlap"></img>' \
                  '</a>' \
                  '<ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">' \
-                 '<li><a href="#" class="nav-link px-2 text-secondary">Home</a></li>' \
-                 '<li><a href="#" class="nav-link px-2 text-white">Foo</a></li>' \
-                 '<li><a href="#" class="nav-link px-2 text-white">Bar</a></li>' \
-                 '<li><a href="#" class="nav-link px-2 text-white">Baz</a></li>' \
+                 '<li><a href="https://tinyolap.com/tinyolap_cheatsheet.pdf" class="nav-link px-10 text-white">get started (pdf)</a></li>' \
+                 '<li><a href="https://tinyolap.com" class="nav-link px-2 text-secondary"> ...visit tinyolap.com</a></li>' \
                  '</ul>' \
                  '<form action="/report" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
                  '<div class="btn-toolbar">' \
@@ -591,7 +601,7 @@ class Slice:
                  '</form>' \
                  '<form action="/nextreport" class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3">' \
                  '<div class="btn-toolbar">' \
-                 '<button type="submit" class="btn btn-warning">Next</button>' \
+                 '<button type="submit" class="btn btn-warning">Next Random Report...</button>' \
                  '</div>' \
                  '</form>' \
                  '</div>' \
@@ -617,7 +627,7 @@ class Slice:
                f'<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" ' \
                f'integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" ' \
                f'crossorigin="anonymous">' \
-               f'<title>TinyOlap report</title>' \
+               f'<title>TinyOlap sample report</title>' \
                f'<style>{style}</style>' \
                f'<script>{script}</script>' \
                f'</head>' \

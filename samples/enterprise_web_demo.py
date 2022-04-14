@@ -8,58 +8,59 @@ import random
 import sys
 import time
 from pathlib import Path
-
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 
 from tinyolap.slice import Slice
 from tinyolap.server import Server
 
 from samples.enterprise_model.model import create_database
 
+
+# Configure the database and cube to show here...
+caching = False  # Switch True / False to enable / disable caching in cubes
+db = create_database("enterprise", num_legal_entities=50, num_products=100, num_employees=1000)
+cube = db.cubes["pnl"]
+# ... the following code does not need to be touched. Just run and enjoy...
+
+# TinyOlap setup
 sys.path.append('..')
-
-# TinyOlap
+db_name = db.name
 server = Server()
-server.add_database(create_database("enterprise",
-                                    num_legal_entities=10,
-                                    num_products=100,
-                                    num_employees=1000))
-
-caching = True  # Switch True / False to enable / disable caching in cubes
-server["enterprise"].caching = caching
-server["enterprise"].cubes["pnl"].caching = caching
+server.add_database(db)
+server[db_name].caching = caching
+cube.caching = caching
 report_def = None
 
 
 def render_report(refresh_only: bool = False) -> str:
-    # Renders a random report
-    cube = server["enterprise"].cubes["pnl"]
+    # Renders a random report based on the configures database and cube
     cube.reset_counters()
     global report_def
     if not report_def or not refresh_only:
-        dims = [{"dimension": "datatype"}, {"dimension": "years"}, {"dimension": "periods"},
-                {"dimension": "companies"}, {"dimension": "pnl"}]
+        dims = [{"dimension": dim} for dim in cube.dimension_names]
         random.shuffle(dims)
         for d in range(len(dims)):
-            members = server["enterprise"].dimensions[dims[d]["dimension"]].get_members()
+            members = db.dimensions[dims[d]["dimension"]].get_members()
             dims[d]["member"] = members[random.randrange(0, len(members))]
-        nested_dims_in_rows = random.randrange(1, 2)  # change 2 to 3 for nested row dimensions
-        header_dims = dims[: 5 - 1 - nested_dims_in_rows]
+        nested_dims_in_rows = random.randrange(1, 2)  # change the 2 to 3 for nested row dimensions
+        header_dims = dims[: cube.dimensions_count - 1 - nested_dims_in_rows]
         column_dims = [{"dimension": dims[len(header_dims)]["dimension"]}]
         row_dims = [{"dimension": d["dimension"]} for d in dims[len(header_dims) + 1:]]
-        report_def = {"title": f"Random Report from Enterprise Database (caching is {str(cube.caching)})",
+        report_def = {"title": f"Random report on cube <strong>{cube.name}</strong> "
+                               f"from databse <strong>{db.name}</strong>",
                       "header": header_dims, "columns": column_dims, "rows": row_dims}
     # Execute the report
     start = time.time()
-    report = Slice(cube, report_def)
+    random_report = Slice(cube, report_def)
     duration = time.time() - start
-    footer = f"\tReport refreshed in {duration:.6} sec. {cube.counter_cell_requests:,}x cell requests, " \
+
+    footer = f"\tReport with caching {'ON' if cube.caching else 'OFF'} refreshed in {duration:.6} sec. " \
+             f"{cube.counter_cell_requests:,}x cell requests, " \
              f"{cube.counter_aggregations:,}x aggregations calculated and " \
              f"{cube.counter_rule_requests:,}x rules executed."
-    return report.as_html(footer=footer)
+    return random_report.as_html(footer=footer)
 
 
 # FastAPI
@@ -81,9 +82,9 @@ async def report():
     return render_report(False)
 
 
-@app.get("/logo.png")
+@app.get("/tinylogo.png")
 async def tinyolap_logo():
-    file_name = os.path.join(Path(__file__).resolve().parents[1], "doc", "source", "_logos", "cube256.png")
+    file_name = os.path.join(Path(__file__).resolve().parents[1], "doc", "source", "_logos", "logo_white_512.png")
     return FileResponse(file_name)
 
 

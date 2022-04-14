@@ -39,7 +39,7 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     datatype = add_dimension_datatype(db)
     years = add_dimension_years(db)
     periods = add_dimension_periods(db)
-    company = add_dimension_company(db,companies_count=num_legal_entities)
+    company = add_dimension_company(db, companies_count=num_legal_entities)
     pnl = add_dimension_pnl_statement(db)
 
     # setup cubes 'PL'
@@ -94,6 +94,7 @@ def populate_cube_pnl(db: Database, pnl: Cube):
                     z = z + 1
                 # increase the monthly trend factor
                 trend_factor = trend_factor + random.gauss(0.01, 0.01)
+    print(f"number of cells is {z}")
 
 
 # region Dimension Creation
@@ -172,11 +173,14 @@ def add_dimension_datatype(db: Database, name: str = "datatype") -> Dimension:
                   "FCvsPL", "FCvsPL%",
                   "FCvsACTpy", "FCvsACTpy%"])
     d.commit()
-    for member in d.get_members():
+    for member in ["Actual", "Plan", "Forecast"]:
         d.member_set_format(member, "{:,.0f}")  # set default number format
+    for member in ["ACTvsPL", "ACTvsFC", "ACTvsACTpy", "FCvsPL", "FCvsACTpy"]:
+        d.member_set_format(member, "{:+,.0f}")  # set default number format
     for member in ["ACTvsPL%", "ACTvsFC%", "ACTvsACTpy%", "FCvsPL%", "FCvsACTpy%"]:
-        d.member_set_format(member, "{:.2%}")  # number format for percentages
+        d.member_set_format(member, "{:+.2%}")  # number format for percentages
     return d
+
 
 def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
     """

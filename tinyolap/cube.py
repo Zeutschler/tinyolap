@@ -298,6 +298,16 @@ class Cube:
         return self._dim_count
 
     @property
+    def dimensions(self) -> tuple:
+        """Returns the number of dimensions of the cube."""
+        return self._dimensions
+
+    @property
+    def dimension_names(self) -> tuple:
+        """Returns the number of dimensions of the cube."""
+        return tuple(dim.name for dim in self._dimensions)
+
+    @property
     def measures_count(self) -> int:
         """Returns the number of measures of the cube."""
         return len(self._measures)
