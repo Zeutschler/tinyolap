@@ -91,14 +91,15 @@ To dive deeper, please visit the **TinyOlap website and documentation** at [http
 
 ## Why Building An In-Memory Database In Plain Python? 
 TinyOlap started as a by-product of a research project - we simply needed a super-light-weight MOLAP database 
-to feed thousands of databases into a neuronal network for training it on how to do proper business planning. 
-But there was no database that met our requirements, so I build one: **TinyOlap**
+to feed thousands of small- to medium-sized databases into a neuronal network for training it on how to do proper business planning. 
+But, although we tested them all, there was no database that met our requirements, so we build one: **TinyOlap**
 
 TinyOlap is also a reminiscence and homage to the early days of OLAP databases, where great products like 
 Applix TM/1 or MIS Alea enabled business users to build expressive data models with dimension, cubes and complex 
 business logic in just a few minutes our hours. Unfortunately, these products have grown up to complex and 
 expensive client-server database technologies, all striving for the ultimate performance on mass data 
-processing and high number of concurrent users - there is no small and cheap MOLAP database anymore.
+processing and high number of concurrent users - there is no light-weight and in-expensive MOLAP database anymore. 
+Maybe TinyOlap can bring us back this light-weight experience, at least it'"'s free.
 
 In contrast, TinyOlap is intended to stay **free, simple and focussed** on 
 client-side planning, budgeting, calculations and analysis purposes. TinyOlap provides sub-second 
