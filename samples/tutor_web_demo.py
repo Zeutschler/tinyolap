@@ -46,8 +46,13 @@ def render_report(refresh_only: bool = False) -> str:
             dims[d]["member"] = members[random.randrange(0, len(members))]
         nested_dims_in_rows = random.randrange(1, 2)  # change the 2 to 3 for nested row dimensions
         header_dims = dims[: cube.dimensions_count - 1 - nested_dims_in_rows]
+        next_dim = len(header_dims)
+        col_members_count = len(cube.get_dimension(dims[next_dim]["dimension"]))
+        row_members_count = len(cube.get_dimension(dims[next_dim + 1]["dimension"]))
         column_dims = [{"dimension": dims[len(header_dims)]["dimension"]}]
         row_dims = [{"dimension": d["dimension"]} for d in dims[len(header_dims) + 1:]]
+        if (nested_dims_in_rows < 2) and (col_members_count > row_members_count):
+            column_dims, row_dims = row_dims, column_dims  # put the dim with more members into the rows]
         report_def = {"title": f"Random report on cube <strong>{cube.name}</strong> "
                                f"from databse <strong>{db.name}</strong>",
                       "header": header_dims, "columns": column_dims, "rows": row_dims}
