@@ -99,7 +99,7 @@ Applix TM/1 or MIS Alea enabled business users to build expressive data models w
 business logic in just a few minutes our hours. Unfortunately, these products have grown up to complex and 
 expensive client-server database technologies, all striving for the ultimate performance on mass data 
 processing and high number of concurrent users - there is no light-weight and in-expensive MOLAP database anymore. 
-Maybe TinyOlap can bring us back this light-weight experience, at least it'"'s free.
+Maybe, TinyOlap can bring back this light-weight experience, at least TinyOlap is free.
 
 In contrast, TinyOlap is intended to stay **free, simple and focussed** on 
 client-side planning, budgeting, calculations and analysis purposes. TinyOlap provides sub-second 
