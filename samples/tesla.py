@@ -23,12 +23,12 @@ def deviation_percent(c: Cell):
     return None
 
 
-def elons_random_number(low: float = 1000.0, high: float = 2000.0):
+def elons_random_numbers(low: float = 1000.0, high: float = 2000.0):
     return random.uniform(low, high)
 
 
-def play_tesla(console_output: bool = True):
-    # define your data space
+def play_tesla(console_output: bool = True) -> Database:
+    # define the sales planning and reporting dataspace for Tesla
     db = Database("tesla")
     cube = db.add_cube("sales", [
         db.add_dimension("datatypes").edit().add_member(
@@ -42,32 +42,49 @@ def play_tesla(console_output: bool = True):
         db.add_dimension("products").edit().add_member(
             "Total", ["Model S", "Model 3", "Model X", "Model Y"]).commit()
     ])
-    # add your custom business logic
+    db.dimensions["datatypes"].member_set_format("Deviation", "{:+,.0f}")
+    db.dimensions["datatypes"].member_set_format("Deviation %", "{:+.2%}")
+
+    # Add some custom business logic (implementation, see functions above)
     cube.register_rule(deviation)
     cube.register_rule(deviation_percent)
 
-    # Add some 'Plan' data
+    # Adding single values for 'Plan' data
     cube["Plan", "2021", "Q1", "North", "Model S"] = 400.0  # write to a single cell
     cube["Plan", "2021", "Q1", "North", "Model X"] = 200.0  # write to a single cell
-    # The Elon Musk way of planning - what a lazy boy ;-)
-    # The next statement will address all EXISTING 'Plan' data for all years, periods, regions
-    # and products to the 500.0. Currently, there are only two values in the cube: 400.0 and 200.0.
+
+    # Now, the Elon Musk way of planning - what a lazy boy ;-)
+    # The next statement will address <<<ALL EXISTING DATA>>> over all years, periods,
+    # regions and products, and set all existing values to 500.0. Currently, there are
+    # only 2 values 400.0 and 200.0 in the cube, so just these will be changed.
     cube["Plan"] = 500.0
+    # Let's see if this has worked properly...
     if cube["Plan", "2021", "Q1", "North", "Model S"] != 500.00:
-        raise ValueError("TinyOlap is cheating...")
-    # The 'True' argument in the following statement will force writing the number 500.0
-    # to REALLY ALL years, periods, regions and products by enumerating the entire data space in one shot.
-    cube["Plan"].set_value(500.0, True)  # this will write 3 x 4 x 4 x 4 = 192 values to the cube
-    cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50  # Elon is skyrocketing, 50% more for 2023
+        raise ValueError("TinyOlap is a fake...")
+
+    # Elon is even lazier than expected...
+    # The 'True' arg in the following statement will force writing the number 500.0
+    # to <<<REALLY ALL>>> years, periods, regions and products combinations at once.
+    cube["Plan"].set_value(500.0, True)  # 3 x 4 x 4 x 4 = all 192 values := 500.0
+    # For 2023 Elon is planning to skyrocket: 50% more for 2023
+    cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50
 
     # Add some 'Actual' data
-    cube["Actual"].set_value(elons_random_number)  # really? Elon is going for a shortcut here.
+    # Attention! Elon probably wants to take a shortcut here.
+    # He simply hands in a Python function to generate some 'Actual' data.
+    cube["Actual"].set_value(elons_random_numbers, True)
 
-    # Let's check Elon"s performance. 'dev_percent' is calculated by the rule 'deviation_percent()'
+    # Where done! Our first TinyOlap database is ready to use.
+
+    # Finally let's check Elon's business performance.
     dev_percent = cube["Deviation %", "2023", "Year", "Total",  "Total"]
     if console_output:
-        print(f"Elon's performance in 2023 is {dev_percent:.2%}. Congrats!")
+        print(f"Elon's 2023 performance is {dev_percent:+.2%} growth. "
+              f"Congratulations, Elon!")
+
+    return db
 
 
 if __name__ == "__main__":
-    print(f"\nTinyOlap, as fast as a Tesla! 10x planning in just {timeit.timeit(lambda: play_tesla(), number=10):.4} sec.")
+    print(f"\nTinyOlap, nearly as fast as a Tesla! 10x business planning "
+          f"in just {timeit.timeit(lambda: play_tesla(), number=10):.4} sec.")
