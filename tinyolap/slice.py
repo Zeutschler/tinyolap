@@ -469,7 +469,7 @@ class Slice:
                 for pos, member in enumerate(cell[4]):
                     caption = member
                     if len(caption) > row_header_width:
-                        caption = caption[:row_header_width - 3].strip + "..."
+                        caption = caption[:row_header_width - 3].strip() + "..."
                     if pos in previous:
                         if previous[pos] != member:
                             text += caption.ljust(row_header_width)
