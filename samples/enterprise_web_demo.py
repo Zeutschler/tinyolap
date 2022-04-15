@@ -19,9 +19,9 @@ from samples.enterprise_model.model import create_database
 
 
 # Configure the database and cube to show here...
-caching = False  # Switch True / False to enable / disable caching in cubes
-db = create_database("enterprise", num_legal_entities=50, num_products=100, num_employees=1000)
-cube = db.cubes["pnl"]
+caching = True  # Switch True / False to enable / disable caching in cubes
+db = create_database("enterprise", num_legal_entities=25, num_products=100, num_employees=500)
+cubes = [db.cubes["pnl"], db.cubes["sales"]]
 # ... the following code does not need to be touched. Just run and enjoy...
 
 # TinyOlap setup
@@ -30,14 +30,20 @@ db_name = db.name
 server = Server()
 server.add_database(db)
 server[db_name].caching = caching
-cube.caching = caching
 report_def = None
-
+prev_cube =cubes[0]
 
 def render_report(refresh_only: bool = False) -> str:
     # Renders a random report based on the configures database and cube
-    cube.reset_counters()
     global report_def
+    global prev_cube
+    if refresh_only:
+        cube = prev_cube
+    else:
+        cube = random.choice(cubes)
+        prev_cube = cube
+    cube.reset_counters()
+
     if not report_def or not refresh_only:
         dims = [{"dimension": dim} for dim in cube.dimension_names]
         count = len(dims)

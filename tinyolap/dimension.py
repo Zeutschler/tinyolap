@@ -620,6 +620,17 @@ class Dimension:
             raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
         return self.members[self._member_idx_lookup[member]][self.LEVEL] == 0
 
+    def member_is_root(self, member: str):
+        """
+        Returns True if the member is a leave-level member (member.level = 0) within the member hierarchy.
+
+        :param member: Name of the member to be evaluated.
+        :return: True if the member is a leave-level member, False otherwise.
+        :raises KeyError: Raised if the member does not exist.
+        """
+        if member not in self._member_idx_lookup:
+            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+        return not self.members[self._member_idx_lookup[member]][self.PARENTS]
     # endregion
 
     # region member enumeration functions (returning lists of members)

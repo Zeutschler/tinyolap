@@ -9,6 +9,7 @@ fastapi
 Sphinx
 furo
 Faker
+faker-commerce
 sphinx-toolbox
 psutil
 art

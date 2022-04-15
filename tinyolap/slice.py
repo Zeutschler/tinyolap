@@ -140,7 +140,10 @@ class Slice:
             row_members = []
             for row_member in row_member_set:
                 dim_ordinal = row_member[0]
-                row_members.append(row_member[1])
+                dimension = self.cube.get_dimension_by_index(dim_ordinal)
+                indent = dimension.get_top_level() - dimension.member_get_level(row_member[1])
+                indent = ".&nbsp;&nbsp;&nbsp;" * indent
+                row_members.append(str(indent) + row_member[1])
                 if dim_ordinal == -1:
                     measure = row_member[1]
                 else:

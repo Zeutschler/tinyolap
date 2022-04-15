@@ -1,11 +1,16 @@
 # Purpose: Creation of the Enterprise sample database.
+from __future__ import annotations
 import datetime
+import itertools
 import math
 import os.path
 
 import random
+import time
+import timeit
+
 from faker import Faker
-from faker.providers.company import Provider as company_provider
+from faker.providers import bank
 
 from tinyolap.dimension import Dimension
 from tinyolap.decorators import rule
@@ -14,11 +19,12 @@ from tinyolap.database import Cube
 from tinyolap.rules import RuleScope, RuleInjectionStrategy
 from tinyolap.area import Area
 from tinyolap.cell import Cell
+from tinyolap.slice import Slice
 
 
 def create_database(name: str = "enterprise", database_directory: str = None,
                     num_legal_entities: int = 50, num_products: int = 100,
-                    num_employees: int = 1_000):
+                    num_employees: int = 500, console_output: bool = True):
     """
     Creates a new Enterprise sample database instance.
     :param name: The name of the database.
@@ -26,40 +32,69 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     :param num_legal_entities: : Defines the number of legal entities the enterprise should have.
     :param num_products: : Defines the number of legal products the enterprise should have.
     :param num_employees: : Defines the number of employees the enterprise should have.
+    :param console_output: Identifies id console output is allowed.
     :return: The created enterprise database.
     """
 
-    # setup the database
+    # set up the database
+    if console_output:
+        print(f"Creating database '{name}' with {num_legal_entities} legal entities, "
+              f"{num_products} products "
+              f"and {num_employees} employees. Please wait...")
     if not database_directory:
         db = Database(name=name, in_memory=True)
     else:
         db = Database(name=os.path.join(database_directory, name, ".db"))
 
-    # setup dimensions
+    # setup all dimensions
+    if console_output:
+        print(f"\tCreating dimension...")
     datatype = add_dimension_datatype(db)
     years = add_dimension_years(db)
     periods = add_dimension_periods(db)
     company = add_dimension_company(db, companies_count=num_legal_entities)
     pnl = add_dimension_pnl_statement(db)
 
-    # setup cubes 'PL'
+    products = add_dimension_products(db, products_count=num_products)
+    salesfig = add_dimension_sales_figures(db)
+    if console_output:
+        print(f"\t\tDone!")
+
+    # cube 'PnL'
     pnl_cube = db.add_cube("pnl", [datatype, years, periods, company, pnl])
-    rules_functions = [rule_datatype_actvspl, rule_datatype_actvspl_percent,
+    if console_output:
+        print(f"\tGenerating data for cube '{pnl_cube.name}'. This may take a while...")
+    for func in [rule_datatype_actvspl, rule_datatype_actvspl_percent,
                        rule_datatype_actvsfc, rule_datatype_actvsfc_percent,
                        rule_datatype_fcvspl, rule_datatype_fcvspl_percent,
                        rule_datatype_fcvsactpy, rule_datatype_fcvsactpy_percent,
-                       rule_datatype_actvactpy, rule_datatype_actvactpy_percent]
-    for func in rules_functions:
+                       rule_datatype_actvactpy, rule_datatype_actvactpy_percent]:
         pnl_cube.register_rule(func)
     populate_cube_pnl(db, pnl_cube)
-    # setup cubes: Sales, HR, CurConv
+    if console_output:
+        print(f"\t\tDone! Cube '{pnl_cube.name}' contains {pnl_cube.cells_count:,} cells")
 
+    # setup cubes: Sales
+    sales_cube = db.add_cube("sales", [years, periods, company, products, salesfig])
+    if console_output:
+        print(f"\tGenerating data for cube '{sales_cube.name}'. This may take a while...")
+    for func in [rule_sales_price]:
+        sales_cube.register_rule(func)
+    populate_cube_sales(db, sales_cube)
+    if console_output:
+        print(f"\t\tDone! Cube '{sales_cube.name}' contains {sales_cube.cells_count:,} cells")
+
+    # , HR, CurConv
+
+    if console_output:
+        print(f"All Done! Database '{db.name}' is now read for use.")
     return db
 
 
-def populate_cube_pnl(db: Database, pnl: Cube):
+# region Cube Population
+def populate_cube_pnl(db: Database, cube: Cube):
     """Populate the Profit & Loss cube"""
-    # Now it will now a bit tricky as we want to create somehow realistic figures
+    # This will get a bit weird / tricky as we want to create somehow realistic figures
     pnl_dim = db.dimensions.get("pnl")
     companies = db.get_dimension("companies").get_leave_members()
     years = db.get_dimension("years").get_leave_members()  # Jan... Dec
@@ -73,7 +108,6 @@ def populate_cube_pnl(db: Database, pnl: Cube):
         trend_factor = random.gauss(.02, 0.02)  # annual trend for each company's sales, avg := 10% increase
         baseline_factor = max(1.0, random.gammavariate(2, 2))  # multiplier (growth) for all P&L figures
         monthly_factors = [m + random.gauss(0, 0.05) for m in seasonality]  # add some noise to the seasonality
-        # print(f"{company} has trend :={trend}, baseline := {sales_baseline_factor}")
         for year in years:
             for month, monthly_factor in zip(months, monthly_factors):
                 factor = (1 + trend_factor) * baseline_factor * monthly_factor
@@ -85,17 +119,51 @@ def populate_cube_pnl(db: Database, pnl: Cube):
                                  ndigits=int(-(math.log10(abs(actual)) - 1.0)))
                     forecast = round(random.gauss(actual * 1.1, actual * 0.15),
                                      ndigits=int(-(math.log10(abs(actual)) - 1.0)))
-
-                    # write value to cube
-                    pnl["Actual", year, month, company, position] = actual
-                    pnl["Plan", year, month, company, position] = plan
-                    pnl["Forecast", year, month, company, position] = forecast
-                    # print(f"{z} [{year}, {month}, {company}, {position}>>> ACT = {actual}, PL = {plan}, FC = {forecast}")
+                    # write values to cube
+                    cube["Actual", year, month, company, position] = actual
+                    cube["Plan", year, month, company, position] = plan
+                    cube["Forecast", year, month, company, position] = forecast
                     z = z + 1
                 # increase the monthly trend factor
                 trend_factor = trend_factor + random.gauss(0.01, 0.01)
-    print(f"number of cells is {z}")
 
+
+def populate_cube_sales(db: Database, cube: Cube):
+    """Populate the Sales cube"""
+    # The basic idea is that not all companies sell all products, but only a few (as in real life)
+
+    companies = db.get_dimension("companies").get_leave_members()
+    years = db.get_dimension("years").get_leave_members()  # Jan... Dec
+    months = db.get_dimension("periods").get_leave_members()  # Jan... Dec
+    product_dim = db.get_dimension("products")
+    products = product_dim.get_leave_members()  # all non aggregated P&L positions
+    seasonality = [1.329471127, 0.997570548, 0.864137544, 0.987852738, 0.770697066, 0.791253971,
+                   1.141095122, 0.83984302, 0.932909736, 1.158661932, 1.113810503, 1.072696692]
+    z = 0
+    for company in companies:
+        for product in products:
+            if random.random() > 0.50:  # companies only sell 20% of the existing products
+                continue
+            starting_year = int(random.choice(years[:-min(-1, len(years)-4)]))
+            starting_month = random.choice(months)
+            yearly_price_increase = 1.0
+            for year in years:
+                if int(year) < starting_year:
+                    continue
+                for month in months:
+                    if starting_month:
+                        if month != starting_month:
+                            continue
+                        starting_month = False
+                    quantity = abs(int(random.gammavariate(2, 2)*4))
+                    if quantity > 0:
+                        price = product_dim.get_attribute("list_price", product)
+                        price = round(price * yearly_price_increase, -1) - 1
+                        cube[year, month, company, product, "Quantity"] = quantity
+                        cube[year, month, company, product, "Sales"] = quantity * price
+                        z = z + 2
+                yearly_price_increase += (0.01 + random.random() * 0.04)
+# endregion
 
 # region Dimension Creation
 def add_dimension_periods(db: Database, name: str = "periods") -> Dimension:
@@ -107,12 +175,10 @@ def add_dimension_periods(db: Database, name: str = "periods") -> Dimension:
     """
 
     dim = db.add_dimension(name).edit()
-    dim.add_member(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
-                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    dim.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
     dim.add_member(["Q1", "Q2", "Q3", "Q4"],
                    [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
                     ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
-    dim.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
     dim.add_member(["HY1", "HY2"], [("Jan", "Feb", "Mar", "Apr", "Mai", "Jun"),
                                     ("Jul", "Aug", "Sep", "Oct", "Nov", "Dec")])
     dim.commit()
@@ -226,8 +292,8 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
     dim.commit()
 
     # Attributes
-    # we add an attribute that contains realistic sample value
-    # for the various P&L positions. These will be used for sample data generation.
+    # we add an attribute that contains somehow realistic sample values
+    # for our P&L figures. These will be used later to generate randomized data.
     dim.add_attribute("sample", float)
     for pair in (("Gross Sales", 78000.0),
                  ("Sales Returns", -3200.0),
@@ -278,7 +344,7 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
 
 
 def add_dimension_company(db: Database, name: str = "companies", group_name: str = "Tiny Corp.",
-                          companies_count: int = 20, international: bool = True) -> Dimension:
+                          companies_count: int = 25, international: bool = True) -> Dimension:
     """
     Creates a random company dimension, with defined parameters.
     :param db: The target database.
@@ -310,51 +376,164 @@ def add_dimension_company(db: Database, name: str = "companies", group_name: str
     return dim
 
 
+def add_dimension_products(db: Database, name: str = "products", products_count: int = 100) -> Dimension:
+    """
+    Creates a random company dimension, with defined parameters.
+    :param db: The target database.
+    :param name: Name of the dimension
+    :param products_count: Number of legal entities to create.
+    :return: The new dimension.
+    """
+    Faker.seed(0)
+    fake = Faker()
+    fake.add_provider(bank)
+
+    families = ['OLAP', 'MOLAP', 'HOLAP', 'ROLAP', 'AI/OLAP']
+    lines = ['Access Database', 'Acumen Database', 'Agile OLAP', 'Agile OLAP', 'Algorithm Database',
+                'Alpha Database', 'App OLAP', 'Artificial Database', 'Artificial OLAP', 'Binary Database',
+                'Bit Database', 'Bot OLAP', 'Byte Database', 'Byte OLAP', 'Check OLAP', 'Condition Database',
+                'Condition OLAP', 'Core OLAP', 'Cyber Database', 'Cyper OLAP', 'Data OLAP', 'Databaseadil',
+                'Databasebia', 'Databaseegy', 'Databaseex', 'Databaseiva', 'Databaselia', 'Databasely',
+                'Databaselytical', 'Databaseopolis', 'Databaseporium', 'Databasesio', 'Databasester', 'Databasetastic',
+                'Desk Database', 'Dev Database', 'Dock OLAP', 'Edge Database', 'Electric OLAP', 'Elevate OLAP',
+                'Enigma Database', 'Expression OLAP', 'Fiber Database', 'Flash Database', 'Fuel Database',
+                'Fusion Database', 'Giga OLAP', 'Hack OLAP', 'Hover Database', 'Hover OLAP', 'Hyper Database',
+                'Illuminate Database', 'Illuminate OLAP', 'Infinity OLAP', 'Insight Database', 'Intellect Database',
+                'Intuition Database', 'Level OLAP', 'Link Database', 'Lock OLAP', 'Macro Database', 'Mega OLAP',
+                'Micro OLAP', 'Mobile OLAP', 'Modular Database', 'Modular OLAP', 'Nest OLAP', 'Net OLAP',
+                'Network OLAP', 'OLAPadil', 'OLAPjet', 'OLAPlia', 'OLAPocity', 'OLAPomatic', 'OLAPscape', 'OLAPya',
+                'Operator Database', 'Operator OLAP', 'Optimal OLAP', 'Optimize OLAP', 'Path OLAP', 'Pivot OLAP',
+                'Pixel Database', 'Rank Database', 'Rank OLAP', 'Rubicon Database', 'Rubicon OLAP', 'Script OLAP',
+                'Sign Database', 'Smart OLAP', 'Soft OLAP', 'Soft OLAP', 'Solar Database', 'Solar OLAP', 'Spire OLAP',
+                'Sprint Database', 'Synthetic OLAP', 'Task OLAP', 'Veritas Database',
+                'Vision Database']
+    editions = ['Free Edition' ,'Professional Edition', 'Enterprise Edition', 'Developer Edition', 'Education Edition']
+    packs = ['Single User Pack', '5-User Pack', '10-User Pack', '50-User Pack', '100-User Pack', '1000-User Pack', 'Enterprise Licence']
+
+    dim = db.add_dimension(name).edit()
+    products = []
+
+    z = 0
+    family_factor = float(len(families)) / float(products_count) * 10
+    line_factor = float(len(lines)) / float(products_count)
+    remaining_lines = list(lines)
+    for i in range(products_count):
+        family = random.choice(families)
+        line = random.choice(remaining_lines)
+        remaining_lines.remove(line)
+        if len(remaining_lines) == 0:
+            break
+
+        dim.add_member("All Products", family)
+        dim.add_member(family, line)
+
+        # select some editions
+        min = random.randrange(0, len(editions) - 1)
+        max = random.randrange(0, len(editions) - 1)
+        if min > max:
+            min, max = max, min
+        for edition in editions[min:max + 1]:
+            # select some packs
+            min = random.randrange(0, len(packs) - 1)
+            max = random.randrange(0, len(packs) - 1)
+            if min > max:
+                min, max = max, min
+            for pack in packs[min:max + 1]:
+                product = line + ", " + edition + " (" + pack + ")"
+                dim.add_member(line, product)
+                products.append(product)
+
+                z = z + 1
+                if z >= products_count:
+                    break
+            if z >= products_count:
+                break
+        if z >= products_count:
+            break
+    dim.commit()
+
+    # Attributes
+    dim.add_attribute("color", str)
+    dim.add_attribute("id", str)
+    dim.add_attribute("list_price", float)
+    for member in products:
+        dim.set_attribute("color", member, fake.color())
+        dim.set_attribute("id", member, fake.unique.bothify(text='Product Number: ????-########'))
+        dim.set_attribute("list_price", member, float(50 + int(random.random() * 20.0) * 50 - 1))
+
+    return dim
+
+
+def add_dimension_sales_figures(db: Database, name: str = "salesfig") -> Dimension:
+    """
+    Dimension defining sales figures
+    :param db: The target database.
+    :param name: Name of the dimension
+    :return: The new dimension.
+    """
+    d = db.add_dimension(name).edit()
+    d.add_member(["Sales", "Quantity", "Price"])
+    d.commit()
+    for member in ["Sales", "Quantity"]:
+        d.member_set_format(member, "{:,.0f}")
+    for member in ["Price"]:
+        d.member_set_format(member, "{:.2f}")
+    return d
+
 # endregion
 
-# region Rules
+# region Rules for Sales
+@rule("sales", ["Price"])
+def rule_sales_price(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
+    quantity = c["salesfig:Quantity"]
+    if quantity:
+        return c["salesfig:Sales"] / quantity
+    return None
+# endregion
+
+# region Rules for P&L statement
 @rule("pnl", ["ACTvsPL"])
 def rule_datatype_actvspl(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Plan."""
-    return c["Actual"] - c["Plan"]
+    return c["datatype:Actual"] - c["datatype:Plan"]
 
 
 @rule("pnl", ["ACTvsPL%"])
 def rule_datatype_actvspl_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Plan in %."""
-    plan = c["Plan"]
+    plan = c["datatype:Plan"]
     if plan:
-        return (c["Actual"] - plan) / plan
+        return (c["datatype:Actual"] - plan) / plan
     return None
 
 
 @rule("pnl", ["ACTvsFC"])
 def rule_datatype_actvsfc(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Forecast."""
-    return c["Actual"] - c["Forecast"]
+    return c["datatype:Actual"] - c["datatype:Forecast"]
 
 
 @rule("pnl", ["ACTvsFC%"])
 def rule_datatype_actvsfc_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Forecast in %."""
-    fc = c["Forecast"]
+    fc = c["datatype:Forecast"]
     if fc:
-        return (c["Actual"] - fc) / fc
+        return (c["datatype:Actual"] - fc) / fc
     return None
 
 
 @rule("pnl", ["FCvsPL"])
 def rule_datatype_fcvspl(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Forecast vs Plan."""
-    return c["Forecast"] - c["Plan"]
+    return c["datatype:Forecast"] - c["datatype:Plan"]
 
 
 @rule("pnl", ["FCvsPL%"])
 def rule_datatype_fcvspl_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Forecast vs Plan in %."""
-    plan = c["Plan"]
+    plan = c["datatype:Plan"]
     if plan:
-        return (c["Forecast"] - plan) / plan
+        return (c["datatype:Forecast"] - plan) / plan
     return None
 
 
@@ -363,7 +542,7 @@ def rule_datatype_fcvsactpy(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False)
     """Rule to calculate Forecast vs Actual Previous Year."""
     prev_year = c.member("years").previous()
     if prev_year:
-        return c["Forecast"] - c[prev_year, "Actual"]
+        return c["datatype:Forecast"] - c["years:" + str(prev_year), "datatype:Actual"]
     return None
 
 
@@ -372,9 +551,9 @@ def rule_datatype_fcvsactpy_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatil
     """Rule to calculate Forecast vs Actual Previous Year in %."""
     prev_year = c.member("years").previous()
     if prev_year:
-        actual = c[prev_year, "Actual"]
+        actual = c["years:" + str(prev_year), "datatype:Actual"]
         if actual:
-            return (c["Forecast"] - actual) / actual
+            return (c["datatype:Forecast"] - actual) / actual
         return None
     return None
 
@@ -384,7 +563,7 @@ def rule_datatype_actvactpy(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False)
     """Rule to calculate Actual vs Actual Previous Year."""
     prev_year = c.member("years").previous()
     if prev_year:
-        return c["Actual"] - c[prev_year, "Actual"]
+        return c["datatype:Actual"] - c["years:" + str(prev_year), "datatype:Actual"]
     return None
 
 
@@ -393,20 +572,18 @@ def rule_datatype_actvactpy_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatil
     """Rule to calculate Actual vs Actual Previous Year in %."""
     prev_year = c.member("years").previous()
     if prev_year:
-        actual = c[prev_year, "Actual"]
+        actual = c["years:" + str(prev_year), "datatype:Actual"]
         if actual:
-            return (c["Actual"] - actual) / actual
+            return (c["datatype:Actual"] - actual) / actual
         return None
     return None
 
 
-@rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS, volatile=False)
-def rule_profit_in_percent(c: Cell):
-    """Rule to calculate the Profit in %."""
-    sales = c["Sales"]
-    profit = c["Profit"]
-    if sales:
-        return profit / sales
-    return None
+
 
 # endregion
+
+
+if __name__ == "__main__":
+    # Playtime!!! ʕ•́ᴥ•̀ʔっ
+    db = create_database()
