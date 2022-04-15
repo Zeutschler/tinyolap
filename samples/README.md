@@ -31,8 +31,8 @@ Now please move on to code that created the Tesla database you just saw in actio
 
 **Usage:** Open and/or run the script [...tinyolap/samples/tiny.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tiny.py)
 
-Purpose of the Tiny data model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Purpose of the Tiny data model
+
 The **Tiny** data model is a very small and simple demo database created with Python code.
 It's contains just very small 5 dimensions and 1 cube that reflects some **sales** data.
 The intended use is to showcase the **all the basic operations** to create and access a TinyOlap database by code.
