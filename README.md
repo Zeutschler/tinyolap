@@ -1,4 +1,7 @@
 ![TinyOlap logo](/doc/source/_logos/cube16.png)  TinyOlap is under active development.
+
+[![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)
+
 # TinyOlap 
 
 TinyOlap is a light-weight, in-process, multi-dimensional, **model-first OLAP 
