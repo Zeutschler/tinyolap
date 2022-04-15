@@ -8,7 +8,7 @@ from setuptools import setup
 # ... via Github actions
 # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
 
-VERSION = '0.8.13'
+VERSION = '0.8.14'
 DESCRIPTION = "TinyOlap: A multi-dimensional in-memory OLAP database in plain Python 3."
 LONG_DESCRIPTION = """
 TinyOlap is a light-weight, in-process, multi-dimensional, model-first OLAP 
