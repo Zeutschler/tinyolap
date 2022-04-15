@@ -45,7 +45,8 @@ def play_tesla(console_output: bool = True) -> Database:
     db.dimensions["datatypes"].member_set_format("Deviation", "{:+,.0f}")
     db.dimensions["datatypes"].member_set_format("Deviation %", "{:+.2%}")
 
-    # Add some custom business logic (implementation, see functions above)
+    # Add some custom business logic, in TinyOlap this is done be rules
+    # The following 2 rules functions have already been implemented above.
     cube.register_rule(deviation)
     cube.register_rule(deviation_percent)
 

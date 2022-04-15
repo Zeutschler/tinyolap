@@ -46,21 +46,22 @@ It show cases some corecapabilities of TinyOlap.
 
 Purpose of the Finance data model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The **Finance** data model is a simple, but real example for financial planning.
-The data model is a great template for integrated financial planning for small to large companies.
-It provides the following features, leveraging many of TinyOlap's capabilities:
+The **Finance** is a more realistic example for financial planning, reporting and
+forecasting using TinyOlap. The Finance data model could already be suitable a template to implement financial
+planning for your company. It provides the following features, leveraging most TinyOlap capabilities:
 
-- Sales plan by legal entities, sales-teams, products and regions based on price and quantity.
-
-- HR plan covering employees some attributes and their salaries. Segmented by legal entities.
-
-- Production plan covering planned quantities, raw material costs and capacities.
+- Sales figures by legal entities and products based on price and quantity.
 
 - Profit and Loss statement, integrating all other plans.
 
-- User management and access rights, so, e.g., the sales guy can look into the salary data
+- (coming soon) HR plan covering employees some attributes and their salaries. Segmented by legal entities.
+
+- (coming soon) Production plan covering planned quantities, raw material costs and capacities.
+
+- (coming soon) User management and access rights, so, e.g., the sales guy can look into the salary data
   and only the finance guy can see certain cost figures and EBIT. And the boss can see
   anything but is not allowed to change data.
+
 
 ------------------------------
 4. Huge (the opposite of tiny)
