@@ -14,7 +14,7 @@ business planning and reporting task for his [Tesla business](https://www.tesla.
 
 **Before looking at any code**, you should take a look at the visual result. Just run the 
  [/samples/tesla_web_demo.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tesla_web_demo.py) 
-from within your IDE or console. Then click on the following link in your console output.
+from within your IDE or console. Then click on the link provided on your console output.
 
     INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 
@@ -56,7 +56,7 @@ data model looks a bit weird and complex. The datamodel itself is still quite si
 
 **Before looking at any code**, you should take a look at the visual result. Just run the 
  [/samples/enterprise_web_demo.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/enterprise_web_demo.py) 
-from within your IDE or console. Data generation might take a while. Then click on the following link in your console output.
+from within your IDE or console. Data generation might take a while. Then click on the link provided on your console output.
 
     INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 
