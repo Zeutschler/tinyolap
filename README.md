@@ -5,7 +5,7 @@
 TinyOlap is a light-weight, in-process, multi-dimensional, **model-first OLAP 
 engine** for planning, budgeting, reporting, analysis and many other numerical purposes. 
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
-be suitable for all levels of Python and database skills.
+be suitable for all levels of Python developers.
 
 TinyOlap is also quite handy as a smart alternative to Pandas DataFrames when your use case
 is multi-dimensional data, requires hierarchical aggregations or complex calculations. 
