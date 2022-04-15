@@ -18,9 +18,9 @@ from within your IDE or console. Then click on the link provided on your console
 
     INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 
-Your browser should open, and you should see a randomly generated report from the Tesla database.
-Just hit the **Next Random Report...** button over and over again, as fast as you can. That is 
-something that TinyOlap can do for you.
+Your browser should open, and you will (hopefully) see a randomly generated report from the **Tesla** database.
+Just hit the **Next Random Report...** button over and over again, as fast as you can. Then you'll see already 
+something that TinyOlap could do for you: a backend to render some reports or charts.
 
 ![Tesla Screenshot](https://github.com/Zeutschler/tinyolap/blob/main/doc/source/_logos/tesla_screenshot.png?raw=true)
 
