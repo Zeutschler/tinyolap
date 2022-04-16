@@ -1,4 +1,4 @@
-![TinyOlap logo](/doc/source/_logos/cube16.png)  TinyOlap is under active development.
+![TinyOlap logo](/doc/source/_logos/cube16.png)  TinyOlap is under active development. Visit [tinyolap.com](https://tinyolap.com) 
 
 # TinyOlap 
 
@@ -14,15 +14,13 @@ scalability and performance is not required, or their technical complexity or co
 your purpose, then TinyOlap might be for you.
 
 ## Getting started
-**To get started**, download the [TinyOlap cheat sheet (pdf)](https://tinyolap.com/tinyolap_cheatsheet.pdf)
-or visit [tinyolap.com](https://tinyolap.com) . 
+To get started, please download the [TinyOlap cheat sheet (pdf)](https://tinyolap.com/tinyolap_cheatsheet.pdf)
+and check the various provided samples 
+at [/samples/](https://github.com/Zeutschler/tinyolap/blob/main/samples).or visit [tinyolap.com](https://tinyolap.com) . 
 
 If you want to use the TinyOlap package only, without the samples, then you can install TinyOlap using pip:
 
     pip install tinyolap
-
-For the curious, just clone this repo and check the many provided samples 
-at [/samples/](https://github.com/Zeutschler/tinyolap/blob/main/samples).
 
 ## How To Set up a Database
 Let's try to build a data model to support the quarterly business planning process of a well-known owner 
