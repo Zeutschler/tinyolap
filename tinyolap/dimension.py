@@ -466,6 +466,17 @@ class Dimension:
         idx_member = self.alias_idx_lookup[alias]
         return self.members[idx_member][self.NAME]
 
+    def get_member_by_index(self, index: int) -> str:
+        """
+        Returns the name of a member associated with the given.
+
+        :param index: Index of the member to be returned.
+        :raises KeyError: Raised if the alias does not exist.
+        """
+        if not index in self.members:
+            raise KeyError(f"Failed to get member by index. '{index}' is not a member index of dimension'{self.name}'")
+        return self.members[index][self.NAME]
+
     # endregion
 
     # region member number_format (for output formatting)

@@ -299,7 +299,7 @@ class Cube:
 
     @property
     def dimensions(self) -> tuple:
-        """Returns the number of dimensions of the cube."""
+        """Returns the dimensions of the cube."""
         return self._dimensions
 
     @property

@@ -88,7 +88,7 @@ class Slice:
         self.definition = definition
         self.suppress_zero_columns = suppress_zero_columns
         self.suppress_zero_rows = suppress_zero_rows
-        self.title = None
+        self.title = ""
 
         self.__validate()
         self.__prepare()
@@ -194,10 +194,11 @@ class Slice:
         self.dimensions = {dim.name: False for dim in self.cube._dimensions}
 
         # 1. add title and description is missing
-        if "title" not in self.definition:
-            self.definition["title"] = None
-        if "description" not in self.definition:
-            self.definition["description"] = None
+        if type(self.definition) is dict:
+            if "title" not in self.definition:
+                self.definition["title"] = ""
+            if "description" not in self.definition:
+                self.definition["description"] = ""
 
         self.__validate_axis("header")
         self.__validate_axis("columns", True)

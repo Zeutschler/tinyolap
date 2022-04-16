@@ -57,6 +57,10 @@ def create_database(name: str = "enterprise", database_directory: str = None,
 
     products = add_dimension_products(db, products_count=num_products)
     salesfig = add_dimension_sales_figures(db)
+
+    employees = add_dimension_employees(db, company_dim_name=company.name, employees_count=num_employees)
+    hrfig = add_dimension_hr_figures(db)
+
     if console_output:
         print(f"\t\tDone!")
 
@@ -84,7 +88,13 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     if console_output:
         print(f"\t\tDone! Cube '{sales_cube.name}' contains {sales_cube.cells_count:,} cells")
 
-    # , HR, CurConv
+    # setup cube: HR
+    hr_cube = db.add_cube("hr", [years, employees, hrfig])
+    if console_output:
+        print(f"\tGenerating data for cube '{hr_cube.name}'. This may take a while...")
+    populate_cube_hr(db, hr_cube)
+    if console_output:
+        print(f"\t\tDone! Cube '{hr_cube.name}' contains {hr_cube.cells_count:,} cells")
 
     if console_output:
         print(f"All Done! Database '{db.name}' is now read for use.")
@@ -163,7 +173,28 @@ def populate_cube_sales(db: Database, cube: Cube):
                         cube[year, month, company, product, "Sales"] = quantity * price
                         z = z + 2
                 yearly_price_increase += (0.01 + random.random() * 0.04)
+
+
+def populate_cube_hr(db: Database, cube: Cube):
+    """Populate the HR cube"""
+    years = db.get_dimension("years").get_leave_members()  # Jan... Dec
+    hr_dim = db.get_dimension("employees")
+    employees = hr_dim.get_leave_members()  # all non aggregated P&L positions
+    z = 0
+    root_salary = 100000.0
+    for employee in employees:
+        yearly_salary_increase = 1.0
+        salary = max(30000.0, round(root_salary * random.gauss(1.0, 0.2), -4))
+        for year in years:
+            salary = round(salary * yearly_salary_increase, -4)
+            cube[year, employee, "Base Salary"] = salary
+            cube[year, employee, "Bonus"] = round(random.uniform(0.0, 50000.0), -4)
+            claim = 30.0 if random.random() < 0.8 else 25.0
+            cube[year, employee, "Holiday claim"] = 30 if random.random() < 0.8 else 25
+            cube[year, employee, "Holidays taken"] = claim - float(random.randrange(0, 5, 1))
+    return cube
 # endregion
+
 
 # region Dimension Creation
 def add_dimension_periods(db: Database, name: str = "periods") -> Dimension:
@@ -480,7 +511,64 @@ def add_dimension_sales_figures(db: Database, name: str = "salesfig") -> Dimensi
         d.member_set_format(member, "{:.2f}")
     return d
 
+
+def add_dimension_employees(db: Database, company_dim_name: str = "companies", name: str = "employees",
+                          employees_count: int = 200) -> Dimension:
+    """
+    Creates a random employee dimension.
+    :param company_dim_name: Name of the company dimension
+    :param db: The target database.
+    :param name: Name of the dimension
+    :param employees_count: Number of employees to create.
+    :return: The new dimension.
+    """
+    Faker.seed(0)
+    fake = Faker()
+
+    # get company dimension to reuse its hierarchy
+    company_dim = db.get_dimension(company_dim_name)
+
+
+    # create employee dimension
+    dim = db.add_dimension(name).edit()
+    companies = company_dim.get_leave_members()
+    employees_per_company = max(1, int(employees_count / len(companies)))
+    for company in companies:
+        # copy the member hierarchy from the company dimension first
+        hierarchy = [company, ]
+        parents = company_dim.member_get_parents(company)
+        while parents:
+            hierarchy.append(parents[0])
+            parents = company_dim.member_get_parents(parents[0])
+        for i in range(len(hierarchy)-1, 0, -1):
+            dim.add_member(hierarchy[i], [hierarchy[i-1]])
+        # now add employees
+        dim.add_member(company, [fake.name() for i in range(employees_per_company)])
+    dim.commit()
+
+    # Attributes
+    # dim.add_attribute("manager", str)
+    # for member in dim.get_members():
+    #     dim.set_attribute("manager", member, fake.name())
+    return dim
+
+def add_dimension_hr_figures(db: Database, name: str = "hrfig") -> Dimension:
+    """
+    Dimension defining HR figures
+    :param db: The target database.
+    :param name: Name of the dimension
+    :return: The new dimension.
+    """
+    d = db.add_dimension(name).edit()
+    d.add_member(["Base Salary", "Bonus", "Holiday claim", "Holidays taken"])
+    d.commit()
+    for member in ["Holiday claim", "Holidays taken"]:
+        d.member_set_format(member, "{:,.0f}")
+    for member in ["Base Salary", "Bonus",]:
+        d.member_set_format(member, "{:,.0f}")
+    return d
 # endregion
+
 
 # region Rules for Sales
 @rule("sales", ["Price"])

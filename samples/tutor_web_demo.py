@@ -54,7 +54,7 @@ def render_report(refresh_only: bool = False) -> str:
         if (nested_dims_in_rows < 2) and (col_members_count > row_members_count):
             column_dims, row_dims = row_dims, column_dims  # put the dim with more members into the rows]
         report_def = {"title": f"Random report on cube <strong>{cube.name}</strong> "
-                               f"from databse <strong>{db.name}</strong>",
+                               f"from database <strong>{db.name}</strong>",
                       "header": header_dims, "columns": column_dims, "rows": row_dims}
     # Execute the report
     start = time.time()
