@@ -77,39 +77,20 @@ TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant 
         cube["Plan", "2021", "Q1", "North", "Model X"] = 200.0  # write a single value
     
         # 5th - TinyOlap's strength is manipulating larger areas of data
-        # That's the Elon Musk way of planning - what a lazy boy ;-)
-        # The next statement will address <<<ALL EXISTING DATA>>> over all years, periods,
-        # regions and products, and set all existing values to 500.0. Currently, there are
-        # only 2 values 400.0 and 200.0 in the cube, so just these will be changed.
-        cube["Plan"] = 500.0
-        # Let's see if this has worked properly...
-        if cube["Plan", "2021", "Q1", "North", "Model S"] != 500.00:
-            raise ValueError("TinyOlap is cheating...")
-        # Elon might be lazier than expected...
-        # The 'True' arg in the following statement will force writing the number 500.0
-        # to <<<REALLY ALL>>> years, periods, regions and products combinations at once.
-        cube["Plan"].set_value(500.0, True)  # 3 x 4 x 4 x 4 = all 192 values := 500.0
-        # For 2023 Elon is planning to skyrocket: 50% more for 2023
-        cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50
+        cube["Plan"] = 500.0  # set the existing value 400.0 and 200.0 to 500.0
+        cube["Plan"].set_value(500.0, True)  # 3 x 4 x 4 x 4 = set all 192 values to 500.0
+        cube["Plan", "2023"] = cube["Plan", "2022"] * 1.50  # Easily data manipulation
     
-        # Now it's time for 'Actual' data
-        # What??? Elon probably wants to take a shortcut here...
-        # He simply hands in a Python function to generate all the 'Actual' data.
-        cube["Actual"].set_value(elons_random_numbers, True)
-        # Where already done! Our first TinyOlap database is ready to use.
+        # Let's hand in a Python function to generate the 'Actual' data.
+        cube["Actual"].set_value(elons_random_numbers, True) # 3 x 4 x 4 x 4 = set 192 values
     
-        # 6th - reading data and simple reporting
-        if console_output:
-            # let's create a minimal report and dump it to the console
-            print(Slice(cube, {"title": "Tesla - Sales 2023 by region and products",
-                               "header": [{"dimension": "years", "member": "2023"},
-                                          {"dimension": "periods", "member": "Year"}],
-                               "columns": [{"dimension": "datatypes"}],
-                               "rows": [{"dimension": "products"}]
-                               }))
-            dev_percent = cube["Deviation %", "2023", "Year", "Total", "Total"]
-            print(f"\nTesla's 2023 performance is {dev_percent:+.2%} above 'Plan'. "
-                  f"Congratulations, Elon!")
+        # 6th - some minimal reporting
+        print(Slice(cube, {"title": "Tesla - Sales 2023 by region and products",
+                           "header": [{"dimension": "years", "member": "2023"},
+                                      {"dimension": "periods", "member": "Year"}],
+                           "columns": [{"dimension": "datatypes"}],
+                           "rows": [{"dimension": "products"}]
+                           }))
 
 To dive deeper, please visit the **TinyOlap website and documentation** at [https://tinyolap.com](https://tinyolap.com)
 or the provided samples.
