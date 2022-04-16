@@ -34,5 +34,5 @@ class Test(TestCase):
     def test_sample_database_tiny42(self):
         play_tiny42(console_output=self.console_output)
 
-    def test_sample_database_finance(self):
+    def test_sample_database_enterprise(self):
         play_enterprise(console_output=self.console_output)

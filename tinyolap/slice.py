@@ -562,7 +562,7 @@ class Slice:
                 for pos, member in enumerate(cell[4]):
                     if pos in previous:
                         if previous[pos] != member:
-                            indent = ".&nbsp;&nbsp;&nbsp;" * indentation[pos]
+                            indent = "&nbsp;&nbsp;&nbsp;" * indentation[pos]
                             text += f'<th class="text-nowrap" scope="row">{indent + member}</th>\n'
                         else:
                             text += f'<th class="text-nowrap" scope="row"></th>\n'
