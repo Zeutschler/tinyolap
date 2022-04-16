@@ -114,6 +114,8 @@ TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant 
 To dive deeper, please visit the **TinyOlap website and documentation** at [https://tinyolap.com](https://tinyolap.com)
 or the provided samples
 
+![Tesla Screenshot](https://github.com/Zeutschler/tinyolap/blob/main/doc/source/_logos/tesla_screenshot.png?raw=true)
+
 ## Why Building An In-Memory Database In Plain Python? 
 TinyOlap started as a by-product of a research project - we simply needed a super-light-weight MOLAP database 
 to feed thousands of small- to medium-sized databases into a neuronal network for training it on how to do proper business planning. 
