@@ -112,7 +112,9 @@ TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant 
                   f"Congratulations, Elon!")
 
 To dive deeper, please visit the **TinyOlap website and documentation** at [https://tinyolap.com](https://tinyolap.com)
-or the provided samples
+or the provided samples.
+
+Here's a screenshot of the **Tesla database in action**. Just run the [/samples/tesla_web_demo.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tesla_web_demo.py) to try it on your own.
 
 ![Tesla Screenshot](https://github.com/Zeutschler/tinyolap/blob/main/doc/source/_logos/tesla_screenshot.png?raw=true)
 
