@@ -138,12 +138,13 @@ class Slice:
         row = 0
         for row_member_set in self.axis[2]:
             row_members = []
+            row_member_indent = []
             for row_member in row_member_set:
                 dim_ordinal = row_member[0]
                 dimension = self.cube.get_dimension_by_index(dim_ordinal)
                 indent = dimension.get_top_level() - dimension.member_get_level(row_member[1])
-                indent = ".&nbsp;&nbsp;&nbsp;" * indent
-                row_members.append(str(indent) + row_member[1])
+                row_member_indent.append(indent)
+                row_members.append(row_member[1])
                 if dim_ordinal == -1:
                     measure = row_member[1]
                 else:
@@ -174,7 +175,8 @@ class Slice:
 
                 # now we have a valid idx_address to be evaluated
                 value = self.cube.get(tuple(address) + (measure,))
-                grid.append([col, row, value, col_members, row_members, tuple(address), measure, number_format])
+                grid.append([col, row, value, col_members, row_members, tuple(address),
+                             measure, number_format, row_member_indent])
 
                 col += 1
             row += 1
@@ -428,7 +430,8 @@ class Slice:
         # header dimensions
         for member in self.axis[0]:
             if member[0] == -1:
-                text += f"Measure := {member[1]}\n"
+                # text += f"Measure := {member[1]}\n"
+                pass
             else:
                 text += f"{member[2]} := {member[1]}\n"
 
@@ -450,6 +453,7 @@ class Slice:
             row = cell[1]
             value = cell[2]
             num_format = cell[7]
+            indentation = cell[8]
             if type(value) is float:
                 if hide_zeros and value == 0.0:
                     value = f"-".rjust(cell_width)
@@ -468,6 +472,7 @@ class Slice:
                     text += "\n"
                 for pos, member in enumerate(cell[4]):
                     caption = member
+                    caption = (" " * indentation[pos]) + caption
                     if len(caption) > row_header_width:
                         caption = caption[:row_header_width - 3].strip() + "..."
                     if pos in previous:
@@ -547,6 +552,7 @@ class Slice:
             row = cell[1]
             value = cell[2]
             format = cell[7]
+            indentation = cell[8]
 
             # row headers
             if col == 0:
@@ -556,7 +562,8 @@ class Slice:
                 for pos, member in enumerate(cell[4]):
                     if pos in previous:
                         if previous[pos] != member:
-                            text += f'<th class="text-nowrap" scope="row">{member}</th>\n'
+                            indent = ".&nbsp;&nbsp;&nbsp;" * indentation[pos]
+                            text += f'<th class="text-nowrap" scope="row">{indent + member}</th>\n'
                         else:
                             text += f'<th class="text-nowrap" scope="row"></th>\n'
                     else:
