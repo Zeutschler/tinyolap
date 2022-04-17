@@ -114,5 +114,5 @@ Maybe, TinyOlap can bring back this light-weight experience, at least TinyOlap i
 
 In contrast, TinyOlap is intended to stay **free, simple and focussed** on 
 client-side planning, budgeting, calculations and analysis purposes. TinyOlap provides sub-second 
-response for most queries (see limitations below) and supports instant 
-*dimensional modelling* - e.g., adding new members to dimensions or adding new calculations.
+response for most queries and supports instant *dimensional modelling* - e.g., adding new members to dimensions or adding new calculations. Finally, the implementation of business logic in Python offers endless possibilities that are
+missing in the domain-specific languages of most commercial products.
