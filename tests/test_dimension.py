@@ -55,6 +55,20 @@ class TestDimension(TestCase):
         dim.commit()
         self.db.dimension_remove("circular")
 
+    def test_children_and_parents(self):
+        dim = self.db.add_dimension("children_and_parents").edit()
+        dim.add_member("All", ["A", "B", "C"])
+        dim.add_member("A", ["A1", "A2", "A3"])
+        dim.add_member("A1", ["A1.1", "A1.1", "A1.1"])
+        dim.commit()
+
+        member = dim.member("A")
+        self.assertEqual(member.children.first.name, "A1")
+        self.assertEqual(member.parents.first.name, "All")
+
+
+        self.db.dimension_remove("children_and_parents")
+
     def test_flat_dimension(self):
         members = [f"member_{i:03d}" for i in range(100)]
         parents = []
@@ -85,7 +99,7 @@ class TestDimension(TestCase):
         all_members = set(members).union(set(parents).union(set(root_members)))
         self.assertEqual(len(dim), len(all_members))
         self.assertEqual(len(dim.get_members()), len(all_members))
-        self.assertEqual(len(dim.get_leave_members()), len(members))
+        self.assertEqual(len(dim.get_leaves()), len(members))
         if dim.get_top_level() > 0:
             self.assertEqual(len(dim.get_aggregated_members()), len(parents) + len(root_members))
         self.assertEqual(len(dim.get_root_members()), len(root_members))

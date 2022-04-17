@@ -15,4 +15,6 @@ We can provide commercial support for your TinyOlap project or adoption. You can
 with the me and team of developers, engineers and business experts that build TinyOlap. Either
 via email, teams or video conferencing.
 
-Please address your request for commercial support via my `Linkedin profile <https://www.linkedin.com/in/thomas-zeutschler-991b166b>`_.
+To request commercial support, please contact me via
+my `Linkedin profile <https://www.linkedin.com/in/thomas-zeutschler-991b166b>`_ or by email to
+info@tinyolap.com.

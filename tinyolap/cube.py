@@ -554,10 +554,8 @@ class Cube:
 
     def _update_aggregation_index(self, fact_table_index, address, row):
         """Updates all fact table index for all aggregations over all dimensions. FOR INTERNAL USE ONLY!"""
-        # please note that a '__' name prefix is not possible
-        # as this function is called through a weak reference.
         for d, idx_member in enumerate(address):
-            for idx_parent in self._dimensions[d].members[address[d]][self._dimensions[d].ALL_PARENTS]:
+            for idx_parent in self._dimensions[d].member_defs[address[d]][self._dimensions[d].ALL_PARENTS]:
                 if idx_parent in fact_table_index._index[d]:
                     fact_table_index._index[d][idx_parent].add(row)
                 else:
@@ -585,13 +583,13 @@ class Cube:
         for d in range(0, self._dim_count):
             if address[d] in self._dimensions[d]._member_idx_lookup:
                 idx_address[d] = self._dimensions[d]._member_idx_lookup[address[d]]
-                super_level += self._dimensions[d].members[idx_address[d]][self._dimensions[d].LEVEL]
+                super_level += self._dimensions[d].member_defs[idx_address[d]][self._dimensions[d].LEVEL]
             else:
                 raise ValueError(f"'{address[d]}' is not a member of dimension '{self._dimensions[d]._name}'.")
         return tuple(idx_address), super_level, idx_measure
 
     def _remove_members(self, dimension, members):
-        """Removes members from indexes and data table"""
+        """Removes member from indexes and data table"""
         ordinal = self.get_dimension_ordinal(dimension.name)
         if ordinal == -1:  # dimension is not contained in this cube
             return
@@ -614,7 +612,7 @@ class Cube:
         else:
             address = []
         for i in range(self._dim_count):
-            address.append(self._dimensions[i].members[idx_address[i]][1])
+            address.append(self._dimensions[i].member_defs[idx_address[i]][1])
         return address
 
     def _address_to_idx_address(self, address):
@@ -635,16 +633,16 @@ class Cube:
         measures_count = len(address) - dim_count
         if measures_count < 0:
             raise InvalidCellOrAreaAddressException(
-                f"Invalid idx_address. At least {self._dim_count} members expected "
+                f"Invalid idx_address. At least {self._dim_count} member_defs expected "
                 f"for cube '{self._name}, but only {len(address)} where passed in.")
-        # Validate members
+        # Validate member_defs
         dimensions = self._dimensions
         idx_address = [None] * dim_count
         super_level = 0
         for i, member in enumerate(address[: dim_count]):
             if member in dimensions[i]._member_idx_lookup:
                 idx_address[i] = dimensions[i]._member_idx_lookup[member]
-                super_level += dimensions[i].members[idx_address[i]][6]
+                super_level += dimensions[i].member_defs[idx_address[i]][6]
             else:
                 raise InvalidCellOrAreaAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
                                                          f"dimension '{dimensions[i].name}' in cube {self._name}.")

@@ -86,7 +86,7 @@ def update_database_from_flight_data(db: Database):
     dim_planes.edit()
     new_planes = list(plane[0] for plane in data)
     countries = list(plane[1] for plane in data)
-    planes_to_remove = set(dim_planes.get_leave_members()).difference(set(new_planes))
+    planes_to_remove = set(dim_planes.get_leaves()).difference(set(new_planes))
     if planes_to_remove:
         dim_planes.remove_member(list(planes_to_remove))
     for idx, plane in enumerate(new_planes):
@@ -144,7 +144,7 @@ def play_plane_spotter(console_output: bool = True):
         os.system('cls' if os.name == 'nt' else 'clear')
 
     dim_planes = database.dimensions["planes"]
-    plane_list = ["All", ] + sorted(dim_planes.get_members_by_level(1)) + sorted(dim_planes.get_leave_members())
+    plane_list = ["All", ] + sorted(dim_planes.get_members_by_level(1)) + sorted(dim_planes.get_leaves())
 
     report_definition = {"title": f"Planes {radius:,} km around Berlin...",
                          "header": [{"dimension": "planes", "member": "All"},

@@ -105,7 +105,7 @@ def consolidate(template: Database, machine_dbs: list[Database]) -> Database:
         dim_sensors.add_member("Total", machine_name)
         sensor_names = machine_db.dimensions["sensors"].member_get_children(machine_name)
         dim_sensors.add_member(machine_name, sensor_names)
-    # lets also remove the unneeded template members
+    # lets also remove the unneeded template member_defs
     dim_sensors.remove_member(["sensor", "machine"])
     dim_sensors.commit()
 

@@ -168,10 +168,10 @@ class TestArea(TestCase):
         return db, cube
 
     def fill_all_cells(self, cube, value=None):
-        addresses = itertools.product(cube.get_dimension_by_index(0).get_leave_members(),
-                                      cube.get_dimension_by_index(1).get_leave_members(),
-                                      cube.get_dimension_by_index(2).get_leave_members(),
-                                      cube.get_dimension_by_index(3).get_leave_members(),
+        addresses = itertools.product(cube.get_dimension_by_index(0).get_leaves(),
+                                      cube.get_dimension_by_index(1).get_leaves(),
+                                      cube.get_dimension_by_index(2).get_leaves(),
+                                      cube.get_dimension_by_index(3).get_leaves(),
                                       ["Sales", "Cost"])
         if value is None:
             for address in addresses:

@@ -45,7 +45,7 @@ def load_huge(console_output: bool = False):
             member_name = f"{name}-member{m + 1}"
             dim.add_member(member_name)
             members.append(member_name)
-        # create one additional aggregated member to sum up all members.
+        # create one additional aggregated member to sum up all member_defs.
         dim.add_member("All", members)
         dimensions.append(dim.commit())
         member_lists.append(members)

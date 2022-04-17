@@ -209,7 +209,7 @@ class Slice:
             if "header" not in self.definition:
                 self.definition["header"] = []
 
-            # not all dimensions are defined yet, lets find suitable members
+            # not all dimensions are defined yet, lets find suitable member_defs
             #  for the missing dimensions and add them to the header.
             for key in self.dimensions:
                 if not self.dimensions[key]:  # = if this dimension is not yet defined.
@@ -265,10 +265,10 @@ class Slice:
                     # check for member definition
                     if "member" not in member_def:
                         self.definition[axis][position]["member"] = \
-                            self.cube.get_dimension(dimension).get_members()  # get all members as list
+                            self.cube.get_dimension(dimension).get_members()  # get all member_defs as list
                     elif (not member_def["member"]) or (member_def["member"] == "*"):
                         self.definition[axis][position]["member"] = \
-                            self.cube.get_dimension(dimension).get_members()  # get all members as list
+                            self.cube.get_dimension(dimension).get_members()  # get all member_defs as list
                     elif type(member_def["member"]) is str:
                         # A single member has been defined
                         if not self.cube.get_dimension(dimension).member_exists(member_def["member"]):
@@ -323,7 +323,7 @@ class Slice:
     def __prepare(self):
         """Prepares the slice for execution."""
 
-        # collect all members and assign them to the axes
+        # collect all member_defs and assign them to the axes
         axes = ["header", "columns", "rows"]
         self.axis = []
         for axis_index, axis_name in enumerate(axes):
@@ -348,7 +348,7 @@ class Slice:
                 # only valid for header
                 # print(f"{axis_name}:")
                 members = [x[0] for x in self.axis[axis_index]]
-                # print(members)
+                # print(member_defs)
                 self.axis[axis_index] = members
             else:
                 # only valid for rows and columns

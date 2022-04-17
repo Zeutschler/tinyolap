@@ -67,11 +67,11 @@ def load_tutor(console_output: bool = False):
         file_name = os.path.join(root_path, FILES_FOLDER, name.upper() + ".TXT")
         # add a new dimension to the database
         dim = db.add_dimension(name)
-        # open the dimension for editing (adding or removing members)
+        # open the dimension for editing (adding or removing member_defs)
         dim.edit()
 
         # Now let's read from the dimension the awkward abd old
-        # txt files and add the members. As the structure of these
+        # txt files and add the member_defs. As the structure of these
         # files does not match to what tinyolap natively supports
         # for importing dimensions,the code looks quite complex
         # and ugly.
@@ -234,7 +234,7 @@ def play_tutor(console_output: bool = True):
     # Slices are plain Python dictionaries and describe the row
     # and columns layout of a slice through a cube. In addition
     # you can define filters that needs to be put in the header.
-    # ``member`` can be single member or a list of members.
+    # ``member`` can be single member or a list of member_defs.
     # If you skip the ``member`` definition, then the default member
     # of the dimension will be selected and used.
     report_definition = {"title": "Report with rules calculations",

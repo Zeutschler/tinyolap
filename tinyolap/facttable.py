@@ -9,7 +9,7 @@ from __future__ import annotations
 class FactTable:
     """
     Stores all records in simple row store and maintains an index
-    over all members for faster aggregations and queries.
+    over all member_defs for faster aggregations and queries.
     """
 
     class FactTableIndex:
@@ -48,7 +48,7 @@ class FactTable:
         def remove_members(self, dim_idx, members, deletes, delete_set, shifts):
             shift_set = set(shifts.keys())
 
-            # remove the members from the index
+            # remove the member_defs from the index
             for member in members:
                 if member in self._index[dim_idx]:
                     del self._index[dim_idx][member]
@@ -327,9 +327,9 @@ class FactTable:
 
     def remove_members(self, dim_idx: int, members: ()):
         """
-        Removes members for a specific dimension from the fact table.
+        Removes member_defs for a specific dimension from the fact table.
         :param dim_idx: Ordinal index of the dimension affected
-        :param members: List of indexes of the members to be removed.
+        :param members: List of indexes of the member_defs to be removed.
         :return:
         """
         # 1. find effected records

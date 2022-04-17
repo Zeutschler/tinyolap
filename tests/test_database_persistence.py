@@ -47,12 +47,12 @@ class TestDatabasePersistence(TestCase):
         self.assertEqual(True, db.dimensions[name1].member_exists(members1[0]),
                          f"Dimension '{name1}' contains member '{members1[0]}'.")
 
-        # remove members
+        # remove member_defs
         dim = db.dimensions[name1]
         dim.edit()
         dim.remove_member(remove_member_name)
         dim.commit()
-        self.assertEqual(len(members1) - 1, len(dim.members),
+        self.assertEqual(len(members1) - 1, len(dim.member_defs),
                          f"Dimension '{name1}' contains {len(members1) - 1} members.")
         self.assertEqual(True, db.dimensions[name1].member_exists(members1[0]),
                          f"Dimension '{name1}' contains member '{members1[0]}'.")

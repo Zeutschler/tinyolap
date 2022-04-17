@@ -12,3 +12,5 @@ TinyOlap is a byproduct of a research project, intended to mimic the behavior an
 capabilities of real-world MOLAP databases (e.g. IBM TM/1, SAP HANA or Jedox PALO) but with a super
 minimal footprint. TinyOlap is best suited for interactive planning, forecasting, simulation and
 general multidimensional numerical problems.
+
+thanks

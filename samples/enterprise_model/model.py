@@ -106,11 +106,11 @@ def populate_cube_pnl(db: Database, cube: Cube):
     """Populate the Profit & Loss cube"""
     # This will get a bit weird / tricky as we want to create somehow realistic figures
     pnl_dim = db.dimensions.get("pnl")
-    companies = db.get_dimension("companies").get_leave_members()
-    years = db.get_dimension("years").get_leave_members()  # Jan... Dec
-    months = db.get_dimension("periods").get_leave_members()  # Jan... Dec
+    companies = db.get_dimension("companies").get_leaves()
+    years = db.get_dimension("years").get_leaves()  # Jan... Dec
+    months = db.get_dimension("periods").get_leaves()  # Jan... Dec
     dim_positions = db.get_dimension("pnl")
-    positions = dim_positions.get_leave_members()  # all non aggregated P&L positions
+    positions = dim_positions.get_leaves()  # all non aggregated P&L positions
     seasonality = [1.329471127, 0.997570548, 0.864137544, 0.987852738, 0.770697066, 0.791253971,
                    1.141095122, 0.83984302, 0.932909736, 1.158661932, 1.113810503, 1.072696692]
     z = 0
@@ -142,11 +142,11 @@ def populate_cube_sales(db: Database, cube: Cube):
     """Populate the Sales cube"""
     # The basic idea is that not all companies sell all products, but only a few (as in real life)
 
-    companies = db.get_dimension("companies").get_leave_members()
-    years = db.get_dimension("years").get_leave_members()  # Jan... Dec
-    months = db.get_dimension("periods").get_leave_members()  # Jan... Dec
+    companies = db.get_dimension("companies").get_leaves()
+    years = db.get_dimension("years").get_leaves()  # Jan... Dec
+    months = db.get_dimension("periods").get_leaves()  # Jan... Dec
     product_dim = db.get_dimension("products")
-    products = product_dim.get_leave_members()  # all non aggregated P&L positions
+    products = product_dim.get_leaves()  # all non aggregated P&L positions
     seasonality = [1.329471127, 0.997570548, 0.864137544, 0.987852738, 0.770697066, 0.791253971,
                    1.141095122, 0.83984302, 0.932909736, 1.158661932, 1.113810503, 1.072696692]
     z = 0
@@ -177,9 +177,9 @@ def populate_cube_sales(db: Database, cube: Cube):
 
 def populate_cube_hr(db: Database, cube: Cube):
     """Populate the HR cube"""
-    years = db.get_dimension("years").get_leave_members()  # Jan... Dec
+    years = db.get_dimension("years").get_leaves()  # Jan... Dec
     hr_dim = db.get_dimension("employees")
-    employees = hr_dim.get_leave_members()  # all non aggregated P&L positions
+    employees = hr_dim.get_leaves()  # all non aggregated P&L positions
     z = 0
     root_salary = 100000.0
     for employee in employees:
@@ -531,7 +531,7 @@ def add_dimension_employees(db: Database, company_dim_name: str = "companies", n
 
     # create employee dimension
     dim = db.add_dimension(name).edit()
-    companies = company_dim.get_leave_members()
+    companies = company_dim.get_leaves()
     employees_per_company = max(1, int(employees_count / len(companies)))
     for company in companies:
         # copy the member hierarchy from the company dimension first

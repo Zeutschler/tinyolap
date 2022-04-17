@@ -45,7 +45,7 @@ class TestDatabaseOperations(TestCase):
         for member in members2:
             self.assertEqual(3.0, cube[total_member, member])
 
-        # remove members
+        # remove member_defs
         dim1.edit()
         dim1.remove_member("b")
         dim1.commit()
@@ -61,7 +61,7 @@ class TestDatabaseOperations(TestCase):
         for member in members2:
             self.assertEqual(2.0, cube[total_member, member])
 
-        # remove members
+        # remove member_defs
         dim1.edit()
         dim1.add_member(total_member, "b")
         dim1.commit()

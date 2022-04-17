@@ -52,7 +52,7 @@ def render_report(refresh_only: bool = False) -> str:
         column_dims = [{"dimension": dims[len(header_dims)]["dimension"]}]
         row_dims = [{"dimension": d["dimension"]} for d in dims[len(header_dims) + 1:]]
         if (nested_dims_in_rows < 2) and (col_members_count > row_members_count):
-            column_dims, row_dims = row_dims, column_dims  # put the dim with more members into the rows]
+            column_dims, row_dims = row_dims, column_dims  # put the dim with more member_defs into the rows]
         report_def = {"title": f"Random report on cube <strong>{cube.name}</strong> "
                                f"from database <strong>{db.name}</strong>",
                       "header": header_dims, "columns": column_dims, "rows": row_dims}

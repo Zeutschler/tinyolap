@@ -597,7 +597,7 @@ class Database:
             # todo: implementation missing
 
     def _remove_members(self, dimension, members):
-        """Remove data for obsolete (deleted) members over all cubes.
+        """Remove data for obsolete (deleted) member_defs over all cubes.
         Formulas containing that member will get invalidated."""
 
         # broadcast to all cubes...

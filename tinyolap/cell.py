@@ -126,10 +126,10 @@ class Cell(SupportsFloat):
 
             elif type(member) is str:
                 idx_dim, idx_member, member_level = self._get_member(member)
-                address[idx_dim] = self._cube._dimensions[idx_dim].members[idx_member][key_name]
+                address[idx_dim] = self._cube._dimensions[idx_dim].member_defs[idx_member][key_name]
 
                 # adjust the super_level
-                super_level -= self._cube._dimensions[idx_dim].members[self._bolt[1][idx_dim]][key_level]
+                super_level -= self._cube._dimensions[idx_dim].member_defs[self._bolt[1][idx_dim]][key_level]
                 super_level += member_level
 
                 modifiers.append((idx_dim, idx_member))
@@ -198,14 +198,14 @@ class Cell(SupportsFloat):
 
         for member in item:
             if type(member) is Member:
-                super_level -= self._cube._dimensions[member._idx_dim].members[self._bolt[1][member._idx_dim]][
+                super_level -= self._cube._dimensions[member._idx_dim].member_defs[self._bolt[1][member._idx_dim]][
                     key_level]
                 super_level += member._member_level
                 modifiers.append((member._idx_dim, member._idx_member))
 
             elif type(member) is str:
                 idx_dim, idx_member, member_level = self._get_member(member)
-                super_level -= self._cube._dimensions[idx_dim].members[self._bolt[1][idx_dim]][key_level]
+                super_level -= self._cube._dimensions[idx_dim].member_defs[self._bolt[1][idx_dim]][key_level]
                 super_level += member_level
 
                 modifiers.append((idx_dim, idx_member))
@@ -252,7 +252,7 @@ class Cell(SupportsFloat):
                                                          f"dimension '{name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member]
 
-            member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]
+            member_level = dimensions[idx_dim].member_defs[idx_member][self._cube._dimensions[0].LEVEL]
             return idx_dim, idx_member, member_level
 
         # No dimension identifier in member name, search all dimensions
@@ -262,7 +262,7 @@ class Cell(SupportsFloat):
             if member in dimensions[idx_dim]._member_idx_lookup:
                 idx_member = dimensions[idx_dim]._member_idx_lookup[member]
                 # adjust the super_level
-                member_level = dimensions[idx_dim].members[idx_member][level]
+                member_level = dimensions[idx_dim].member_defs[idx_member][level]
                 return idx_dim, idx_member, member_level
 
         # Still nothing found ? Then it might be just a dimension name or dimension ordinal
@@ -281,13 +281,13 @@ class Cell(SupportsFloat):
                 idx_dim = self._cube._dim_lookup[name]
 
             idx_member = self._bolt[1][idx_dim]
-            member_level = dimensions[idx_dim].members[idx_member][level]
+            member_level = dimensions[idx_dim].member_defs[idx_member][level]
             return idx_dim, idx_member, member_level
         else:
             idx_dim = self._cube.get_dimension_ordinal(name)
             if idx_dim > -1:
                 idx_member = self._bolt[1][idx_dim]
-                member_level = dimensions[idx_dim].members[idx_member][level]
+                member_level = dimensions[idx_dim].member_defs[idx_member][level]
                 return idx_dim, idx_member, member_level
                     
         # You loose...
