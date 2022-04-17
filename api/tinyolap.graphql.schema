@@ -13,16 +13,53 @@ type Todo {
   priority: Priority!
 }
 
+type SessionToken {
+  token: ID!
+  uid: String!
+  message: String
+} 
+
+type Server {
+  databases: [Database!]
+}
+
+type Database {
+  id: ID!
+  description: String
+  dimensions: [Dimension!]
+  cubes: [Cube!] 
+}
+
+type Cube {
+  id: ID!
+  description: String
+  dimensions: [Dimension!]
+}
+
+type Dimension {
+  id: ID!
+  description: String
+} 
+
+
+
 type Query {
   # Get one todo item
   todo(id: ID!): Todo
+  
   # Get all todo items
   allTodos: [Todo!]!
+  
+  
+  connect(uid: String!, pwd: String): SessionToken!
+  server(token:ID!): Server!
 }
 
 type Mutation {
   addTodo(name: String!, priority: Priority = LOW): Todo!
   removeTodo(id: ID!): Todo!
+  
+  
 }
 
 schema {
