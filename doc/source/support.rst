@@ -9,7 +9,7 @@ In addition try to use Google and address your problems at stackoverflow.
 We do not offer non-commercial support (yet).
 
 ------------------
-Commerical Support
+Commercial Support
 ------------------
 We can provide commercial support for your TinyOlap project or adoption. You can work directly
 with the me and team of developers, engineers and business experts that build TinyOlap. Either

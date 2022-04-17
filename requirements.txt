@@ -14,3 +14,5 @@ sphinx-toolbox
 psutil
 art
 pandas
+ariadne
+starlette
