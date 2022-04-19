@@ -23,39 +23,39 @@ class CaseInsensitiveDict(dict):
         super(CaseInsensitiveDict, self).__init__(self._process_args(mapping, **kwargs))
 
     def __getitem__(self, k):
-        return super(CaseInsensitiveDict, self).__getitem__(k.lower())
+        return super(CaseInsensitiveDict, self).__getitem__(str(k).lower())
 
     def lookup(self, k):
         return super(CaseInsensitiveDict, self).get(k.lower())
 
     def lookuptry(self, k):
         try:
-            return super(CaseInsensitiveDict, self).__getitem__(k.lower())
+            return super(CaseInsensitiveDict, self).__getitem__(str(k).lower())
         except:
             return None
 
     def __setitem__(self, k, v):
-        return super(CaseInsensitiveDict, self).__setitem__(k.lower(), v)
+        return super(CaseInsensitiveDict, self).__setitem__(str(k).lower(), v)
 
     def __delitem__(self, k):
-        return super(CaseInsensitiveDict, self).__delitem__(k.lower())
+        return super(CaseInsensitiveDict, self).__delitem__(str(k).lower())
 
     def get(self, k, default=None):
-        return super(CaseInsensitiveDict, self).get(k.lower(), default)
+        return super(CaseInsensitiveDict, self).get(str(k).lower(), default)
 
     def setdefault(self, k, default=None):
-        return super(CaseInsensitiveDict, self).setdefault(k.lower(), default)
+        return super(CaseInsensitiveDict, self).setdefault(str(k).lower(), default)
 
     def pop(self, k, v=_RaiseKeyError):
         if v is _RaiseKeyError:
-            return super(CaseInsensitiveDict, self).pop(k.lower())
-        return super(CaseInsensitiveDict, self).pop(k.lower(), v)
+            return super(CaseInsensitiveDict, self).pop(str(k).lower())
+        return super(CaseInsensitiveDict, self).pop(str(k).lower(), v)
 
     def update(self, mapping=(), **kwargs):
         super(CaseInsensitiveDict, self).update(self._process_args(mapping, **kwargs))
 
     def __contains__(self, k):
-        return super(CaseInsensitiveDict, self).__contains__(k.lower())
+        return super(CaseInsensitiveDict, self).__contains__(str(k).lower())
 
     def copy(self):  # don't delegate w/ super - dict.copy() -> dict :(
         return type(self)(self)
@@ -67,7 +67,7 @@ class CaseInsensitiveDict(dict):
 
     @classmethod
     def fromkeys(cls, keys, v=None):
-        return super(CaseInsensitiveDict, cls).fromkeys((k.lower() for k in keys), v)
+        return super(CaseInsensitiveDict, cls).fromkeys((str(k).lower() for k in keys), v)
 
     def __repr__(self):
         return '{0}({1})'.format(type(self).__name__, super(CaseInsensitiveDict, self).__repr__())

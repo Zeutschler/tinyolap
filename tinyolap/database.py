@@ -34,7 +34,7 @@ class Database:
     # Note: 32 dimensions is already huge for a model-driven OLAP database.
     MAX_MEASURES_PER_CUBE = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS_PER_CUBE)
 
-    def __init__(self, name: str = None, in_memory: bool = True,
+    def __init__(self, name: str = None, in_memory: bool = True, description: str = "",
                  encryption: EncryptionMethodEnum = EncryptionMethodEnum.NoEnryption,
                  password: str = None):
         """
@@ -48,6 +48,8 @@ class Database:
 
         :param name: Name of the database. Only alphanumeric characters and underscore are supported for database names
         (no whitespaces or special characters).
+
+        :param description: (Optional) description of the database.
 
         :param in_memory: Identifies if the database should run in memory only (no persistence) or should persist
         all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
@@ -80,6 +82,7 @@ class Database:
         self._code_manager: CodeManager = CodeManager()
         self._history: History = History(self)
         self._name: str = name
+        self._description: str = description
         self._file_name: str = name
 
         self._in_memory = in_memory
@@ -136,6 +139,16 @@ class Database:
     def name(self) -> str:
         """Returns the name of the database."""
         return self._name
+
+    @property
+    def description(self) -> str:
+        """Returns the description of the database."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str):
+        """Sets the description of the database."""
+        self._description = value
 
     @property
     def uri(self) -> str:

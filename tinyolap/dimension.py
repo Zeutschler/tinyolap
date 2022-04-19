@@ -118,7 +118,7 @@ class Dimension:
         assert (dim_creation_key == Dimension.__magic_key), \
             "Objects of type Dimension can only be created through the method 'Database.add_dimension()'."
 
-        self.name: str = name.strip()
+        self._name: str = name.strip()
         self.description: str = description
         self.member_defs: dict[int, dict] = {}
         self._member_idx_manager = Dimension.MemberIndexManager()
@@ -135,6 +135,7 @@ class Dimension:
         self.recovery_idx = set()
 
         self.alias_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
+        # todo: rework attributes, put into separate class.
         self.attributes: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
         self.attribute_query_caching: bool = True
         self.attribute_cache: CaseInsensitiveDict[str, list[str]] = CaseInsensitiveDict()
@@ -143,11 +144,11 @@ class Dimension:
 
     def __str__(self):
         """Returns the string representation of the dimension."""
-        return f"dim:{self.name}"
+        return f"dim:{self._name}"
 
     def __repr__(self):
         """Returns the string representation of the dimension."""
-        return f"dim{self.name}"
+        return f"dim{self._name}"
 
     def __len__(self):
         """Returns the length (number of member_defs) of the dimension"""
@@ -161,6 +162,23 @@ class Dimension:
         :return: The member object.
         """
         return self.member(item)
+    # endregion
+
+
+    @property
+    def name(self) -> str:
+        """Returns the name of the dimension."""
+        return self._name
+
+    @property
+    def description(self) -> str:
+        """Returns the description of the dimension."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str):
+        """Sets the description of the dimension."""
+        self._description = value
 
     # region Dimension editing
     def clear(self) -> Dimension:
@@ -200,7 +218,7 @@ class Dimension:
         """
         self.__update_member_hierarchies()
         if self._storage_provider and self._storage_provider.connected:
-            self._storage_provider.add_dimension(self.name, self.to_json())
+            self._storage_provider.add_dimension(self._name, self.to_json())
 
         # remove data for obsolete member_defs (if any) from database
         obsolete = self.recovery_idx.difference(set(self._member_idx_lookup.values()))
@@ -287,9 +305,14 @@ class Dimension:
                 raise KeyError(f"Failed to add member. Invalid member name '{member}'. "
                                f"'\\t', '\\n' and '\\r' characters are not supported.")
 
-            member_list = [member]
+            member_list = [member, ]
             children_list = [children]
             multi = True
+        elif type(member) is Member:
+            member_list = [member.name, ]
+            children_list = [children]
+            multi = True
+
         if not children:
             children_list = [None] * len(member_list)
 
@@ -306,12 +329,14 @@ class Dimension:
                     c = [c]
                 elif not (isinstance(c, collections.abc.Sequence) and not isinstance(c, str)):
                     raise DimensionEditModeException(
-                        f"Failed to member '{m}' to dimension '{self.name}'. Unexpected type "
+                        f"Failed to member '{m}' to dimension '{self._name}'. Unexpected type "
                         f"'{type(c)}' of parameter 'children' found.")
                 for child in c:
+                    if type(child) is Member:
+                        child = child.name
                     if not isinstance(child, str):
                         raise DimensionEditModeException(
-                            f"Failed to add child to member '{m}' of dimension '{self.name}. Unexpected type "
+                            f"Failed to add child to member '{m}' of dimension '{self._name}. Unexpected type "
                             f"'{type(c)}' of parameter 'children' found.")
                     if not self.__valid_member_name(child):
                         raise KeyError(f"Failed to add member. Invalid member name '{child}'. "
@@ -357,7 +382,7 @@ class Dimension:
             if member not in self._member_idx_lookup:
                 raise DimensionEditModeException(f"Failed to remove member(s). "
                                                  f"At least 1 of {len(member_list)} member ('{member}') is not "
-                                                 f"a member of dimension {self.name}")
+                                                 f"a member of dimension {self._name}")
 
         # remove from directly related member_defs
         for member in member_list:
@@ -415,11 +440,11 @@ class Dimension:
 
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not member a of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not member a of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         if alias in self.alias_idx_lookup:
             raise DuplicateKeyException(f"Duplicate alias. The alias '{alias}' is already used "
-                                        f"by member '{self.member_defs[idx_member][self.NAME]}' of dimension'{self.name}'")
+                                        f"by member '{self.member_defs[idx_member][self.NAME]}' of dimension'{self._name}'")
         self.alias_idx_lookup[alias] = idx_member
 
     def remove_alias(self, alias: str):
@@ -429,7 +454,7 @@ class Dimension:
         :param alias: The alias to be removed.
         """
         if alias not in self.alias_idx_lookup:
-            raise KeyError(f"{alias}' is not alias a of dimension'{self.name}'")
+            raise KeyError(f"{alias}' is not alias a of dimension'{self._name}'")
         del self.alias_idx_lookup[alias]
 
     def member_remove_all_aliases(self, member: str):
@@ -440,7 +465,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not member a of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not member a of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         aliases_to_be_deleted = set([key for key, idx in self.alias_idx_lookup.items() if idx == idx_member])
         for alias in aliases_to_be_deleted:
@@ -454,7 +479,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         return idx_member in set(self.alias_idx_lookup.values())
 
@@ -466,7 +491,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"Failed to return member alias count. '{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"Failed to return member alias count. '{member}' is not a member of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         return len(set([idx for idx in set(self.alias_idx_lookup.values()) if idx == idx_member]))
 
@@ -478,7 +503,7 @@ class Dimension:
         :raises KeyError: Raised if the alias does not exist.
         """
         if alias not in self.alias_idx_lookup:
-            raise KeyError(f"Failed to get member by alias. '{alias}' is not a member alias of dimension'{self.name}'")
+            raise KeyError(f"Failed to get member by alias. '{alias}' is not a member alias of dimension'{self._name}'")
         idx_member = self.alias_idx_lookup[alias]
         return self.member_defs[idx_member][self.NAME]
 
@@ -490,7 +515,7 @@ class Dimension:
         :raises KeyError: Raised if the alias does not exist.
         """
         if not index in self.member_defs:
-            raise KeyError(f"Failed to get member by index. '{index}' is not a member index of dimension'{self.name}'")
+            raise KeyError(f"Failed to get member by index. '{index}' is not a member index of dimension'{self._name}'")
         return self.member_defs[index][self.NAME]
 
     # endregion
@@ -508,7 +533,7 @@ class Dimension:
                https://docs.python.org/3/library/string.html#format-specification-mini-language.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"Failed to set member number_format. '{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"Failed to set member number_format. '{member}' is not a member of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         self.member_defs[idx_member][self.FORMAT] = format_string
 
@@ -521,7 +546,7 @@ class Dimension:
         """
         if member not in self._member_idx_lookup:
             raise KeyError(
-                f"Failed to return member number_format. '{member}' is not a member of dimension'{self.name}'")
+                f"Failed to return member number_format. '{member}' is not a member of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         return self.member_defs[idx_member][self.FORMAT]
 
@@ -533,7 +558,7 @@ class Dimension:
         """
         if member not in self._member_idx_lookup:
             raise KeyError(
-                f"Failed to remove member number_format. '{member}' is not a member of dimension'{self.name}'")
+                f"Failed to remove member number_format. '{member}' is not a member of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         self.member_defs[idx_member][self.FORMAT] = None
 
@@ -569,10 +594,10 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self._name}'")
         return self._member_idx_lookup[member]
 
-    def member_get_parents(self, member: str) -> list[str]:
+    def member_get_parents(self, member: str) -> MemberList:
         """
         Returns a list of all parents of a member.
         :param member: Name of the member to be evaluated.
@@ -580,11 +605,11 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self._name}'")
         parents = []
         for idx in self.member_defs[self._member_idx_lookup[member]][self.PARENTS]:
-            parents.append(self.member_defs[idx][self.NAME])
-        return parents
+            parents.append(self.member(self.member_defs[idx][self.NAME]))
+        return MemberList(self, tuple(parents))
 
     def member_get_children(self, member: str) -> MemberList:
         """
@@ -595,10 +620,10 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self._name}'")
         children = []
         for idx in self.member_defs[self._member_idx_lookup[member]][self.CHILDREN]:
-            children.append(self.member_defs[idx][self.NAME])
+            children.append(self.member(self.member_defs[idx][self.NAME]))
         return MemberList(self, tuple(children))
 
     def member_get_leaves(self, member) -> MemberList:
@@ -611,12 +636,12 @@ class Dimension:
         """
         member = str(member)
         if member not in self._member_idx_lookup:
-            raise KeyError(f"A member named '{member}' does not exist in dimension'{self.name}'")
+            raise KeyError(f"A member named '{member}' does not exist in dimension'{self._name}'")
 
         m = self.member_defs[self._member_idx_lookup[member]]
         if m[self.LEVEL] == 0:
             # already a base member, return that
-            return MemberList(self, tuple([member, ]))
+            return MemberList(self, tuple([self.member(member), ]))
         leaves = []
         for idx in m[self.CHILDREN]:
             if self.member_defs[idx][self.LEVEL] > 0:
@@ -635,7 +660,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if str(member) not in self._member_idx_lookup:
-            raise KeyError(f"A member named '{member}' does not exist in dimension'{self.name}'")
+            raise KeyError(f"A member named '{member}' does not exist in dimension'{self._name}'")
 
         m = self.member_defs[self._member_idx_lookup[str(member)]]
         if m[self.ALL_PARENTS]:
@@ -654,7 +679,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self._name}'")
         return self.member_defs[self._member_idx_lookup[member]][self.LEVEL]
 
     def member_is_leave(self, member: str):
@@ -666,7 +691,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self._name}'")
         return self.member_defs[self._member_idx_lookup[member]][self.LEVEL] == 0
 
     def member_is_root(self, member: str):
@@ -678,7 +703,7 @@ class Dimension:
         :raises KeyError: Raised if the member does not exist.
         """
         if member not in self._member_idx_lookup:
-            raise KeyError(f"{member}' is not a member of dimension'{self.name}'")
+            raise KeyError(f"{member}' is not a member of dimension'{self._name}'")
         return not self.member_defs[self._member_idx_lookup[member]][self.PARENTS]
     # endregion
 
@@ -786,14 +811,14 @@ class Dimension:
         """
         if attribute not in self.attributes:
             raise KeyError(f"Failed to set attribute value. "
-                           f"'{attribute}' is not an attribute of dimension {self.name}.")
+                           f"'{attribute}' is not an attribute of dimension {self._name}.")
         expected_type = self.attributes[attribute]
         if not type(value) is expected_type:
             raise TypeError(f"Failed to set attribute value. "
                             f"Type of value is '{str(type(value))}' but '{str(expected_type)}' was expected.")
         if member not in self._member_idx_lookup:
             raise KeyError(f"Failed to set attribute value. "
-                           f"'{member}' is not a member of dimension {self.name}.")
+                           f"'{member}' is not a member of dimension {self._name}.")
         idx = self._member_idx_lookup[member]
         self.member_defs[idx][self.ATTRIBUTES][attribute] = value
 
@@ -813,10 +838,10 @@ class Dimension:
         """
         if attribute not in self.attributes:
             raise KeyError(f"Failed to set attribute value. "
-                           f"'{attribute}' is not an attribute of dimension {self.name}.")
+                           f"'{attribute}' is not an attribute of dimension {self._name}.")
         if member not in self._member_idx_lookup:
             raise KeyError(f"Failed to set attribute value. "
-                           f"'{member}' is not a member of dimension {self.name}.")
+                           f"'{member}' is not a member of dimension {self._name}.")
         idx = self._member_idx_lookup[member]
         if attribute not in self.member_defs[idx][self.ATTRIBUTES]:
             return None
@@ -832,7 +857,7 @@ class Dimension:
         """
         if attribute not in self.attributes:
             raise KeyError(f"Failed to set attribute value. "
-                           f"'{attribute}' is not an attribute of dimension {self.name}.")
+                           f"'{attribute}' is not an attribute of dimension {self._name}.")
         return self.attributes[attribute]
 
     def has_attribute(self, attribute: str):
@@ -854,10 +879,10 @@ class Dimension:
         """
         if attribute not in self.attributes:
             raise KeyError(f"Failed to set attribute value. "
-                           f"'{attribute}' is not an attribute of dimension {self.name}.")
+                           f"'{attribute}' is not an attribute of dimension {self._name}.")
         if member not in self._member_idx_lookup:
             raise KeyError(f"Failed to set attribute value. "
-                           f"'{member}' is not a member of dimension {self.name}.")
+                           f"'{member}' is not a member of dimension {self._name}.")
         idx = self._member_idx_lookup[member]
         if attribute in self.member_defs[idx][self.ATTRIBUTES]:
             del (self.member_defs[idx][self.ATTRIBUTES][attribute])
@@ -938,7 +963,7 @@ class Dimension:
 
         if attribute_name not in self.attributes:
             raise KeyError(f"Failed to return member_defs by attribute. "
-                           f"'{attribute_name}' is not an attribute of dimension {self.name}.")
+                           f"'{attribute_name}' is not an attribute of dimension {self._name}.")
         members = []
         for idx_member in self.member_defs:
             if attribute_name in self.member_defs[idx_member][self.ATTRIBUTES]:
@@ -983,7 +1008,7 @@ class Dimension:
                 idx_members.append(self._member_idx_lookup[member])
             else:
                 raise KeyError(f"Failed to add member to subset. "
-                               f"'{member}' is not a member of dimension {self.name}.")
+                               f"'{member}' is not a member of dimension {self._name}.")
 
         # create and add subset
         self.subsets[subset_name] = {self.IDX: self._subset_idx_manager.pop(),
@@ -1018,7 +1043,7 @@ class Dimension:
         """
         if not subset_name in self.subsets:
             raise KeyError(f"Failed to check member contained in subset. "
-                           f"'{subset_name}' is not a subset of dimension {self.name}.")
+                           f"'{subset_name}' is not a subset of dimension {self._name}.")
         return member_name in self.subsets[subset_name][self.MEMBERS]
 
     def rename_subset(self, subset_name: str, new_subset_name: str):
@@ -1036,7 +1061,7 @@ class Dimension:
                                       f"no whitespaces, no special characters.")
         if not subset_name in self.subsets:
             raise KeyError(f"Failed to rename subset. "
-                           f"'{subset_name}' is not a subset of dimension {self.name}.")
+                           f"'{subset_name}' is not a subset of dimension {self._name}.")
 
         subset = self.subsets[subset_name]
         del self.subsets[subset_name]
@@ -1053,7 +1078,7 @@ class Dimension:
             return self.subsets[subset_name][self.MEMBERS]
 
         raise KeyError(f"Failed to return list of subset member. "
-                       f"'{subset_name}' is not a subset of dimension {self.name}.")
+                       f"'{subset_name}' is not a subset of dimension {self._name}.")
 
     def remove_subset(self, subset_name: str):
         """
@@ -1068,7 +1093,7 @@ class Dimension:
             return
 
         raise KeyError(f"Failed to remove subset. "
-                       f"'{subset_name}' is not a subset of dimension {self.name}.")
+                       f"'{subset_name}' is not a subset of dimension {self._name}.")
 
     # endregion
 
@@ -1082,7 +1107,7 @@ class Dimension:
         :param beautify: Identifies if the json code should be beautified (multiple rows + indentation).
         :return: A json string representing the dimension.
         """
-        data = ['{', f'"content": "dimension",', f'"name": "{self.name}",', f'"description": "{self.description}",',
+        data = ['{', f'"content": "dimension",', f'"name": "{self._name}",', f'"description": "{self.description}",',
                 f'"count": {self.member_counter},', f'"member_defs": {json.dumps(self.member_defs)},',
                 f'"lookup": {json.dumps(self._member_idx_lookup)},', f'"attributes": {json.dumps(self.attributes)},',
                 f'"subsets": {json.dumps(self.subsets)}', '}']
@@ -1122,7 +1147,7 @@ class Dimension:
             new_members = dict_keys_to_int(new_members)
 
             # second, apply everything (this should not fail)
-            self.name = new_name
+            self._name = new_name
             self.description = new_description
             self.member_counter = new_count
             self.member_defs = new_members
@@ -1131,7 +1156,7 @@ class Dimension:
             self.subsets = new_subsets
             self.commit()
         except Exception as err:
-            raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")
+            raise FatalException(f"Failed to load json for dimension '{self._name}'. {str(err)}")
 
     # endregion
 
@@ -1207,7 +1232,7 @@ class Dimension:
             raise DimensionEditModeException(f"Circular reference detected on adding parent <-> child relation "
                                              f"'{self.member_defs[parent_idx][self.NAME]}' <-> "
                                              f"'{self.member_defs[member_idx][self.NAME]}' "
-                                             f"to dimension {self.name}. Both member_defs were added, "
+                                             f"to dimension {self._name}. Both member_defs were added, "
                                              f"but the relation was not created.")
 
         # update all-parents list, only relevant for base level member_defs

@@ -41,17 +41,18 @@ class Server:
 
     # region database access via indexing/slicing
     def __getitem__(self, args):
-        if type(args) is str:
-            dbs = [db.name for db in self._databases.values()]
-            if args in self._databases:
-                return self._databases[args]
-            raise KeyError(f"A database named '{args}' is not registered on the server.")
-        raise KeyError(f"Invalid database name '{str(args)}'.")
+        if args in self._databases:
+            return self._databases[args]
+        raise KeyError(f"A database named '{args}' is not registered on the server.")
 
     def __delitem__(self, args):
         self.deletes_database(args[0])
-
     # endregion
+
+    @property
+    def databases(self):
+        """Provides access to the collection of available databases."""
+        return self._databases
 
     def open_database(self, database_file: str):
         """

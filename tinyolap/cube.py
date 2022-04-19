@@ -34,7 +34,7 @@ class Cube:
                 storage_provider.add_cube(name, cube.to_json())
         return cube
 
-    def __init__(self, cub_creation_key, name: str, dimensions=None, measures=None, description: str = None):
+    def __init__(self, cub_creation_key, name: str, dimensions=None, measures=None, description: str = ""):
         """
         NOT INTENDED FOR DIRECT USE! Cubes and dimensions always need to be managed by a Database.
         Use method 'Database.add_cube(...)' to create objects type Cube.
@@ -256,6 +256,21 @@ class Cube:
     def name(self) -> str:
         """Returns the name of the cube."""
         return self._name
+
+    @property
+    def description(self) -> str:
+        """Returns the description of the cube."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str):
+        """Sets the description of the cube."""
+        self._description = value
+
+    @property
+    def rules(self) -> Rules:
+        """Returns the rules of the sube."""
+        return self._rules
 
     @property
     def counter_cell_requests(self) -> int:
