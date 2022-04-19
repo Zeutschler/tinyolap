@@ -5,43 +5,235 @@
 
 from __future__ import annotations
 import collections.abc
+import fnmatch
 import json
+from abc import abstractmethod
 
 from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.member import Member, MemberList
 from tinyolap.exceptions import *
 from tinyolap.utilities.utils import *
 from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
-
-
-class Attribute:
-    """Represents a single attribute value for dimension member"""
-    pass
+from tinyolap.utilities.hybrid_dict import HybridDict
 
 
 class AttributeField:
-    """Represents a single attribute"""
+    """Represents a single attribute field of a dimension and provides access to
+    the attribute values and the members associated wuith certain attribute values."""
 
     def __init__(self, dimension: Dimension, name: str, value_type: type = None):
         self._dimension = dimension
         self._name = name
         self._value_type = value_type
+        self._cache = dict()
+
+    def __repr__(self) -> str:
+        return self._name
+
+    def __str__(self) -> str:
+        return self._name
+
+    def __getitem__(self, member):
+        """Returns the attribute value of a member."""
+        if type(member) is int:
+            member = self._dimension.members[member]
+        member = str(member)
+
+        if member in self._cache:
+            return self._cache[member]
+
+        if member not in self._dimension._member_idx_lookup:
+            raise KeyError(f"Failed to get member attribute value. "
+                           f"'{member}' is not a member of dimension {self._dimension._name}.")
+        idx = self._dimension._member_idx_lookup[member]
+        if self._name not in self._dimension.member_defs[idx][self._dimension.ATTRIBUTES]:
+            return None
+        return self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name]
+
+    def __setitem__(self, member, value):
+        if not type(value) is self._value_type:
+            raise TypeError(f"Failed to set member attribute value. "
+                            f"Value is of type '{str(type(value))}' but type '{str(self._value_type)}' was expected.")
+        if type(member) is int:
+            member = self._dimension.members[member]
+        member = str(member)
+        if member not in self._dimension._member_idx_lookup:
+            raise KeyError(f"Failed to set member attribute value. "
+                           f"'{member}' is not a member of dimension {self._dimension._name}.")
+        idx = self._dimension._member_idx_lookup[member]
+        self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name] = value
+        # update the cache
+        self._cache[member] = value
+
+    def __delitem__(self, member):
+        if type(member) is int:
+            member = self._dimension.members[member]
+        member = str(member)
+        if member not in self._dimension._member_idx_lookup:
+            raise KeyError(f"Failed to delete member attribute value. "
+                           f"'{member}' is not a member of dimension {self._dimension._name}.")
+        idx = self._dimension._member_idx_lookup[member]
+        del(self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name])
+
+        self._cache[member] = None
+
+    def set(self, member, value):
+        """
+        Sets the attribute value for a specific member.
+        :param member: The member to set the attribute value for.
+        :param value: The value to get set
+        """
+        self.__setitem__(member, value)
+
+    def get(self, member):
+        """
+        Returns the attribute value for a specific member.
+        :param member: The member to return the attribute value for.
+        :returns: The value to of attribute. If the value is not set, None will be returned.
+        """
+        self.__getitem__(member)
+
+    def filter(self, value_or_pattern) -> MemberList:
+        """Provides value search or wildcard pattern matching and filtering on the attribute values of members
+         and return a list of matching members.
+
+            * * matches everything
+            * ? matches any single character
+            * [seq] matches any character in seq
+            * [!seq] matches any character not in seq
+
+        :param value_or_pattern: The value or wildcard pattern to filter the member attribute values for.
+        :return: The filtered member list.
+        """
+        if (type(value_or_pattern) is self._value_type) and (self._value_type is not str) :
+            return MemberList(self._dimension, [k for k,v in self._cache if v == value_or_pattern])
+
+        if type(value_or_pattern) is str:
+            return MemberList(self._dimension, [k for k,v in self._cache if fnmatch.fnmatch(v, value_or_pattern)])
+
+    def match(self, regular_expression) -> MemberList:
+        """Provides regular expression pattern matching and filtering on the attributes values of members
+        and return a list of matching members.
+
+        :param regular_expression: The regular expression or a valid regular expression string to filter the member list.
+        :return: The filtered member list.
+        """
+        if type(regular_expression) is not re:
+            regular_expression = re.compile(regular_expression)
+        return MemberList(self._dimension,
+                          [self._dimension.members[k] for k,v in self._cache if regular_expression.search(v)])
+
+    def _flush(self):
+        """Flushes the internal cache of the AttributeField.
+        Flushing the cache is required when the dimension gets updated (edit -> commit)."""
+        self._cache = dict()
+
+        # rebuild the cache
+        for idx in self._dimension._member_idx_lookup:
+            if self._name in self._dimension.member_defs[idx][self._dimension.ATTRIBUTES]:
+                self._cache[self._dimension.member_defs[idx][self._dimension.NAME]] =\
+                    self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self.name]
+            else:
+                self._cache[self._dimension.member_defs[idx][self._dimension.NAME]] = None
 
     @property
     def dimension(self) -> Dimension:
+        """Returns the parent dimension of the attribute field."""
         return self._dimension
 
     @property
     def name(self) -> str:
+        """Returns the name of the attribute field."""
         return self._name
 
     @property
     def value_type(self) -> type:
+        """Returns the defined value type of the attribute field."""
         return self._value_type
 
     @property
     def values(self) -> tuple:
-        return self._dimension.attributes
+        """Returns a list of all the attribute values."""
+        distinct = set(self._cache.values())
+        if None in distinct:
+            distinct.remove(None)  # remove the None value, it's not a relevant attribute value
+        return tuple(distinct)
+
+
+class Attributes(Sequence[AttributeField]):
+    """
+    Represents the list of member attributes available in a dimension.
+    """
+    def __init__(self, dimension: Dimension):
+        self._dimension: Dimension = dimension
+        self._fields: HybridDict[AttributeField] = HybridDict[AttributeField](source=dimension)
+
+    def __getitem__(self, item) -> AttributeField:
+        return self._fields.__getitem__(item)
+
+    def __len__(self):
+        return len(self._fields)
+
+    def add(self, name:str, value_type: type = None) -> AttributeField:
+        if not is_valid_db_object_name(name):
+            raise InvalidKeyException(f"'{name}' is not a valid dimension attribute name. "
+                                      f"Lower case alphanumeric characters and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
+        if name in self._fields:
+            raise DuplicateKeyException(f"Failed to add attribute to dimension. "
+                                        f"A dimension attribute named '{name}' already exists.")
+
+        attribute = AttributeField(dimension=self._dimension, name=name, value_type=value_type)
+        self._fields.append(attribute)
+        return attribute
+
+    def get(self, attribute: str, member):
+        """
+        Returns the attribute value for a specific attribute and member.
+        :param attribute: The name of the attribute to be returned.
+        :param member: The member to return the attribute value for.
+        :return: An attribute value.
+        """
+        try:
+            return self._fields[attribute][member]
+        except Exception as e:
+            raise InvalidKeyException(f"Failed to access member attribute "
+                                      f"'{attribute}' for member '{member}'. "
+                                      + str(e))
+
+
+    def set(self, attribute: str, member, value):
+        """
+        Sets the attribute value for a specific attribute and member.
+        :param attribute: The name of the attribute to be set.
+        :param member: The member to set the attribute value for.
+        :param value: The value to be set.
+        """
+        try:
+            self._fields[attribute][member] = value
+        except Exception as e:
+            raise InvalidKeyException(f"Failed to access member attribute "
+                                      f"'{attribute}' for member '{member}'. "
+                                      + str(e))
+
+
+class Subset(Sequence[Member]):
+    # todo: implementation missing
+    def __getitem__(self, item) -> Member:
+        pass
+
+    def __len__(self) -> int:
+        pass
+
+
+class Subsets(Sequence[AttributeField]):
+    # todo: implementation missing
+    def __getitem__(self, item) -> AttributeField:
+        pass
+
+    def __len__(self) -> int:
+        pass
+
 
 
 class Dimension:
@@ -165,10 +357,16 @@ class Dimension:
         self.recovery_idx = set()
 
         self.alias_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
+
         # todo: rework attributes, put into separate class.
-        self.attributes: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
+        # Attributes
+        self._attributes: Attributes = Attributes(self)
+        # OLD Attributes
+        self._attributes_dict: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
         self.attribute_query_caching: bool = True
         self.attribute_cache: CaseInsensitiveDict[str, list[str]] = CaseInsensitiveDict()
+
+        # Subsets
         self.subsets: CaseInsensitiveDict[str, dict] = CaseInsensitiveDict()
         self._subset_idx_manager = Dimension.MemberIndexManager()
 
@@ -209,6 +407,11 @@ class Dimension:
     def description(self, value: str):
         """Sets the description of the dimension."""
         self._description = value
+
+    @property
+    def attributes(self) -> Attributes:
+        """Returns the member attributes defined for the dimension."""
+        return self._attributes
 
     # region Dimension editing
     def clear(self) -> Dimension:
@@ -827,7 +1030,7 @@ class Dimension:
 
         :return: Number attributes defined in the dimension.
         """
-        return len(self.attributes)
+        return len(self._attributes_dict)
 
     def set_attribute(self, attribute: str, member: str, value):
         """
@@ -839,10 +1042,10 @@ class Dimension:
         :raises KeyError: Raised when either the member or the attribute name does not exist.
         :raises TypeError: Raised when the value if not of the expected type.
         """
-        if attribute not in self.attributes:
+        if attribute not in self._attributes_dict:
             raise KeyError(f"Failed to set attribute value. "
                            f"'{attribute}' is not an attribute of dimension {self._name}.")
-        expected_type = self.attributes[attribute]
+        expected_type = self._attributes_dict[attribute]
         if not type(value) is expected_type:
             raise TypeError(f"Failed to set attribute value. "
                             f"Type of value is '{str(type(value))}' but '{str(expected_type)}' was expected.")
@@ -866,7 +1069,7 @@ class Dimension:
         :raises KeyError: Raised when either the member or the attribute name does not exist.
         :return: The value of the attribute, or ``None`` if the attribute is not defined for the specific member.
         """
-        if attribute not in self.attributes:
+        if attribute not in self._attributes_dict:
             raise KeyError(f"Failed to set attribute value. "
                            f"'{attribute}' is not an attribute of dimension {self._name}.")
         if member not in self._member_idx_lookup:
@@ -886,10 +1089,10 @@ class Dimension:
         :raises KeyError: Raised when the attribute name does not exist.
         :return: The type of the attribute.
         """
-        if attribute not in self.attributes:
+        if attribute not in self._attributes_dict:
             raise KeyError(f"Failed to set attribute value. "
                            f"'{attribute}' is not an attribute of dimension {self._name}.")
-        return self.attributes[attribute]
+        return self._attributes_dict[attribute]
 
     def has_attribute(self, attribute: str):
         """
@@ -898,7 +1101,7 @@ class Dimension:
         :param attribute: Name of the attribute to be checked.
         :return: ``True``if the attribute exists. ``False`` otherwise.
         """
-        return attribute in self.attributes
+        return attribute in self._attributes_dict
 
     def del_attribute_value(self, attribute: str, member: str):
         """
@@ -908,7 +1111,7 @@ class Dimension:
         :param member: Name of the member to delete the attribute for.
         :raises KeyError: Raised when either the member or the attribute name does not exist.
         """
-        if attribute not in self.attributes:
+        if attribute not in self._attributes_dict:
             raise KeyError(f"Failed to set attribute value. "
                            f"'{attribute}' is not an attribute of dimension {self._name}.")
         if member not in self._member_idx_lookup:
@@ -933,10 +1136,10 @@ class Dimension:
             raise InvalidKeyException(f"'{attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
-        if attribute_name in self.attributes:
+        if attribute_name in self._attributes_dict:
             raise DuplicateKeyException(f"Failed to add attribute to dimension. "
                                         f"A dimension attribute named '{attribute_name}' already exists.")
-        self.attributes[attribute_name] = value_type
+        self._attributes_dict[attribute_name] = value_type
 
     def rename_attribute(self, attribute_name: str, new_attribute_name: str):
         """
@@ -952,11 +1155,11 @@ class Dimension:
                                       f"'{new_attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
-        if attribute_name not in self.attributes:
+        if attribute_name not in self._attributes_dict:
             raise KeyError(f"Failed to rename dimension attribute. "
                            f"A dimension attribute named '{attribute_name}' does not exist.")
 
-        # add new , remove old attribute values
+        # add new, remove old attribute values
         for member in self.member_defs.values():
             if attribute_name in member[self.ATTRIBUTES]:
                 member[self.ATTRIBUTES][new_attribute_name] = member[self.ATTRIBUTES][attribute_name]
@@ -970,14 +1173,14 @@ class Dimension:
         :raises KeyError: Raises KeyError if the attribute name not exists.
 
         """
-        if attribute_name not in self.attributes:
+        if attribute_name not in self._attributes_dict:
             raise KeyError(f"Failed to remove attribute from dimension. "
                            f"A dimension attribute named '{attribute_name}' does not exist.")
         # delete all values
         for member in self.member_defs.values():
             if attribute_name in member[self.ATTRIBUTES]:
                 del (member[self.ATTRIBUTES][attribute_name])
-        del (self.attributes[attribute_name])
+        del (self._attributes_dict[attribute_name])
 
     def get_members_by_attribute(self, attribute_name: str, attribute_value) -> list[str]:
         """
@@ -992,7 +1195,7 @@ class Dimension:
             if key in self.attribute_cache:
                 return self.attribute_cache[key]
 
-        if attribute_name not in self.attributes:
+        if attribute_name not in self._attributes_dict:
             raise KeyError(f"Failed to return member_defs by attribute. "
                            f"'{attribute_name}' is not an attribute of dimension {self._name}.")
         members = []
@@ -1140,7 +1343,7 @@ class Dimension:
         """
         data = ['{', f'"content": "dimension",', f'"name": "{self._name}",', f'"description": "{self.description}",',
                 f'"count": {self.member_counter},', f'"member_defs": {json.dumps(self.member_defs)},',
-                f'"lookup": {json.dumps(self._member_idx_lookup)},', f'"attributes": {json.dumps(self.attributes)},',
+                f'"lookup": {json.dumps(self._member_idx_lookup)},', f'"attributes": {json.dumps(self._attributes_dict)},',
                 f'"subsets": {json.dumps(self.subsets)}', '}']
         json_string = ''.join(data)
         if beautify:
@@ -1183,7 +1386,7 @@ class Dimension:
             self.member_counter = new_count
             self.member_defs = new_members
             self._member_idx_lookup = CaseInsensitiveDict().populate(new_member_idx_lookup)
-            self.attributes = new_attributes
+            self._attributes_dict = new_attributes
             self.subsets = new_subsets
             self.commit()
         except Exception as err:

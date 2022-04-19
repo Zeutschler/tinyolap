@@ -13,14 +13,14 @@ class HybridDict(Sequence[Generic[T]]):
     'items are from the same source' guarantee for set operations.
     """
 
-    def __init__(self, items: Sequence[T], source=None):
+    def __init__(self, items: Sequence[T] = tuple[T](), source=None):
         """
         Initializes a new HybridDict[T].
         :param items: The items to be contained in the HybridDict[T].
         :param source: An (optional) source object to ensure that set operations
         are executed only on items of the same source object.
         """
-        self._tuple: tuple[T] = tuple(items)
+        self._list: list[T] = list(items)
         self._dict: dict[str, T] = {str(item).lower(): item for item in items}
         self._source = source
 
@@ -31,12 +31,12 @@ class HybridDict(Sequence[Generic[T]]):
 
     def __getitem__(self, item) -> T:
         if type(item) is int:
-            return self._tuple[item]
+            return self._list[item]
         else:
             return self._dict[str(item).lower()]
 
     def __len__(self):
-        return len(self._tuple)
+        return len(self._list)
 
     def __add__(self, other: HybridDict[T]) -> HybridDict[T]:
         if (self._source and other._source) and (self._source is not other._source):
@@ -47,12 +47,12 @@ class HybridDict(Sequence[Generic[T]]):
             source = self._source
         else:
             source = other._source
-        return HybridDict[T](items=self._tuple + other._tuple, source=source)
+        return HybridDict[T](items=self._list + other._list, source=source)
 
     def __repr__(self) -> str:
-        if self._tuple:
-            count = len(self._tuple)
-            text = f"HybridDict[{', '.join([str(m) for m in self._tuple[:min(3, count)]])}"
+        if self._list:
+            count = len(self._list)
+            text = f"HybridDict[{', '.join([str(m) for m in self._list[:min(3, count)]])}"
             if count > 3:
                 return text + f", ...]"
             return text + f"]"
@@ -63,35 +63,37 @@ class HybridDict(Sequence[Generic[T]]):
 
     def __contains__(self, item) -> bool:
         if type(item) is T:
-            return item in self._tuple
+            return item in self._list
         else:
             key = str(item).lower()
             return key in self._dict
 
     def __eq__(self, other):
-        return self._tuple.__eq__(other._tuple)
+        return self._list.__eq__(other._list)
 
-    def append(self, other: HybridDict[T]) -> HybridDict[T]:
+    def append(self, item: T) -> HybridDict[T]:
         """
-        Appends the items of another HybridDict[T] .
-        :param other: The HybridDict[T] to be appended.
+        Appends an item of another HybridDict[T] .
+        :param item: The HybridDict[T] to be appended.
         :return: The joined HybridDict[T].
         """
-        return self.__add__(other)
+        self._list.append(item)
+        self._dict[str(item)] = item
+        return self
 
     def clone(self) -> HybridDict[T]:
         """
         Creates a 1:1 copy of the HybridDict[T]. The items and source will not get cloned, but re-referenced.
         :return:
         """
-        return HybridDict[T](items=self._tuple, source=self.source)
+        return HybridDict[T](items=self._list, source=self.source)
 
     def distinct(self) -> HybridDict[T]:
         """
         Returns HybridDict[T] with distinct values. Doublets will be removed.
         :return:
         """
-        return HybridDict[T](items=set(self._tuple), source=self._source)
+        return HybridDict[T](items=set(self._list), source=self._source)
 
     def intersect(self, other: HybridDict[T]) -> HybridDict[T]:
         """Return the intersection of two HybridDict[T] as a new HybridDict[T].
@@ -104,7 +106,7 @@ class HybridDict(Sequence[Generic[T]]):
             source = self._source
         else:
             source = other._source
-        return HybridDict[T](items=set(self._tuple).intersection(set(other._tuple)), source=source)
+        return HybridDict[T](items=set(self._list).intersection(set(other._list)), source=source)
 
     def difference(self, other: HybridDict[T]) -> HybridDict[T]:
         """Return the difference of two HybridDict[T] as a new HybridDict[T].
@@ -117,7 +119,7 @@ class HybridDict(Sequence[Generic[T]]):
             source = self._source
         else:
             source = other._source
-        return HybridDict[T](items=set(self._tuple).difference(set(other._tuple)), source=source)
+        return HybridDict[T](items=set(self._list).difference(set(other._list)), source=source)
 
     def union(self, other: HybridDict[T]) -> HybridDict[T]:
         """Return the union of to HybridDict[T] as a new HybridDict[T].
@@ -130,7 +132,7 @@ class HybridDict(Sequence[Generic[T]]):
             source = self._source
         else:
             source = other._source
-        return HybridDict[T](items=set(self._tuple).union(set(other._tuple)), source=source)
+        return HybridDict[T](items=set(self._list).union(set(other._list)), source=source)
 
     def filter(self, pattern: str) -> HybridDict[T]:
         """Provides wildcard pattern matching and filtering on the keys of the items in the HybridDict[T].
@@ -158,15 +160,15 @@ class HybridDict(Sequence[Generic[T]]):
     @property
     def first(self) -> T:
         """Returns the first item from the HybridDict[T]."""
-        if self._tuple:
-            return self._tuple[0]
+        if self._list:
+            return self._list[0]
         raise IndexError("The HybridDict[T] is empty.")
 
     @property
     def last(self) -> T:
         """Returns the last member in the member list"""
-        if self._tuple:
-            return self._tuple[-1]
+        if self._list:
+            return self._list[-1]
         raise IndexError("The HybridDict[T] is empty.")
 
     def count(self, x) -> int:
@@ -175,7 +177,7 @@ class HybridDict(Sequence[Generic[T]]):
         :param x: The member to be counted.
         :return: The number of occurrences.
         """
-        return len([m for m in self._tuple if m == x])
+        return len([m for m in self._list if m == x])
 
     @property
     def keys(self) -> tuple[str]:
@@ -185,5 +187,7 @@ class HybridDict(Sequence[Generic[T]]):
     @property
     def items(self) -> tuple[T]:
         """Returns the items of the HybridDict[T]."""
-        return self._tuple
+        t: tuple[T] = tuple(self._list)
+        return t
+
 

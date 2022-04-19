@@ -51,9 +51,9 @@ class Test(TestCase):
 
         self.assertEqual(list(ab), [1, 2, 3, 3, 4, 5])
         self.assertEqual(list(ab.distinct()), [1, 2, 3, 4, 5])
-        self.assertEqual(list(a.append(b)), [1, 2, 3, 3, 4, 5])
+        self.assertEqual(list(a.append(7)), [1, 2, 3, 7])
         self.assertEqual(list(a.intersect(b)), [3])
-        self.assertEqual(list(a.union(b)), [1, 2, 3, 4, 5])
+        self.assertEqual(list(a.union(b)), [1, 2, 3, 4, 5, 7])
         self.assertEqual(list(ab.filter("2")), [2])
 
     def test_hybrid_dict_sources(self):
