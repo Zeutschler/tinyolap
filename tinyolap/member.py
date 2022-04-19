@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 import fnmatch
 import re
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 
 class MemberList(Sequence):
     """
@@ -87,7 +87,7 @@ class MemberList(Sequence):
            (i.e. all elements that are in either set.)"""
         return MemberList(self.dimension, set(self.members).union(set(other)))
 
-    def filter(self, pattern: str):
+    def filter(self, pattern: str) -> MemberList:
         """Provides wildcard pattern matching and filtering on the names of the members in the member list.
 
             * matches everything
@@ -109,7 +109,6 @@ class MemberList(Sequence):
         """
         regex = re.compile(regular_expression_string)
         return MemberList(self.dimension, [self.dimension[name] for name in self.names if regex.search(name)])
-
 
     @property
     def first(self) -> Member:

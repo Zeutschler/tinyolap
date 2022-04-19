@@ -9,9 +9,39 @@ import json
 
 from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.member import Member, MemberList
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.exceptions import *
-from tinyolap.utils import *
+from tinyolap.utilities.utils import *
+from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
+
+
+class Attribute:
+    """Represents a single attribute value for dimension member"""
+    pass
+
+
+class AttributeField:
+    """Represents a single attribute"""
+
+    def __init__(self, dimension: Dimension, name: str, value_type: type = None):
+        self._dimension = dimension
+        self._name = name
+        self._value_type = value_type
+
+    @property
+    def dimension(self) -> Dimension:
+        return self._dimension
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def value_type(self) -> type:
+        return self._value_type
+
+    @property
+    def values(self) -> tuple:
+        return self._dimension.attributes
 
 
 class Dimension:
@@ -129,7 +159,7 @@ class Dimension:
         self._members = None
 
         self.database = None
-        self._storage_provider: StorageProvider  # = None
+        self._storage_provider: StorageProvider = None
         self.edit_mode: bool = False
         self.recovery_json = ""
         self.recovery_idx = set()
@@ -754,7 +784,7 @@ class Dimension:
         for idx_member in self.member_defs:
             if self.member_defs[idx_member][self.LEVEL] == 0:
                 members.append(self.member_defs[idx_member][self.NAME])
-        return members
+        return  members
 
     def get_aggregated_members(self) -> list[str]:
         """
@@ -846,6 +876,7 @@ class Dimension:
         if attribute not in self.member_defs[idx][self.ATTRIBUTES]:
             return None
         return self.member_defs[idx][self.ATTRIBUTES][attribute]
+
 
     def get_attribute_type(self, attribute: str):
         """

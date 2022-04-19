@@ -1,7 +1,5 @@
-import json
-import time
 import unittest
-from tinyolap.case_insensitive_dict import *
+from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 
 
 class Dict(unittest.TestCase):

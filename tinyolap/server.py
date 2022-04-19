@@ -6,7 +6,7 @@
 from __future__ import annotations
 import os
 
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.database import Database
 
 

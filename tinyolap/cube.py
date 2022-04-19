@@ -10,7 +10,7 @@ import json
 from collections.abc import Iterable
 
 from tinyolap.area import Area
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell import Cell
 from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *

@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import os
 
-import utils
+from utilities import utils
 
 
 class Logger:
