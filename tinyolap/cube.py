@@ -133,7 +133,7 @@ class Cube:
             if callable(function) and function.__name__ == "<lambda>":
                 offset = 1
             else:
-                raise RuleException(
+                raise TinyOlapRuleError(
                     f"Argument 'function' does not seem to be a Python function, type id '{type(function)}'.")
 
         # validate function and decorator parameters
@@ -142,7 +142,7 @@ class Cube:
         if hasattr(function, "cube"):
             cube_name = function.cube
             if cube_name.lower() != self.name.lower():
-                raise RuleException(
+                raise TinyOlapRuleError(
                     f"Failed to add rule function. Function '{function_name}' does not seem to be associated "
                     f"with this cube '{self.name}', but with cube '{cube_name}'.")
         if not trigger:
@@ -151,20 +151,20 @@ class Cube:
                 if type(trigger) is str:
                     trigger = [trigger, ]
                 if not type(trigger) is list:
-                    raise RuleException(f"Failed to add rule function. Argument 'trigger' is not of the expected "
+                    raise TinyOlapRuleError(f"Failed to add rule function. Argument 'trigger' is not of the expected "
                                         f"type 'list(str)' but of type '{type(trigger)}'.")
             else:
-                raise RuleException(f"Failed to add rule function. Argument 'trigger' missing for "
+                raise TinyOlapRuleError(f"Failed to add rule function. Argument 'trigger' missing for "
                                     f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
 
         if not scope:
             if hasattr(function, "scope"):
                 scope = function.scope
                 if not (str(type(scope)) == str(type(RuleScope.ROLL_UP))):
-                    raise RuleException(f"Failed to add rule function. Argument 'scope' is not of the expected "
+                    raise TinyOlapRuleError(f"Failed to add rule function. Argument 'scope' is not of the expected "
                                         f"type ''{type(RuleScope.ALL_LEVELS)}' but of type '{type(scope)}'.")
             else:
-                raise RuleException(f"Failed to add rule function. Argument 'scope' missing for "
+                raise TinyOlapRuleError(f"Failed to add rule function. Argument 'scope' missing for "
                                     f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
         if not injection:
             if hasattr(function, "injection"):
@@ -194,26 +194,26 @@ class Cube:
         # elif scope == RuleScope.ON_ENTRY:
         #     self._rules_on_entry.register(function, self._name, function_name, trigger, idx_pattern, scope, injection, code)
         # else:
-        #     raise RuleException(f"Unexpected value '{str(scope)}' for argument 'scope: RuleScope'.")
+        #     raise TinyOlapRuleError(f"Unexpected value '{str(scope)}' for argument 'scope: RuleScope'.")
 
         # add function to code manager
         self._database._code_manager.register_function(
             function=function, cube=cube_name, trigger=trigger,
             scope=scope, injection=injection, code=code)
 
-    def validate_rules(self, save_after_sucessfull_validation: bool = True) -> (bool, str):
+    def validate_rules(self, save_after_successful_validation: bool = True) -> (bool, str):
         """
         Validates all registered rules by calling each with a random cell matching the defined
-        rule trigger and rule scope. Calling this methods (maybe even multiple times) can be
-        usefull for highlevel testing of your rules.
+        rule trigger and rule scope. Calling this method (maybe even multiple times) can be
+        useful for high-level rules testing.
 
         .. warning::
-            Calling this method does not replace proper rule testing. Escpecially when your
-            database should be used by other users or for serious purposes you need to ensure
-            that your rule calculations ideally never (or only for explicit purposes) thows an
-            error.
+            Calling this method does not replace proper rule testing. Especially when your
+            database should be used by other users or for professional purposes you need to ensure
+            that your rule calculations ideally never (or only for explicit purposes) will throw
+            errors.
 
-        :param save_after_sucessfull_validation: If set to true
+        :param save_after_successful_validation: If set to true
         :return: ``(True, validation_results_json:str)`` if all rules returned a proper result without causing errors.
                  ``(False, validation_results_json:str)`` if at least one rule causes an error. The validation results
                   will contain information for all rules that have been processed. The validation will not stop
@@ -222,7 +222,7 @@ class Cube:
         # todo: to be implemented
 
         # update the database
-        if save_after_sucessfull_validation:
+        if save_after_successful_validation:
             self._database.save()
         return True
 
@@ -338,7 +338,7 @@ class Cube:
         """Returns/sets the default measure of the cube.
         By default, this is always the first measure from the list of measures."""
         if value not in self._measures:
-            raise KeyNotFoundError(f"Failed to set default member. "
+            raise TinyOlapKeyNotFoundError(f"Failed to set default member. "
                                    f"'{value}' is not a measure of cube '{self._name}'.")
         self._default_measure = value
 
@@ -418,7 +418,7 @@ class Cube:
     def get(self, address: tuple):
         """Reads a value from the cube for a given idx_address.
         If no records exist for the given idx_address, then 0.0 will be returned.
-        :raises InvalidKeyException:
+        :raises TinyOlapInvalidKeyError:
         """
         bolt = self._address_to_bolt(address)
         return self._get(bolt)
@@ -479,7 +479,7 @@ class Cube:
             if type(idx_measures) is int:
                 return self._facts.get(idx_address, idx_measures)
             else:
-                raise FatalException("Depreciated. Feature Needs to be removed")
+                raise TinyOlapFatalError("Depreciated. Feature Needs to be removed")
 
         else:  # aggregated cells
             # AGGREGATION_LEVEL
@@ -523,7 +523,7 @@ class Cube:
 
                 return total
             else:
-                raise FatalException("Depreciated. Feature Needs to be removed")
+                raise TinyOlapFatalError("Depreciated. Feature Needs to be removed")
 
     def _set_base_level_cell(self, idx_address, idx_measure, value):
         """Writes a base level value to the cube for the given idx_address (idx_address and measures)."""
@@ -565,7 +565,7 @@ class Cube:
                         pass
 
         else:
-            raise InvalidOperationException(f"Write back to aggregated cells in not (yet) supported.")
+            raise TinyOlapInvalidOperationError(f"Write back to aggregated cells in not (yet) supported.")
 
     def _update_aggregation_index(self, fact_table_index, address, row):
         """Updates all fact table index for all aggregations over all dimensions. FOR INTERNAL USE ONLY!"""
@@ -586,7 +586,7 @@ class Cube:
             idx_measure = []
             for m in measure:
                 if m not in self._measures.keys():
-                    raise KeyNotFoundError(f"'{m}' is not a measure of cube '{self._name}'.")
+                    raise TinyOlapKeyNotFoundError(f"'{m}' is not a measure of cube '{self._name}'.")
                 idx_measure.append(self._measures[m])
         else:
             idx_measure = self._measures[self._default_measure]
@@ -647,7 +647,7 @@ class Cube:
         dim_count = self._dim_count
         measures_count = len(address) - dim_count
         if measures_count < 0:
-            raise InvalidCellOrAreaAddressException(
+            raise TinyOlapInvalidAddressError(
                 f"Invalid idx_address. At least {self._dim_count} member_defs expected "
                 f"for cube '{self._name}, but only {len(address)} where passed in.")
         # Validate member_defs
@@ -659,7 +659,7 @@ class Cube:
                 idx_address[i] = dimensions[i]._member_idx_lookup[member]
                 super_level += dimensions[i].member_defs[idx_address[i]][6]
             else:
-                raise InvalidCellOrAreaAddressException(f"Invalid idx_address. '{member}' is not a member of the {i}. "
+                raise TinyOlapInvalidAddressError(f"Invalid idx_address. '{member}' is not a member of the {i}. "
                                                          f"dimension '{dimensions[i].name}' in cube {self._name}.")
         idx_address = tuple(idx_address)
 
@@ -670,7 +670,7 @@ class Cube:
             idx_measures = []
             for measure in address[self._dim_count:]:
                 if measure not in self._measures:
-                    raise InvalidCellOrAreaAddressException(f"'{measure}' is not a measure of cube '{self.name}'.")
+                    raise TinyOlapInvalidAddressError(f"'{measure}' is not a measure of cube '{self.name}'.")
                 idx_measures.append(self._measures[measure])
             if measures_count == 1:
                 idx_measures = idx_measures[0]
@@ -735,7 +735,7 @@ class Cube:
         json_string = json.dumps(config, indent=4)
         return json_string
 
-    # todo: adjust to fully support cube (e.g. rules)
+    # todo: adjust to fully support cube objects (e.g. rules, subsets)
     def from_json(self, json_string: str):
         """
         Initializes the cube from a json string.
@@ -746,7 +746,7 @@ class Cube:
             **before** you write any data to a cube. Handle with care.
 
         :param json_string: The json string containing the cube definition.
-        :raises FatalException: Raised if an error occurred during the deserialization from json string.
+        :raises TinyOlapFatalError: Raised if an error occurred during the deserialization from json string.
         """
         try:
             # read configuration
@@ -785,7 +785,7 @@ class Cube:
                                    scope=f.scope, injection=f.injection, code=f._code)
 
         except Exception as err:
-            raise FatalException(f"Failed to load json for dimension '{self.name}'. {str(err)}")
+            raise TinyOlapFatalError(f"Failed to load json for dimension '{self.name}'. {str(err)}")
 
     # endregion
 

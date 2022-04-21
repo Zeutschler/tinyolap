@@ -9,150 +9,7 @@ from collections.abc import Sequence
 import fnmatch
 import re
 from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
-
-class MemberList(Sequence):
-    """
-    Represents a list of Member objects.
-    """
-
-    def __init__(self, dimension, members):  # typing.Tuple[m.Member]):
-        self.dimension = dimension
-        self.members: tuple[Member] = members
-        # self._dict_members: dict[str, Member] = dict([(m.name, m) for m in members])
-        self._dict_members: CaseInsensitiveDict[str, Member] = CaseInsensitiveDict([(m.name, m) for m in members])
-
-    def __getitem__(self, item):
-        if type(item) is int:
-            return self.members[item]
-        else:
-            key = str(item).lower()
-            return next((x for x in self.members if x.name.lower() == key), None)
-
-    def __len__(self):
-        return len(self.members)
-
-    def __iter__(self):
-        """Returns on iterator for the member list. """
-        for member in self.members:
-            yield member
-
-    def __add__(self, other) -> MemberList:
-        if type(other) != MemberList:
-            raise TypeError("Failed to add two member lists. The left argument is not an instance of class MemberList.")
-
-        if self.dimension != other.dimension:
-            raise ValueError("Failed to add two member lists. Their dimensions do not match.")
-        return MemberList(self.dimension, self.to_list() + other.to_list())
-
-    def __repr__(self) -> str:
-        if self.members:
-            count = len(self.members)
-            text = f"MemberList[{', '.join([m.name for m in self.members[:min(3, count)]])}"
-            if count > 3:
-                return text + f", ...]"
-            return text + f"]"
-        return "MemberList[]"
-
-    def __str__(self) -> str:
-        return self.__repr__()
-
-    def append(self, other: MemberList) -> MemberList:
-        """
-        Appends another list of members.
-        :param other: The member list to be appended.
-        :return:
-        """
-        return self.__add__(other)
-
-    @property
-    def distinct(self) -> MemberList:
-        """
-        Returns a member list with distinct values. Doublets will be removed.
-        :return:
-        """
-        return MemberList(self.dimension, set(self.members))
-
-    def intersection(self, other) -> MemberList:
-        """Return the intersection of two member lists as a new member list.
-           (i.e. all elements that are in both sets.)"""
-        return MemberList(self.dimension, set(self.members).intersection(set(other)))
-
-    def difference(self, other) -> MemberList:
-        """Return the difference of two member lists as a new member list.
-           (i.e. all elements that are in this set but not the others.)"""
-        return MemberList(self.dimension, set(self.members).difference(set(other)))
-
-    def union(self, other) -> MemberList:
-        """Return the union of to member lists as a new member list.
-           (i.e. all elements that are in either set.)"""
-        return MemberList(self.dimension, set(self.members).union(set(other)))
-
-    def filter(self, pattern: str) -> MemberList:
-        """Provides wildcard pattern matching and filtering on the names of the members in the member list.
-
-            * matches everything
-            ? matches any single character
-            [seq] matches any character in seq
-            [!seq] matches any character not in seq
-
-        :param pattern: The wildcard pattern to filter the member list.
-        :return: The filtered member list.
-        """
-        filtered = fnmatch.filter(self.names, pattern)
-        return MemberList(self.dimension, [self.dimension[name] for name in filtered])
-
-    def match(self, regular_expression_string: str):
-        """Provides regular expression pattern matching and filtering on the names of the members in the member list.
-
-        :param regular_expression_string: The regular expression string to filter the member list.
-        :return: The filtered member list.
-        """
-        regex = re.compile(regular_expression_string)
-        return MemberList(self.dimension, [self.dimension[name] for name in self.names if regex.search(name)])
-
-    @property
-    def first(self) -> Member:
-        """Returns the first member in the member list."""
-        if self.members:
-            return self.members[0]
-        raise IndexError("Instance of MemberList does not contain any member_defs.")
-
-    @property
-    def last(self) -> Member:
-        """Returns the last member in the member list"""
-        if self.members:
-            return self.members[-1]
-        raise IndexError("Instance of MemberList does not contain any member_defs.")
-
-    def count(self, x) -> int:
-        """
-        Return the total number of occurrences of the member x in the member list.
-        :param x: The member to be counted.
-        :return: The number of occurrences.
-        """
-        return len([m for m in self.members if m == x])
-
-    @property
-    def names(self) -> tuple[str]:
-        """Returns a list (tuple) of the member_defs names."""
-        return tuple(x.name for x in self.members)
-
-    def contains(self, item) -> bool:
-        """Checks whether a specific member (or member name) is contained in the member list."""
-        if type(item) is Member:
-            return item in self.members
-        else:
-            key = str(item).lower()
-            return key in self._dict_members
-            # return any(x.name.lower == key for x in self.members)
-
-    def to_list(self) -> list[Member]:
-        """Returns a mutable list of the member in the member list."""
-        return list(self.members)
-
-    def to_name_list(self) -> list[str]:
-        """Returns a mutable list of the member's names in the member list."""
-        return list(x.name for x in self.members)
+from tinyolap.utilities.hybrid_dict import HybridDict
 
 
 class Member:
@@ -210,11 +67,19 @@ class Member:
         else:
             return str(other).lower() == self._name.lower()
 
+    def __hash__(self):
+        return hash(self._name)
+
     # region Properties
     @property
     def name(self) -> str:
         """Returns the name of the member."""
         return self._name
+
+    @property
+    def idx(self) -> int:
+        """ Returns the internal index of the member."""
+        return self._idx_member
 
     @property
     def ordinal(self) -> int:
@@ -659,3 +524,158 @@ class Member:
         return self._member_level == 0
 
     # endregion
+
+
+class MemberList(HybridDict[Member]):
+    """ Represents a list of Member objects."""
+    def __init__(self, dimension, members):
+        self._dimension = dimension
+        super().__init__(members, dimension)
+
+    @property
+    def dimension(self):
+        return self._dimension
+
+# class OldMemberList(Sequence):
+#     """
+#     Represents a list of Member objects.
+#     """
+#
+#     def __init__(self, dimension, members):  # typing.Tuple[m.Member]):
+#         self.dimension = dimension
+#         self.members: tuple[Member] = members
+#         # self._dict_members: dict[str, Member] = dict([(m.name, m) for m in members])
+#         self._dict_members: CaseInsensitiveDict[str, Member] = CaseInsensitiveDict([(m.name, m) for m in members])
+#
+#     def __getitem__(self, item):
+#         if type(item) is int:
+#             return self.members[item]
+#         else:
+#             key = str(item).lower()
+#             return next((x for x in self.members if x.name.lower() == key), None)
+#
+#     def __len__(self):
+#         return len(self.members)
+#
+#     def __iter__(self):
+#         """Returns on iterator for the member list. """
+#         for member in self.members:
+#             yield member
+#
+#     def __add__(self, other) -> MemberList:
+#         if type(other) != MemberList:
+#             raise TypeError("Failed to add two member lists. The left argument is not an instance of class MemberList.")
+#
+#         if self.dimension != other.dimension:
+#             raise ValueError("Failed to add two member lists. Their dimensions do not match.")
+#         return MemberList(self.dimension, self.to_list() + other.to_list())
+#
+#     def __repr__(self) -> str:
+#         if self.members:
+#             count = len(self.members)
+#             text = f"MemberList[{', '.join([m.name for m in self.members[:min(3, count)]])}"
+#             if count > 3:
+#                 return text + f", ...]"
+#             return text + f"]"
+#         return "MemberList[]"
+#
+#     def __str__(self) -> str:
+#         return self.__repr__()
+#
+#     def extend(self, other: MemberList) -> MemberList:
+#         """
+#         Extends the member list with members from another member list.
+#         :param other: The member list to be appended.
+#         :return:
+#         """
+#         return self.__add__(other)
+#
+#     @property
+#     def distinct(self) -> MemberList:
+#         """
+#         Returns a member list with distinct values. Doublets will be removed.
+#         :return:
+#         """
+#         return MemberList(self.dimension, set(self.members))
+#
+#     def intersection(self, other) -> MemberList:
+#         """Return the intersection of two member lists as a new member list.
+#            (i.e. all elements that are in both sets.)"""
+#         return MemberList(self.dimension, set(self.members).intersection(set(other)))
+#
+#     def difference(self, other) -> MemberList:
+#         """Return the difference of two member lists as a new member list.
+#            (i.e. all elements that are in this set but not the others.)"""
+#         return MemberList(self.dimension, set(self.members).difference(set(other)))
+#
+#     def union(self, other) -> MemberList:
+#         """Return the union of to member lists as a new member list.
+#            (i.e. all elements that are in either set.)"""
+#         return MemberList(self.dimension, set(self.members).union(set(other)))
+#
+#     def filter(self, pattern: str) -> MemberList:
+#         """Provides wildcard pattern matching and filtering on the names of the members in the member list.
+#
+#             * matches everything
+#             ? matches any single character
+#             [seq] matches any character in seq
+#             [!seq] matches any character not in seq
+#
+#         :param pattern: The wildcard pattern to filter the member list.
+#         :return: The filtered member list.
+#         """
+#         filtered = fnmatch.filter(self.names, pattern)
+#         return MemberList(self.dimension, [self.dimension[name] for name in filtered])
+#
+#     def match(self, regular_expression_string: str):
+#         """Provides regular expression pattern matching and filtering on the names of the members in the member list.
+#
+#         :param regular_expression_string: The regular expression string to filter the member list.
+#         :return: The filtered member list.
+#         """
+#         regex = re.compile(regular_expression_string)
+#         return MemberList(self.dimension, [self.dimension[name] for name in self.names if regex.search(name)])
+#
+#     @property
+#     def first(self) -> Member:
+#         """Returns the first member in the member list."""
+#         if self.members:
+#             return self.members[0]
+#         raise IndexError("Instance of MemberList does not contain any member_defs.")
+#
+#     @property
+#     def last(self) -> Member:
+#         """Returns the last member in the member list"""
+#         if self.members:
+#             return self.members[-1]
+#         raise IndexError("Instance of MemberList does not contain any member_defs.")
+#
+#     def count(self, x) -> int:
+#         """
+#         Return the total number of occurrences of the member x in the member list.
+#         :param x: The member to be counted.
+#         :return: The number of occurrences.
+#         """
+#         return len([m for m in self.members if m == x])
+#
+#     @property
+#     def names(self) -> tuple[str]:
+#         """Returns a list (tuple) of the member_defs names."""
+#         return tuple(x.name for x in self.members)
+#
+#     def contains(self, item) -> bool:
+#         """Checks whether a specific member (or member name) is contained in the member list."""
+#         if type(item) is Member:
+#             return item in self.members
+#         else:
+#             key = str(item).lower()
+#             return key in self._dict_members
+#             # return any(x.name.lower == key for x in self.members)
+#
+#     def to_list(self) -> list[Member]:
+#         """Returns a mutable list of the member in the member list."""
+#         return list(self.members)
+#
+#     def to_name_list(self) -> list[str]:
+#         """Returns a mutable list of the member's names in the member list."""
+#         return list(x.name for x in self.members)

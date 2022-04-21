@@ -107,10 +107,10 @@ class Backend:
                 return True
         except sqlite3.Error as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
-            raise FatalException()
+            raise TinyOlapFatalError()
         except Exception as err:
             self.logger.error(f"Failed to open database '{file_path}'. {str(err)}")
-            raise FatalException()
+            raise TinyOlapFatalError()
 
     def close(self):
         if self._in_memory:
@@ -242,7 +242,7 @@ class Backend:
         self.__add_table(self.META_TABLE_DIM, self.META_TABLE_FIELDS)
         if not self.__table_exists(self.META_TABLE_DIM):
             self.logger.error(f"Failed to add meta tables.")
-            raise FatalException("Failed to add meta tables to database.")
+            raise TinyOlapFatalError("Failed to add meta tables to database.")
         self.logger.info(f"Initialization of new database finished.")
 
     def __validate_db(self) -> bool:
@@ -281,7 +281,7 @@ class Backend:
         try:
             return self.cursor.execute(sql).fetchone()[0] == 1
         except sqlite3.Error as err:
-            raise FatalException()
+            raise TinyOlapFatalError()
 
     def __execute(self, sql: str, data=None):
         """Executes an SQL idx_address without returning a result or resultset."""

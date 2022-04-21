@@ -18,7 +18,7 @@ of subsequent methods and makes your code (hopefully) a bit more readable. Here"
     ...
     animals = db.dimension["animals"]
     the_first_bear = animals.member.filter("*bear*").first
-    sub_species = the_first_bear.leaves
+    sub_species_of_the_first_bear = the_first_bear.leaves
 
 ------
 Member

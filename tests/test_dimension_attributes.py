@@ -29,11 +29,11 @@ class TestDimensionAttributes(TestCase):
         dim.add_attribute("datetime", datetime.datetime)
         dim.add_attribute("123", int)
 
-        with self.assertRaises(InvalidKeyException):
+        with self.assertRaises(TinyOlapInvalidKeyError):
             self.db.add_dimension("no spaces please")
-        with self.assertRaises(InvalidKeyException):
+        with self.assertRaises(TinyOlapInvalidKeyError):
             self.db.add_dimension(" no_spaces_please ")
-        with self.assertRaises(InvalidKeyException):
+        with self.assertRaises(TinyOlapInvalidKeyError):
             self.db.add_dimension("%&(&%§?````?)")
 
         self.assertTrue(dim.has_attribute("name"))

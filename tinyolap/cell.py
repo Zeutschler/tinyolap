@@ -241,14 +241,14 @@ class Cell(SupportsFloat):
                     idx_dim = ordinal
             if idx_dim == -1:
                 if name not in self._cube._dim_lookup:
-                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{name}' is not a dimension "
+                    raise TinyOlapInvalidAddressError(f"Invalid member key. '{name}' is not a dimension "
                                                              f"in cube '{self._cube.name}. Found in '{member}'.")
                 idx_dim = self._cube._dim_lookup[name]
 
             # adjust the member name
             member = member[pos + 1:].strip()
             if member not in dimensions[idx_dim]._member_idx_lookup:
-                raise InvalidCellOrAreaAddressException(f"Invalid member key. '{member}'is not a member of "
+                raise TinyOlapInvalidAddressError(f"Invalid member key. '{member}'is not a member of "
                                                          f"dimension '{name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member]
 
@@ -276,7 +276,7 @@ class Cell(SupportsFloat):
                 idx_dim = ordinal
             if idx_dim == -1:
                 if name not in self._cube._dim_lookup:
-                    raise InvalidCellOrAreaAddressException(f"Invalid member key. '{name}' is not a dimension "
+                    raise TinyOlapInvalidAddressError(f"Invalid member key. '{name}' is not a dimension "
                                                              f"in cube '{self._cube.name}. Found in '{member}'.")
                 idx_dim = self._cube._dim_lookup[name]
 

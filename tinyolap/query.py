@@ -186,12 +186,12 @@ class Query:
                 for index, dimension in enumerate(query_def["dims"]):
                     if dimension["dimension"].name.lower() == dim.lower():
                         if dimension["dimension"].member_exists(member):
-                            dimension["member_defs"].append(member)
+                            dimension["member_defs"].extend(member)
                             unresolved_dims.remove(index)
                         else:
                             # check for subset name
-                            if member in dimension["dimension"].subsets:
-                                dimension["member_defs"] = dimension["dimension"].subsets[member][3]
+                            if member in dimension["dimension"]._dict_subsets:
+                                dimension["member_defs"] = dimension["dimension"]._dict_subsets[member][3]
                                 unresolved_dims.remove(index)
                             if member == "*":
                                 dimension["member_defs"] = dimension["dimension"].get_members()

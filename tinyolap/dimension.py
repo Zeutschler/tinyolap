@@ -4,11 +4,16 @@
 # the LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-import collections.abc
+import importlib
+from collections.abc import Iterable, Sequence
+import inspect
+from abc import ABC, abstractmethod
 import fnmatch
 import json
 from abc import abstractmethod
+from typing import Any
 
+from tinyolap.config import Config
 from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.member import Member, MemberList
 from tinyolap.exceptions import *
@@ -25,7 +30,7 @@ class AttributeField:
         self._dimension = dimension
         self._name = name
         self._value_type = value_type
-        self._cache = dict()
+        self._cache = CaseInsensitiveDict()
 
     def __repr__(self) -> str:
         return self._name
@@ -51,9 +56,11 @@ class AttributeField:
         return self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name]
 
     def __setitem__(self, member, value):
-        if not type(value) is self._value_type:
-            raise TypeError(f"Failed to set member attribute value. "
-                            f"Value is of type '{str(type(value))}' but type '{str(self._value_type)}' was expected.")
+        if value is not None:
+            if self._value_type is not None:
+                if not type(value) is self._value_type:
+                    raise TypeError(f"Failed to set member attribute value. "
+                                    f"Value is of type '{str(type(value))}' but type '{str(self._value_type)}' was expected.")
         if type(member) is int:
             member = self._dimension.members[member]
         member = str(member)
@@ -61,8 +68,12 @@ class AttributeField:
             raise KeyError(f"Failed to set member attribute value. "
                            f"'{member}' is not a member of dimension {self._dimension._name}.")
         idx = self._dimension._member_idx_lookup[member]
-        self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name] = value
-        # update the cache
+        if value is not None:
+            self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name] = value
+        else:
+            if self._name in self._dimension.member_defs[idx][self._dimension.ATTRIBUTES]:
+                del self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name]
+
         self._cache[member] = value
 
     def __delitem__(self, member):
@@ -73,9 +84,16 @@ class AttributeField:
             raise KeyError(f"Failed to delete member attribute value. "
                            f"'{member}' is not a member of dimension {self._dimension._name}.")
         idx = self._dimension._member_idx_lookup[member]
-        del(self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name])
+        if self._name in self._dimension.member_defs[idx][self._dimension.ATTRIBUTES]:
+            del self._dimension.member_defs[idx][self._dimension.ATTRIBUTES][self._name]
 
         self._cache[member] = None
+
+    def clear(self):
+        """Clears all attribute values for all members of the dimension."""
+        self._cache = dict()
+        for member in self._dimension.members:
+            del self._dimension.member_defs[member.idx][self._dimension.ATTRIBUTES][self._name]
 
     def set(self, member, value):
         """
@@ -93,9 +111,10 @@ class AttributeField:
         """
         self.__getitem__(member)
 
-    def filter(self, value_or_pattern) -> MemberList:
+    def filter(self, value_or_pattern, case_sensitive: bool = False) -> MemberList:
         """Provides value search or wildcard pattern matching and filtering on the attribute values of members
-         and return a list of matching members.
+         and return a list of matching members. Note: Wildcard matching is only available is the value type of the
+         attribute is of type 'str', for all other value-types an equality check (a == b) will be applied.
 
             * * matches everything
             * ? matches any single character
@@ -103,13 +122,29 @@ class AttributeField:
             * [!seq] matches any character not in seq
 
         :param value_or_pattern: The value or wildcard pattern to filter the member attribute values for.
+        :param case_sensitive: Identifies if matching on string attributes should be case-sensitive.
         :return: The filtered member list.
         """
-        if (type(value_or_pattern) is self._value_type) and (self._value_type is not str) :
-            return MemberList(self._dimension, [k for k,v in self._cache if v == value_or_pattern])
+        if self._value_type is str:
+            if type(value_or_pattern) is str:
+                if case_sensitive:
+                    value_or_pattern = value_or_pattern.lower()
+                    if any((c in '*?[]') for c in value_or_pattern):
+                        return MemberList(self._dimension, [self._dimension.member(k) for k, v in self._cache.items() if
+                                                            fnmatch.fnmatch(v.lower(), value_or_pattern)])
+                    else:
+                        return MemberList(self._dimension, [self._dimension.member(k) for k, v in self._cache.items() if
+                                                            v.lower() == value_or_pattern])
+                else:
+                    if any((c in '*?[]') for c in value_or_pattern):
+                        return MemberList(self._dimension, [self._dimension.member(k) for k, v in self._cache.items() if
+                                                            fnmatch.fnmatch(v, value_or_pattern)])
+                    else:
+                        return MemberList(self._dimension, [self._dimension.member(k) for k, v in self._cache.items() if
+                                                            v == value_or_pattern])
 
-        if type(value_or_pattern) is str:
-            return MemberList(self._dimension, [k for k,v in self._cache if fnmatch.fnmatch(v, value_or_pattern)])
+        return MemberList(self._dimension, [self._dimension.member(k) for k, v in self._cache.items() if
+                                            v == value_or_pattern])
 
     def match(self, regular_expression) -> MemberList:
         """Provides regular expression pattern matching and filtering on the attributes values of members
@@ -121,7 +156,7 @@ class AttributeField:
         if type(regular_expression) is not re:
             regular_expression = re.compile(regular_expression)
         return MemberList(self._dimension,
-                          [self._dimension.members[k] for k,v in self._cache if regular_expression.search(v)])
+                          [self._dimension.members[k] for k,v in self._cache.items() if regular_expression.search(v)])
 
     def _flush(self):
         """Flushes the internal cache of the AttributeField.
@@ -159,29 +194,79 @@ class AttributeField:
             distinct.remove(None)  # remove the None value, it's not a relevant attribute value
         return tuple(distinct)
 
+    def to_dict(self) -> dict:
+        """FOR INTERNAL USE! Converts the contents of the attribute field to a dict."""
+        return {"contentType": Config.ContentTypes.ATTRIBUTE,
+                "version": Config.VERSION,
+                "dimension": self._dimension.name,
+                "name": self._name,
+                "valueType": str(self._value_type),
+                "values": [{"member": k, "value": v} for k, v in self._cache.items()]
+                }
 
-class Attributes(Sequence[AttributeField]):
-    """
-    Represents the list of member attributes available in a dimension.
-    """
+    def from_dict(self, data: dict) -> AttributeField:
+        """FOR INTERNAL USE! Populates the contents of the attribute field from a dict."""
+        self.clear()
+        try:
+            check_content_type_and_version(data["contentType"], data["version"], Config.ContentTypes.ATTRIBUTE)
+
+            self._name = data["name"]
+            if not data["valueType"] in Config.BUILTIN_VALUE_TYPES:
+                raise TinyOlapSerializationError(f"Failed to deserialize attribute '{self.name}' "
+                                                 f"of dimension '{self._dimension.name}'. Unsupported "
+                                                 f"value type '{data['valueType']}' found.")
+            self._value_type = Config.BUILTIN_VALUE_TYPES[data["valueType"]]
+
+            # read all available values
+            for kvp in data["values"]:
+                member = kvp["member"]
+                value = kvp["value"]
+                self.__setitem__(member, value)
+
+        except Exception as e:
+            raise TinyOlapSerializationError(f"Failed to deserialize '{Config.ContentTypes.ATTRIBUTE}'. "
+                                             f"{str(e)}")
+        return self
+
+    def to_json(self, prettify: bool = False) -> str:
+        """FOR INTERNAL USE! Converts the contents of the attribute field to a json string."""
+        return json.dumps(self.to_dict(), indent=(2 if prettify else None))
+
+    def from_json(self, attribute_as_json_string: str) -> AttributeField:
+        """FOR INTERNAL USE! Populates the contents of the attribute field from a json string."""
+        self.from_dict(json.loads(attribute_as_json_string))
+        return self
+
+
+
+class Attributes(Iterable[AttributeField]):
+    """Represents the list of member attributes available in a dimension."""
     def __init__(self, dimension: Dimension):
         self._dimension: Dimension = dimension
         self._fields: HybridDict[AttributeField] = HybridDict[AttributeField](source=dimension)
 
     def __getitem__(self, item) -> AttributeField:
-        return self._fields.__getitem__(item)
+        return self._fields[item]
 
     def __len__(self):
         return len(self._fields)
 
+    def __iter__(self):
+        for attribute in self._fields:
+            yield attribute
+
+    def clear(self):
+        """ Clears (deletes) all attributes defined for the dimension."""
+        self._fields.clear()
+
     def add(self, name:str, value_type: type = None) -> AttributeField:
         if not is_valid_db_object_name(name):
-            raise InvalidKeyException(f"'{name}' is not a valid dimension attribute name. "
-                                      f"Lower case alphanumeric characters and underscore supported only, "
+            raise TinyOlapInvalidKeyError(f"'{name}' is not a valid dimension attribute name. "
+                                      f"Lower case alphanumeric characters, hyphen and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if name in self._fields:
-            raise DuplicateKeyException(f"Failed to add attribute to dimension. "
-                                        f"A dimension attribute named '{name}' already exists.")
+            raise TinyOlapDuplicateKeyError(f"Failed to add attribute to dimension. "
+                                        f"An attribute named '{name}' already exists.")
 
         attribute = AttributeField(dimension=self._dimension, name=name, value_type=value_type)
         self._fields.append(attribute)
@@ -197,10 +282,9 @@ class Attributes(Sequence[AttributeField]):
         try:
             return self._fields[attribute][member]
         except Exception as e:
-            raise InvalidKeyException(f"Failed to access member attribute "
+            raise TinyOlapInvalidKeyError(f"Failed to access member attribute "
                                       f"'{attribute}' for member '{member}'. "
-                                      + str(e))
-
+                                          + str(e))
 
     def set(self, attribute: str, member, value):
         """
@@ -212,29 +296,429 @@ class Attributes(Sequence[AttributeField]):
         try:
             self._fields[attribute][member] = value
         except Exception as e:
-            raise InvalidKeyException(f"Failed to access member attribute "
+            raise TinyOlapInvalidKeyError(f"Failed to access member attribute "
                                       f"'{attribute}' for member '{member}'. "
-                                      + str(e))
+                                          + str(e))
+
+    def to_dict(self) -> dict:
+        """FOR INTERNAL USE! Converts the contents of the dimension attributes to a dict."""
+        return {"contentType": Config.ContentTypes.ATTRIBUTES,
+                "version": Config.VERSION,
+                "dimension": self._dimension.name,
+                "attributes": [a.to_dict() for a in self._fields]
+                }
+
+    def from_dict(self, data: dict) -> Attributes:
+        """FOR INTERNAL USE! Populates the contents of the dimension attributes from a dict."""
+        self.clear()
+        try:
+            check_content_type_and_version(data["contentType"], data["version"], Config.ContentTypes.ATTRIBUTES)
+
+            # read all available attributes
+            for attribute_data in data["attributes"]:
+                attribute = AttributeField(dimension=self._dimension, name="_").from_dict(attribute_data)
+                self._fields.append(attribute)
+
+        except Exception as e:
+            raise TinyOlapSerializationError(f"Failed to deserialize '{Config.ContentTypes.ATTRIBUTES}'. "
+                                             f"{str(e)}")
+        return self
+
+    def to_json(self, prettify: bool = False) -> str:
+        """FOR INTERNAL USE! Converts the contents of the dimension attributes to a json string."""
+        return json.dumps(self.to_dict(), indent=(2 if prettify else None))
+
+    def from_json(self, attributes_as_json_string: str):
+        """FOR INTERNAL USE! Populates the contents of the dimension attributes from a json string."""
+        self.from_dict(json.loads(attributes_as_json_string))
 
 
-class Subset(Sequence[Member]):
-    # todo: implementation missing
-    def __getitem__(self, item) -> Member:
-        pass
+class Subset(Iterable[Member]):
+    """Subsets are static or dynamic lists of members from a dimension. They are useful for
+    slicing and dicing cube and reporting purposes as well as to implement additional
+    static or dynamic aggregations."""
+
+    def __init__(self, dimension: Dimension, name: str, volatile: bool, *args):
+        """
+        FOR INTERNAL PURPOSE ONLY! DO NOT CREATE SUBSETS DIRECTLY, ALWAYS USE THE 'SUBSETS' PROPERTY PROVIDED
+        THROUGH DIMENSION OBJECTS!
+
+        Initializes a subset based on (a) single list of members, (b) a sequence of 'attribute name',
+        'attribute value_or_pattern' argument pairs or (c) a single callback function.
+
+        :param dimension: The dimension to create the subset for.
+        :param name: The name of the subset to be created.
+        :param volatile: Identifies if the subset is volatile, meaning requires runtime refresh.
+        :param args: The arguments provided to set up the subset.
+        """
+        if not is_valid_db_object_name(name):
+            raise TinyOlapInvalidKeyError(f"'{name}' is not a valid dimension subset name. "
+                                      f"Lower case alphanumeric characters, hyphen and underscore supported only, "
+                                      f"no whitespaces, no special characters.")
+        self._dimension: Dimension = dimension
+        self._name: str = name
+        self._volatile: bool = volatile
+        self._attributes = None
+        self._callable_function = None
+        self._members = None
+
+        if (len(args) == 1) and isinstance(args[0], Sequence):
+            # static subset defined by a list of members
+
+            # validate Member objects
+            for member in args[0]:
+                if type(member) is Member:
+                    if member.dimension is not self._dimension:
+                        raise TypeError(f"Failed to initialize static subset '{self._name}' from member list. "
+                                        f"At least one member ('{member.name}') is not a member of the parent "
+                                        f"dimension '{self._dimension.name} but from "
+                                        f"dimension {member.dimension.name}.")
+
+            self._members: HybridDict[Member] = \
+                HybridDict[Member](items=[m if type(m) is Member else dimension.member(str(m)) for m in args[0]],
+                                   source=dimension)
+
+        elif (len(args) == 1) and callable(args[0]):
+            # dynamic subset evaluated through a callable function
+            self._callable_function = args[0]
+            # check signature for number of arguments
+            callable_args_count = len(inspect.signature(self._callable_function).parameters.keys())
+            if 2 != callable_args_count:
+                raise TypeError(f"The provided callable function '{self._callable_function.__name__}' "
+                                f"requires {callable_args_count} arguments, but a "
+                                f"callable function with 2 arguments was expected. "
+                                f"The expected signature looks like this: "
+                                f"'some_function(dimension, subset_name) -> Iterable|List|Tuple|Set'")
+
+        elif (len(args) > 0) and (len(args) % 2 == 0):
+            # dynamic subset evaluated through an attribute query.
+            it = iter(args)                 # convert something like this ['att', 'value', 'att', 'value', ...]
+            self._attributes = zip(it, it)  # ...to something like this [('att', 'value'), ('att', 'value'), ...]
+
+        elif len(args) == 1 and type(args[0]) is Subsets:
+            # Note: this only happens on deserialization
+            pass
+        else:
+            raise TypeError(f"The arguments provide to method '__init__(...)' of class 'Subset'"
+                            f"do not match the requirements: (a) single list of members, "
+                            f"(b) a sequence of 'attribute name' and 'attribute value_or_pattern' argument pairs or "
+                            f"(c) a single callback function.")
+
+    def __str__(self):
+        return self._name
+
+    def __repr__(self):
+        return self._name
+
+    def __iter__(self):
+        self._refresh()
+        for member in self._members:
+            yield member
 
     def __len__(self) -> int:
-        pass
+        return len(self._members)
+
+    @property
+    def members(self) -> HybridDict[Member]:
+        """Returns the list of members in the subset."""
+        self._refresh()
+        return self._members
+
+    def _refresh(self):
+        """Refreshes the member list, if required."""
+        if self._volatile:
+            # refresh contents
+            if self._callable_function:
+                try:
+                    members = self._callable_function(self._dimension, self._name)
+                except Exception as e:
+                    raise TinyOlapRuleError(f"Error on calling custom subset function "
+                                            f"'{self._callable_function.__name__}'. {str(e)}")
+
+                self._members = HybridDict[Member](
+                    items=[m if type(m) is Member else self._dimension.member(str(m)) for m in members],
+                    source=self._dimension)
+
+            elif self._attributes:
+                result = None
+                members = self._dimension.members
+                for attribute, value in self._attributes:
+                    matches = set(self._dimension.attributes[attribute].filter(value))
+                    if result is None:
+                        result = matches
+                    else:
+                        result.intersection(matches)
+                        if not result:
+                            self._members = HybridDict[Member](items=[], source=self._dimension) # empty subset
+                            return
+                self._members = HybridDict[Member](items=list(result), source=self._dimension) # empty subset
+
+    def to_dict(self, members_only: bool = False) -> dict:
+        """
+        Converts the subset into a dict, representing the subset definition and members of the subset.
+        The subset can afterwards be restored using the 'from_dict(...)' function.
+        :param members_only: Defines if the dict should only contain the members of the subset, and not it's definition.
+        :return: The generated json string.
+        """
+        data = {"contentType": Config.ContentTypes.SUBSET,
+                "version": Config.VERSION,
+                "dimension": self._dimension.name,
+                "name": self._name,
+                "volatile": self._volatile,
+                }
+        if not members_only:
+            callable_function_module = None
+            callable_function = None
+            if self._callable_function:
+                callable_function_module = str(inspect.getmodule(self._callable_function))
+                callable_function = self._callable_function.__name__
+            data["callableFunctionModule"] = callable_function_module
+            data["callableFunction"] = callable_function
+
+            data["attributeQuery"] = self._attributes
+
+        data["members"] = [m for m in self.members]
+        return data
+
+    def from_dict(self, data: dict) -> Subset:
+        """
+        **FOR INTERNAL USE!** Loads the subset from a dict object,
+        normally created by the use of the 'to_dict(...)' function.
+
+        :param data: The dict object to read from.
+        """
+        try:
+            check_content_type_and_version(data["contentType"], data["version"], Config.ContentTypes.SUBSET)
+
+            self._name = data["name"]
+            self._volatile = data["volatile"]
+
+            # (try to) instantiate the callable function
+            callable_function_module = data["callableFunctionModule"]
+            callable_function = data["callableFunction"]
+            if callable_function:
+                # let's try to initialize the function.
+                try:
+                    module = importlib.import_module(callable_function_module)
+                    function = getattr(module, callable_function)
+                    self._callable_function = function
+                except Exception as e:
+                    raise TinyOlapSerializationError(f"Failed to re-instantiate function "
+                                                     f"'{callable_function}' form module "
+                                                     f"'{callable_function_module}'. {str(e)}")
+
+            # restore the attribute query definition
+            self._attributes = data["attributeQuery"]
+
+            # finally, restore the saved members that eblogn to the subset.
+            self._members = HybridDict[Member](source=self._dimension, items=[m for m in data["members"]])
+
+        except Exception as e:
+            raise TinyOlapSerializationError(f"Failed to deserialize '{Config.ContentTypes.ATTRIBUTE}'. "
+                                             f"{str(e)}")
+        return self
+
+    def to_json(self, members_only: bool = False, prettify: bool = False) -> str:
+        """
+        **FOR INTERNAL USE!** Converts the subset into a json string, representing the subset definition and members of the subset.
+        The subset can afterwards be restored using the 'from_json(...)' function.
+        :param members_only: Defines if the dict should only contain the members of the subset, and not it's definition.
+        :param prettify: Defines if the json file should be prettified, using linebreaks and indentation (of 2).
+        :return: The generated json string.
+        """
+        return json.dumps(self.to_dict(members_only), indent=(2 if prettify else None))
+
+    def from_json(self, subset_as_json_string: str) -> Subset:
+        """**FOR INTERNAL USE!** Loads the subset from a json string.
+        Normally created by the use of the 'to_json(...)' function
+
+        :param subset_as_json_string: The json string to read from.
+        """
+        return self.from_dict(json.loads(subset_as_json_string))
 
 
-class Subsets(Sequence[AttributeField]):
-    # todo: implementation missing
-    def __getitem__(self, item) -> AttributeField:
-        pass
+class Subsets(Sequence[Subset]):
+    """Represents the list of members subsets available in a dimension."""
+    def __init__(self, dimension: Dimension):
+        self._dimension: Dimension = dimension
+        self._subsets: HybridDict[Subset] = HybridDict[Subset](source=dimension)
 
-    def __len__(self) -> int:
-        pass
+    def __getitem__(self, item) -> Subset:
+        return self._subsets.__getitem__(item)
 
+    def __len__(self):
+        return len(self._subsets)
 
+    def __iter__(self):
+        for subset in self._subsets:
+            yield subset
+
+    def __delitem__(self, key):
+        del self._subsets[key]
+
+    @property
+    def dimension(self) -> Dimension:
+        """
+        Returns the parent dimension of the subset list.
+        """
+        return self._dimension
+
+    def clear(self) -> Subsets:
+        """
+        Removes all subsets from the subset list.
+        :return: The subset list itself.
+        """
+        self._subsets: HybridDict[Subset] = HybridDict[Subset](source=self._dimension)
+        return self
+
+    def remove(self, subset) -> Subsets:
+        """
+        Removes a specific subset from the list of subsets.
+        :param subset: The subset or the name of the subset to be removed.
+        :return: The subset list itself.
+        """
+        del self._subsets[subset]
+        return self
+
+    def add_static_subset(self, name: str, members) -> Subset:
+        """
+        Add a static member subset based on a list of members to the dimension.
+        :param name: The name of the subset to be created.
+        :param members: The list of members to be contained in the subset.
+        :return: Returns the added created subset.
+        """
+        if name in self._subsets:
+            raise TinyOlapDuplicateKeyError(f"Failed to add subset to dimension. "
+                                        f"A subset named '{name}' already exists.")
+
+        subset = Subset(self._dimension, name, False, members)
+        self._subsets.append(subset)
+        return subset
+
+    def add_attribute_subset(self, name: str, *args) -> Subset:
+        """
+        Adds a dynamic member subset based on a pair-wise sequence of 'attribute name' and
+        'attribute value_or_pattern' arguments used for filtering members. If multiple filters
+        have been defined, then the resulting subset will contain only those members that match
+        all filter conditions. If the value_or_pattern arguments contain any of wildcard
+        characters '*?[]', then a wildcard serach will be applied, otherwise a case-insensitive
+        string comparison will be executed.
+
+        Alternatively, the second argument can be a
+        callable function with the following signature 'somefunction(attribute_value) -> bool:'.
+        If such a function returns ´´True´´ for a given attribute value, then the associated member
+        will be contained in the subset, otherwise then member will be excluded.
+
+        .. code:: python
+            # attribute subsets based fixed values for attributes.
+            dim.subsets.add_attribute_subset("my-subset", "color", "green")  # valid
+            dim.subsets.add_attribute_subset("my-subset", "color", "green", "weight", 400.0)  # valid
+            dim.subsets.add_attribute_subset("my-subset", "just-on-argument")  # invalid
+
+            # attribute subsets based on a callable function.
+            def black_or_blue(value):
+                return value in ["black", "blue"]
+            dim.subsets.add_attribute_subset("my-subset", "color", black_or_blue)  # valid
+
+        :param name: The name of the subset to be created.
+
+        :param args: A paired sequence of 'attribute name', 'attribute value_or_pattern' or
+            callable function arguments.
+        """
+        if name in self._subsets:
+            raise TinyOlapDuplicateKeyError(f"Failed to add subset to dimension. "
+                                        f"A subset named '{name}' already exists.")
+
+        subset = Subset(self._dimension, name, True, *args)
+        self._subsets.append(subset)
+        return subset
+
+    def add_custom_subset(self, name: str, callback: callable, volatile: bool = False) -> Subset:
+        """
+        Add a dynamic member subset based on a callback function which will need to take
+        2 arguments and return a sequence (e.g. a list) of members or just member names.
+
+        .. code:: python
+            # the function to be called.
+            def custom_evaluator(dimension: Dimension, subset_name: str) -> list:
+                if subset == "random"
+                    # return 10 random members from the dimension
+                    return random.sample(dimension.members, 10)
+                else:
+                    return [m for m in dimension.members if m.name.startswith("T")]
+
+            # add 2 subsets using the function.
+            dim.subsets.add_custom_subset("random", custom_evaluator)
+            dim.subsets.add_custom_subset("other", custom_evaluator)
+
+        :param name: The name of the subset to be created.
+
+        :param callback: A callable function with signature 'somefunction(dimension, subset_name) -> Sequence'
+
+        :param volatile: Identifies that the function need to be evaluated on every call of the subset.
+        """
+        if name in self._subsets:
+            raise TinyOlapDuplicateKeyError(f"Failed to add subset to dimension. "
+                                        f"A subset named '{name}' already exists.")
+
+        subset = Subset(self._dimension, name, volatile, callback)
+        self._subsets.append(subset)
+        return subset
+
+    def to_dict(self, members_only: bool = False) -> dict:
+        """
+        **FOR INTERNAL USE!** Converts the subsets into a dict, representing all subset definitions and members.
+        The subsets can afterwards be restored using the 'from_dict(...)' function.
+
+        :param members_only: Defines if the dict should only contain the members of the subset, and not it's definition.
+        :return: The generated json string.
+        """
+        return {"contentType": Config.ContentTypes.SUBSETS,
+                "version": Config.VERSION,
+                "dimension": self._dimension.name,
+                "subsets": [a.to_dict() for a in self._subsets]
+                }
+
+    def from_dict(self, data: dict) -> Subsets:
+        """
+        **FOR INTERNAL USE!** Loads the subsets from a dict object,
+        normally created by the use of the 'to_dict(...)' function.
+
+        :param data: The dict object to read from.
+        """
+        self.clear()
+        try:
+            check_content_type_and_version(data["contentType"], data["version"], Config.ContentTypes.SUBSETS)
+
+            # read all available attributes
+            for subset_data in data["subsets"]:
+                subset = Subset(self._dimension,  # the 'self' argument indicates deserialization
+                                "_", False, self).from_dict(subset_data)
+                self._subsets.append(subset)
+
+        except Exception as e:
+            raise TinyOlapSerializationError(f"Failed to deserialize '{Config.ContentTypes.SUBSETS}'. "
+                                             f"{str(e)}")
+        return self
+
+    def to_json(self, members_only: bool = False, prettify: bool = False) -> str:
+        """
+        **FOR INTERNAL USE!** Converts the subsets into a json string, representing all subset definitions and members.
+        The subsets can afterwards be restored using the 'from_json(...)' function.
+
+        :param members_only: Defines if the dict should only contain the members of the subset, and not it's definition.
+        :param prettify: Defines if the json file should be prettified, using linebreaks and indentation (of 2).
+        :return: The generated json string.
+        """
+        return json.dumps(self.to_dict(members_only), indent=(2 if prettify else None))
+
+    def from_json(self, subsets_as_json_string: str):
+        """**FOR INTERNAL USE!** Loads the subsets from a json string.
+        Normally created by the use of the 'to_json(...)' function
+
+        :param subsets_as_json_string: The json string to read from.
+        """
+        self.from_dict(json.loads(subsets_as_json_string))
 
 class Dimension:
     """
@@ -290,7 +774,7 @@ class Dimension:
         def push(self, index):
             if type(index) is int:
                 self.free.add(index)
-            elif isinstance(index, collections.abc.Sequence):
+            elif isinstance(index, Sequence):
                 self.free.update(index)
             else:
                 raise ValueError()
@@ -358,16 +842,17 @@ class Dimension:
 
         self.alias_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
 
-        # todo: rework attributes, put into separate class.
-        # Attributes
+        # New Attributes
         self._attributes: Attributes = Attributes(self)
         # OLD Attributes
         self._attributes_dict: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
         self.attribute_query_caching: bool = True
         self.attribute_cache: CaseInsensitiveDict[str, list[str]] = CaseInsensitiveDict()
 
-        # Subsets
-        self.subsets: CaseInsensitiveDict[str, dict] = CaseInsensitiveDict()
+        # New Subsets
+        self._subsets: Subsets = Subsets(self)
+        # OLD Subsets
+        self._dict_subsets: CaseInsensitiveDict[str, dict] = CaseInsensitiveDict()
         self._subset_idx_manager = Dimension.MemberIndexManager()
 
     def __str__(self):
@@ -413,6 +898,11 @@ class Dimension:
         """Returns the member attributes defined for the dimension."""
         return self._attributes
 
+    @property
+    def subsets(self) -> Subsets:
+        """Returns the member attributes defined for the dimension."""
+        return self._subsets
+
     # region Dimension editing
     def clear(self) -> Dimension:
         """
@@ -425,7 +915,7 @@ class Dimension:
         self._member_idx_manager.clear()
         self.alias_idx_lookup.clear()
         self.member_counter = 0
-        self.subsets = {}
+        self._dict_subsets = {}
         self._subset_idx_manager.clear()
         return self
 
@@ -437,7 +927,7 @@ class Dimension:
         :return: The dimension itself.
         """
         if self.edit_mode:
-            raise DimensionEditModeException("Failed to set edit mode. 'edit_begin()' was already called before.")
+            raise TinyOlapDimensionEditModeError("Failed to set edit mode. 'edit_begin()' was already called before.")
         self.edit_mode = True
         self.recovery_json = self.to_json()
         self.recovery_idx = set(self._member_idx_lookup.values())
@@ -527,7 +1017,7 @@ class Dimension:
         :return Dimension: Returns the dimension itself.
         """
         if not self.edit_mode:
-            raise DimensionEditModeException("Failed to add member. Dimension is not in edit mode.")
+            raise TinyOlapDimensionEditModeError("Failed to add member. Dimension is not in edit mode.")
 
         member_list = member
         children_list = children
@@ -560,15 +1050,16 @@ class Dimension:
                 # add children
                 if isinstance(c, str):
                     c = [c]
-                elif not (isinstance(c, collections.abc.Sequence) and not isinstance(c, str)):
-                    raise DimensionEditModeException(
+                # elif not (isinstance(c, Sequence) and not isinstance(c, str)):
+                elif not (isinstance(c, Iterable) and not isinstance(c, str)):
+                    raise TinyOlapDimensionEditModeError(
                         f"Failed to member '{m}' to dimension '{self._name}'. Unexpected type "
                         f"'{type(c)}' of parameter 'children' found.")
                 for child in c:
                     if type(child) is Member:
                         child = child.name
                     if not isinstance(child, str):
-                        raise DimensionEditModeException(
+                        raise TinyOlapDimensionEditModeError(
                             f"Failed to add child to member '{m}' of dimension '{self._name}. Unexpected type "
                             f"'{type(c)}' of parameter 'children' found.")
                     if not self.__valid_member_name(child):
@@ -595,7 +1086,7 @@ class Dimension:
         self._member_idx_lookup[new_name] = idx_member
 
         # adjust subsets
-        for subset in self.subsets:
+        for subset in self._dict_subsets:
             if member in subset[self.MEMBERS]:
                 idx = subset[self.MEMBERS].index(member)
                 subset[self.MEMBERS][idx] = new_name
@@ -613,7 +1104,7 @@ class Dimension:
         # Ensure all member_defs exist
         for member in member_list:
             if member not in self._member_idx_lookup:
-                raise DimensionEditModeException(f"Failed to remove member(s). "
+                raise TinyOlapDimensionEditModeError(f"Failed to remove member(s). "
                                                  f"At least 1 of {len(member_list)} member ('{member}') is not "
                                                  f"a member of dimension {self._name}")
 
@@ -649,7 +1140,7 @@ class Dimension:
                 del self.member_defs[idx]
 
         # adjust subsets
-        for subset in self.subsets.values():
+        for subset in self._dict_subsets.values():
             members_to_remove = set(member_list).intersection(set(subset[self.MEMBERS]))
             if members_to_remove:
                 for member in members_to_remove:
@@ -668,7 +1159,7 @@ class Dimension:
         :param member: Name of the member to add an alias for.
         :param alias: The alias to be set.
         :raises KeyError: Raised if the member does not exist.
-        :raises DuplicateKeyException: Raised if the alias is already used by another member.
+        :raises TinyOlapDuplicateKeyError: Raised if the alias is already used by another member.
                 Individual aliases can only be assigned to one member.
 
         """
@@ -676,7 +1167,7 @@ class Dimension:
             raise KeyError(f"{member}' is not member a of dimension'{self._name}'")
         idx_member = self._member_idx_lookup[member]
         if alias in self.alias_idx_lookup:
-            raise DuplicateKeyException(f"Duplicate alias. The alias '{alias}' is already used "
+            raise TinyOlapDuplicateKeyError(f"Duplicate alias. The alias '{alias}' is already used "
                                         f"by member '{self.member_defs[idx_member][self.NAME]}' of dimension'{self._name}'")
         self.alias_idx_lookup[alias] = idx_member
 
@@ -879,7 +1370,7 @@ class Dimension:
         for idx in m[self.CHILDREN]:
             if self.member_defs[idx][self.LEVEL] > 0:
                 members = self.member_get_leaves(self.member_defs[idx][self.NAME])
-                leaves.extend(members.to_list())
+                leaves.extend(members)
             else:
                 leaves.append(self.member(self.member_defs[idx][self.NAME]))
         return MemberList(self, tuple(leaves))
@@ -1129,15 +1620,15 @@ class Dimension:
 
         :param attribute_name: Name of the attribute to be added.
         :param value_type: Type of value expected for the attribute. Default value is ``object`` to allow any data.
-        :raises InvalidKeyException: Raised when the name of the attribute is invalid.
-        :raises DuplicateKeyException: Raised when the name of the attribute already exists.
+        :raises TinyOlapInvalidKeyError: Raised when the name of the attribute is invalid.
+        :raises TinyOlapDuplicateKeyError: Raised when the name of the attribute already exists.
         """
         if not is_valid_db_object_name(attribute_name):
-            raise InvalidKeyException(f"'{attribute_name}' is not a valid dimension attribute name. "
+            raise TinyOlapInvalidKeyError(f"'{attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if attribute_name in self._attributes_dict:
-            raise DuplicateKeyException(f"Failed to add attribute to dimension. "
+            raise TinyOlapDuplicateKeyError(f"Failed to add attribute to dimension. "
                                         f"A dimension attribute named '{attribute_name}' already exists.")
         self._attributes_dict[attribute_name] = value_type
 
@@ -1147,11 +1638,11 @@ class Dimension:
 
         :param attribute_name: The name of the attribute to be renamed.
         :param new_attribute_name: The new name of the attribute.
-        :raises InvalidKeyException: Raised when the new name of the attribute is invalid.
-        :raises DuplicateKeyException: Raised when the new name of the attribute already exists.
+        :raises TinyOlapInvalidKeyError: Raised when the new name of the attribute is invalid.
+        :raises TinyOlapDuplicateKeyError: Raised when the new name of the attribute already exists.
         """
         if not is_valid_db_object_name(new_attribute_name):
-            raise InvalidKeyException(f"Failed to rename dimension attribute. "
+            raise TinyOlapInvalidKeyError(f"Failed to rename dimension attribute. "
                                       f"'{new_attribute_name}' is not a valid dimension attribute name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -1218,17 +1709,17 @@ class Dimension:
 
         :param subset_name: Name of the subset to be added.
         :param members: A list (iterable) containing the member to be added to the subset.
-        :raises InvalidKeyException: Raised when the name of the subset is invalid.
-        :raises DuplicateKeyException: Raised when the name of the subset already exists.
+        :raises TinyOlapInvalidKeyError: Raised when the name of the subset is invalid.
+        :raises TinyOlapDuplicateKeyError: Raised when the name of the subset already exists.
         :raises TypeError: Raised when member_defs list is not of the expected type (list or tuple)
         :raises KeyError: Raised when a member from the member_defs list is not contained in the dimension.
         """
         if not is_valid_db_object_name(subset_name):
-            raise InvalidKeyException(f"'{subset_name}' is not a valid dimension subset name. "
+            raise TinyOlapInvalidKeyError(f"'{subset_name}' is not a valid dimension subset name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
-        if subset_name in self.subsets:
-            raise DuplicateKeyException(f"Failed to add subset to dimension. "
+        if subset_name in self._dict_subsets:
+            raise TinyOlapDuplicateKeyError(f"Failed to add subset to dimension. "
                                         f"A dimension subset named '{subset_name}' already exists.")
 
         # validate member_defs list
@@ -1245,10 +1736,10 @@ class Dimension:
                                f"'{member}' is not a member of dimension {self._name}.")
 
         # create and add subset
-        self.subsets[subset_name] = {self.IDX: self._subset_idx_manager.pop(),
-                                     self.NAME: subset_name,
-                                     self.MEMBERS: list(members),
-                                     self.IDX_MEMBERS: idx_members}
+        self._dict_subsets[subset_name] = {self.IDX: self._subset_idx_manager.pop(),
+                                           self.NAME: subset_name,
+                                           self.MEMBERS: list(members),
+                                           self.IDX_MEMBERS: idx_members}
 
     def has_subset(self, subset_name: str) -> bool:
         """
@@ -1257,7 +1748,7 @@ class Dimension:
         :param subset_name: Name of the subset to be checked.
         :return: ``True``if the subset exists. ``False`` otherwise.
         """
-        return subset_name in self.subsets
+        return subset_name in self._dict_subsets
 
     def subsets_count(self) -> int:
         """
@@ -1265,7 +1756,7 @@ class Dimension:
 
         :return: Number subsets defined in the dimension.
         """
-        return len(self.subsets)
+        return len(self._dict_subsets)
 
     def subset_contains(self, subset_name: str, member_name: str) -> bool:
         """
@@ -1275,10 +1766,10 @@ class Dimension:
         :param member_name: Name of the member to be checked.
         :return: ``True``if the member is contained in the subset. ``False`` otherwise.
         """
-        if not subset_name in self.subsets:
+        if not subset_name in self._dict_subsets:
             raise KeyError(f"Failed to check member contained in subset. "
                            f"'{subset_name}' is not a subset of dimension {self._name}.")
-        return member_name in self.subsets[subset_name][self.MEMBERS]
+        return member_name in self._dict_subsets[subset_name][self.MEMBERS]
 
     def rename_subset(self, subset_name: str, new_subset_name: str):
         """
@@ -1286,20 +1777,20 @@ class Dimension:
 
         :param subset_name: Name of the subset to be added.
         :param new_subset_name: New name of the subset.
-        :raises InvalidKeyException: Raised when the new name for the subset is invalid.
+        :raises TinyOlapInvalidKeyError: Raised when the new name for the subset is invalid.
         :raises KeyError: Raised when the subset is not contained in the dimension.
         """
         if not is_valid_db_object_name(new_subset_name):
-            raise InvalidKeyException(f"'{new_subset_name}' is not a valid dimension subset name. "
+            raise TinyOlapInvalidKeyError(f"'{new_subset_name}' is not a valid dimension subset name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
-        if not subset_name in self.subsets:
+        if not subset_name in self._dict_subsets:
             raise KeyError(f"Failed to rename subset. "
                            f"'{subset_name}' is not a subset of dimension {self._name}.")
 
-        subset = self.subsets[subset_name]
-        del self.subsets[subset_name]
-        self.subsets[new_subset_name] = subset
+        subset = self._dict_subsets[subset_name]
+        del self._dict_subsets[subset_name]
+        self._dict_subsets[new_subset_name] = subset
 
     def get_subset(self, subset_name: str) -> tuple[str]:
         """
@@ -1308,8 +1799,8 @@ class Dimension:
         :param subset_name: Name of the subset to be return.
         :raises KeyError: Raised when the subset is not contained in the dimension.
         """
-        if subset_name in self.subsets:
-            return self.subsets[subset_name][self.MEMBERS]
+        if subset_name in self._dict_subsets:
+            return self._dict_subsets[subset_name][self.MEMBERS]
 
         raise KeyError(f"Failed to return list of subset member. "
                        f"'{subset_name}' is not a subset of dimension {self._name}.")
@@ -1321,9 +1812,9 @@ class Dimension:
         :param subset_name: Name of the subset to be removed.
         :raises KeyError: Raised when the subset is not contained in the dimension.
         """
-        if subset_name in self.subsets:
-            self._subset_idx_manager.push(self.subsets[subset_name][self.IDX])
-            del (self.subsets[subset_name])
+        if subset_name in self._dict_subsets:
+            self._subset_idx_manager.push(self._dict_subsets[subset_name][self.IDX])
+            del (self._dict_subsets[subset_name])
             return
 
         raise KeyError(f"Failed to remove subset. "
@@ -1341,10 +1832,19 @@ class Dimension:
         :param beautify: Identifies if the json code should be beautified (multiple rows + indentation).
         :return: A json string representing the dimension.
         """
-        data = ['{', f'"content": "dimension",', f'"name": "{self._name}",', f'"description": "{self.description}",',
-                f'"count": {self.member_counter},', f'"member_defs": {json.dumps(self.member_defs)},',
-                f'"lookup": {json.dumps(self._member_idx_lookup)},', f'"attributes": {json.dumps(self._attributes_dict)},',
-                f'"subsets": {json.dumps(self.subsets)}', '}']
+        data = ['{',
+                f'"content": "dimension", ',
+                f'"name": "{self._name}", ',
+                f'"description": "{self.description}", ',
+                f'"count": {self.member_counter}, ',
+                f'"member_defs": {json.dumps(self.member_defs)}, ',
+                f'"lookup": {json.dumps(self._member_idx_lookup)}, ',
+                f'"oldsubsets": {json.dumps(self._dict_subsets)}, ',
+                f'"oldattributes": {json.dumps(self._attributes_dict)}, ',
+                f'"subsets": {self._subsets.to_json()}, ',
+                f'"attributes": {self._attributes.to_json()}',
+                '}',
+                ]
         json_string = ''.join(data)
         if beautify:
             parsed = json.loads(json_string)
@@ -1361,21 +1861,24 @@ class Dimension:
             **before** you create any cube. Handle with care.
 
         :param json_string: The json string containing the dimension definition.
-        :raises FatalException: Raised if an error occurred during the deserialization from json string.
+        :raises TinyOlapFatalError: Raised if an error occurred during the deserialization from json string.
         """
         if not self.edit_mode:
             self.edit()
 
         try:
             # first, read everything
-            dim = json.loads(json_string)
-            new_name = dim["name"]
-            new_description = dim["description"]
-            new_count = dim["count"]
-            new_members = dim["member_defs"]
-            new_member_idx_lookup = dim["lookup"]
-            new_attributes = dim["attributes"]
-            new_subsets = dim["subsets"]
+            dim_def = json.loads(json_string)
+
+            new_name = dim_def["name"]
+            new_description = dim_def["description"]
+            new_count = dim_def["count"]
+            new_members = dim_def["member_defs"]
+            new_member_idx_lookup = dim_def["lookup"]
+            new_oldattributes = dim_def["oldattributes"]
+            new_oldsubsets = dim_def["oldsubsets"]
+            new_attributes = dim_def["attributes"]
+            new_subsets = dim_def["subsets"]
 
             # json does not allow non-string address, but we use integer address. Conversion is required.
             new_members = dict_keys_to_int(new_members)
@@ -1387,10 +1890,17 @@ class Dimension:
             self.member_defs = new_members
             self._member_idx_lookup = CaseInsensitiveDict().populate(new_member_idx_lookup)
             self._attributes_dict = new_attributes
-            self.subsets = new_subsets
+            self._dict_subsets = new_subsets
+            self._attributes_dict = new_oldattributes
+            self._dict_subsets = new_oldsubsets
+            self._attributes = Attributes(self).from_dict(new_attributes)
+            self._subsets = Subsets(self).from_dict(new_subsets)
+
+
+
             self.commit()
         except Exception as err:
-            raise FatalException(f"Failed to load json for dimension '{self._name}'. {str(err)}")
+            raise TinyOlapFatalError(f"Failed to load json for dimension '{self._name}'. {str(err)}")
 
     # endregion
 
@@ -1463,7 +1973,7 @@ class Dimension:
             self.member_defs[member_idx][self.PARENTS].remove(parent_idx)
             self.member_defs[parent_idx][self.CHILDREN].remove(member_idx)
 
-            raise DimensionEditModeException(f"Circular reference detected on adding parent <-> child relation "
+            raise TinyOlapDimensionEditModeError(f"Circular reference detected on adding parent <-> child relation "
                                              f"'{self.member_defs[parent_idx][self.NAME]}' <-> "
                                              f"'{self.member_defs[member_idx][self.NAME]}' "
                                              f"to dimension {self._name}. Both member_defs were added, "
@@ -1491,7 +2001,7 @@ class Dimension:
     def __check_circular_reference(self):
         for idx in self._member_idx_lookup.values():
             if self.__circular_reference_detection(idx, idx):
-                raise DimensionEditModeException(f"Failed to commit dimension. Circular reference detected "
+                raise TinyOlapDimensionEditModeError(f"Failed to commit dimension. Circular reference detected "
                                                  f"for member {self.member_defs[idx][self.NAME]}.")
 
     def __circular_reference_detection(self, start: int, current: int, visited=None):
@@ -1524,6 +2034,6 @@ class Dimension:
                 if self.member_defs[child_idx][self.LEVEL] == 0:
                     base_members.append(child_idx)
                 else:
-                    base_members.extend(self.__get_base_members(child_idx))
+                    base_members.append(self.__get_base_members(child_idx))
             return base_members
     # endregion

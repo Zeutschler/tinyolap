@@ -74,7 +74,7 @@ class Database:
             if os.path.exists(name):
                 self._file_name = name
             else:
-                raise InvalidKeyException(f"'{name}' is not a valid database name or path. "
+                raise TinyOlapInvalidKeyError(f"'{name}' is not a valid database name or path. "
                                           f"For database names alphanumeric characters and underscore supported only, "
                                           f"no whitespaces, no special characters.")
         self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
@@ -339,7 +339,7 @@ class Database:
         :return:
         """
         if name.lower() == self.name.lower():
-            raise DatabaseBackendException(f"Failed to export database '{self.name}'. "
+            raise TinyOlapStorageError(f"Failed to export database '{self.name}'. "
                                            f"You cannot export a database under it's current name.")
 
         exporter: StorageProvider = SqliteStorage(name)
@@ -413,11 +413,11 @@ class Database:
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
         if not utilities.utils.is_valid_db_object_name(name):
-            raise InvalidKeyException(f"'{name}' is not a valid dimension name. "
+            raise TinyOlapInvalidKeyError(f"'{name}' is not a valid dimension name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if name in self.dimensions:
-            raise DuplicateKeyException(f"Failed to add dimension. A dimension named '{name}' already exists.")
+            raise TinyOlapDuplicateKeyError(f"Failed to add dimension. A dimension named '{name}' already exists.")
         dimension = Dimension._create(self._storage_provider, name, description=description)
         dimension.database = self
         self.dimensions[name] = dimension
@@ -427,18 +427,18 @@ class Database:
         """Removes a :ref:´dimension <dimensions>´ from the database.
 
         :param dimension: Name of the dimension, or the :ref:`dimension <dimensions>` object to be removed.
-        :raises KeyNotFoundError: If the dimension not exists.
+        :raises TinyOlapKeyNotFoundError: If the dimension not exists.
         """
         if type(dimension) is str:
             name = dimension
         else:
             name = dimension._name
         if name not in self.dimensions:
-            raise KeyNotFoundError(f"A dimension named '{name}' does not exist.")
+            raise TinyOlapKeyNotFoundError(f"A dimension named '{name}' does not exist.")
 
         uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
-            raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
+            raise TinyOlapDimensionInUseError(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                           f"and therefore can not be removed. Remove cubes first.")
 
         if self._storage_provider and self._storage_provider.connected:
@@ -456,7 +456,7 @@ class Database:
     def get_dimension(self, name: str):
         if name in self.dimensions:
             return self.dimensions[name]
-        raise InvalidKeyException(f"A dimension named '{name}' does not exist in databse '{self._name}'.")
+        raise TinyOlapInvalidKeyError(f"A dimension named '{name}' does not exist in databse '{self._name}'.")
 
     # endregion
 
@@ -472,7 +472,7 @@ class Database:
            If argument 'measures' is not defined, that a default measure named 'value' will be created.
         :param description: (optional) description for the cube.
         :return: The added cube object.
-        :raises CubeCreationException: Raised if the creation of the cubed failed due to one
+        :raises TinyOlapCubeCreationError: Raised if the creation of the cubed failed due to one
            of the following reasons:
 
         * The cube name is not invalid. Cube have to consist of lower case alphanumeric characters
@@ -487,52 +487,52 @@ class Database:
              adjusted at any time by changing the value for ``MAX_DIMS_PER_CUBE`` in the source file
              'database.py'.
 
-        :raises DuplicateKeyException: Raised if the cube already exists.")
+        :raises TinyOlapDuplicateKeyError: Raised if the cube already exists.")
         """
 
         # validate cube name
         if not utilities.utils.is_valid_db_object_name(name):
-            raise CubeCreationException(f"Invalid cube name '{name}'. Cube names must contain "
+            raise TinyOlapCubeCreationError(f"Invalid cube name '{name}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
-            raise DuplicateKeyException(f"A cube named '{name}' already exists.")
+            raise TinyOlapDuplicateKeyError(f"A cube named '{name}' already exists.")
 
         # validate dimensions
         if not dimensions:
-            raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
+            raise TinyOlapCubeCreationError("List of dimensions to create cube is empty or undefined.")
         if len(dimensions) > self.MAX_DIMS_PER_CUBE:
-            raise CubeCreationException(f"Too many dimensions ({len(dimensions)}). "
+            raise TinyOlapCubeCreationError(f"Too many dimensions ({len(dimensions)}). "
                                         f"Maximum number dimensions per cube is {self.MAX_DIMS_PER_CUBE}.")
         dims = []
         for dimension in dimensions:
             if type(dimension) is str:
                 if dimension not in self.dimensions:
-                    raise CubeCreationException(f"A dimension named '{str(dimension)}' is not defined in "
+                    raise TinyOlapCubeCreationError(f"A dimension named '{str(dimension)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dims.append(self.dimensions[dimension])
             elif type(dimension) is Dimension:
                 if dimension.name not in self.dimensions:
-                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not defined in "
+                    raise TinyOlapCubeCreationError(f"Dimension '{str(dimension.name)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dim = self.dimensions[dimension.name]
                 if dim is not dimension:
-                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not the same dimension "
+                    raise TinyOlapCubeCreationError(f"Dimension '{str(dimension.name)}' is not the same dimension "
                                                 f"as the one defined in database '{self.name}'. You can only use "
                                                 f"dimensions from within a database to add cubes.")
 
                 dims.append(dimension)
             else:
-                raise CubeCreationException(f"Unsupported dimension type '{str(dimension)}'.")
+                raise TinyOlapCubeCreationError(f"Unsupported dimension type '{str(dimension)}'.")
         # validate measures
         if measures:
             if type(measures) is str:
                 if not utilities.utils.is_valid_member_name(measures):
-                    raise CubeCreationException(f"Measure name '{str(measures)}' is not a valid measure name. "
+                    raise TinyOlapCubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
                                                 f"Please refer the documentation for further details.")
             elif isinstance(measures, Iterable):
                 for m in measures:
                     if not utilities.utils.is_valid_member_name(m):
-                        raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
+                        raise TinyOlapCubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
                                                     f"Please refer the documentation for further details.")
         # create and return the cube
         cube = Cube.create(self._storage_provider, name, dims, measures, description)

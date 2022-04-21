@@ -37,7 +37,7 @@ class StorageProvider(ABC):
         Opens the database. If the database does not exist, a new database file will be created.
         :param kwargs:
         :return: Returns ``True``if the database has been opened successfully.
-        :raises DatabaseBackendException: Raised when the opening of / connecting to the database file failed.
+        :raises TinyOlapStorageError: Raised when the opening of / connecting to the database file failed.
         """
         pass
 

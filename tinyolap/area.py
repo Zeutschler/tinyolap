@@ -9,7 +9,7 @@ import copy
 import itertools
 from collections import Iterable
 
-from tinyolap.exceptions import InvalidCellOrAreaAddressException
+from tinyolap.exceptions import TinyOlapInvalidAddressError
 from tinyolap.member import Member
 
 
@@ -114,13 +114,12 @@ class Area:
         Returns nested tuples in the form ((dim_member1, ... , dim_memberN), value).
         """
         # if not self._rows:
-        # refresh dat area
+        # refresh data area
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         records = []
         facts = self._cube._facts
-        0
-        0
+
         for row in self._rows:
             # idx_address = facts.addresses[row]
             record = list(facts.addresses[row])
@@ -286,7 +285,7 @@ class Area:
             # ensure if dimensions are identical and 1 member per dimension and all member_defs are base level member_defs
             compatible, message = self._compatible(dest)
             if not compatible:
-                raise InvalidCellOrAreaAddressException(f"Set value failed. {message}")
+                raise TinyOlapInvalidAddressError(f"Set value failed. {message}")
 
             # clear the destination first
             dest.clear()
@@ -321,6 +320,7 @@ class Area:
                 else:
                     for address in self.addresses(False, True):
                         self._cube.set(address, value)
+
             else:
                 self._rows = rows
                 facts = self._cube._facts.facts
@@ -575,7 +575,7 @@ class Area:
             try:
                 idx_dim, members, idx_members, level_members = self._get_members(arg)
             except:
-                raise InvalidCellOrAreaAddressException(f"Invalid member definition. Argument '{str(arg)}' is not "
+                raise TinyOlapInvalidAddressError(f"Invalid member definition. Argument '{str(arg)}' is not "
                                                         f"a member of any dimension in cube '{self._cube.name}'")
 
             if not alter:
@@ -623,7 +623,7 @@ class Area:
         idx_dim = idx_dims[0]
         for idx in idx_dims[1:]:
             if idx != idx_dim:
-                # raise InvalidCellOrAreaAddressException(f"Invalid member definition argument '{str(item)}'. Members do not belong "
+                # raise TinyOlapInvalidAddressError(f"Invalid member definition argument '{str(item)}'. Members do not belong "
                 #                f"to one dimension only, multiple dimensions found.")
                 a = 1
 

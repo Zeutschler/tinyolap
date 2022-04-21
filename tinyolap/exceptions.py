@@ -6,72 +6,79 @@
 from __future__ import annotations
 
 
-class TinyOlapException(Exception):
+class TinyOlapError(Exception):
     """Base class for all tinyOlap specific exceptions."""
     pass
 
 
-class EncryptionException(TinyOlapException):
+class TinyOlapEncryptionError(TinyOlapError):
     """Raised when an encryption or decryption error occured. Especially on wrong password."""
     pass
 
 
-class RuleException(TinyOlapException):
+class TinyOlapRuleError(TinyOlapError):
     """Raised when an rule function fails or is invalid."""
     pass
 
 
-class InvalidCellOrAreaAddressException(TinyOlapException):
+class TinyOlapInvalidAddressError(TinyOlapError):
     """Raised when an invalid cube cell idx_address is detected."""
     pass
 
 
-class InvalidOperationException(TinyOlapException):
+class TinyOlapInvalidOperationError(TinyOlapError):
     """Raised when the invalid operation on a database object is executed."""
     pass
 
 
-class CubeCreationException(TinyOlapException):
+class TinyOlapCubeCreationError(TinyOlapError):
     """Raised when the creation of a cube."""
     pass
 
 
-class DimensionInUseException(TinyOlapException):
+class TinyOlapDimensionInUseError(TinyOlapError):
     """Raised when the deletion of a dimension failed to to being used by a cube."""
     pass
 
 
-class DatabaseBackendException(TinyOlapException):
-    """Raised when an error occurs while accessing or handling database storage_provider or files."""
+class TinyOlapStorageError(TinyOlapError):
+    """Raised when an error occurs while accessing or handling database storage_provider."""
     pass
 
+class TinyOlapSerializationError(TinyOlapError):
+    """Raised when an error occurs on serialization or deserialization of TinyOlap objects."""
+    pass
 
-class FatalException(TinyOlapException):
+class TinyOlapIOError(TinyOlapError):
+    """Raised when an error occurs while accessing or handling files."""
+    pass
+
+class TinyOlapFatalError(TinyOlapError):
     """Raised when a fatal error occurs."""
     pass
 
 
-class KeyNotFoundError(TinyOlapException):
+class TinyOlapKeyNotFoundError(TinyOlapError):
     """Raised when a certain member, dimension, table etc. not exist."""
     pass
 
 
-class InvalidKeyException(TinyOlapException):
+class TinyOlapInvalidKeyError(TinyOlapError):
     """Raised when a certain name of a member, dimension, table etc. is invalid  or not supported."""
     pass
 
 
-class DuplicateKeyException(TinyOlapException):
+class TinyOlapDuplicateKeyError(TinyOlapError):
     """Raised when a certain member, dimension, table etc. was added that already exists."""
     pass
 
 
-class InvalidMemberNameError(TinyOlapException):
+class TinyOlapInvalidMemberNameError(TinyOlapError):
     """Raised when a dimension member name is invalid, containing unsupported special characters."""
     pass
 
 
-class DimensionEditModeException(TinyOlapException):
+class TinyOlapDimensionEditModeError(TinyOlapError):
     """Raised when an error occurred while a dimension is in edit mode,
     or if member were added, removed or renamed while not in edit mode.
     Call 'edit_begin()' to start editing."""
