@@ -1,13 +1,11 @@
 import itertools
 import math
 from typing import Iterable, List
-from typing import get_type_hints
 from dataclasses import dataclass
 
 from dimension import Dimension
 from tinyolap.member import Member, MemberList
 from tinyolap.cube import Cube
-from utilities.hybrid_dict import HybridDict
 
 
 @dataclass
@@ -17,7 +15,7 @@ class ViewCell:
 
 
 class ViewAxisPosition:
-    def __init__(self, view, axis, members: tuple[Member] ):
+    def __init__(self, view, axis, members: tuple[Member]):
         self._view = view
         self._axis = axis
         self._members = members
@@ -52,11 +50,11 @@ class ViewAxis(Iterable[ViewAxisPosition]):
         if type(dimensions) is tuple and type(member_lists) is tuple:
             self._dimensions: tuple[Dimension] = dimensions
             self._dim_members: tuple[MemberList] = member_lists
-            self._dim_idx:tuple[int] = idx
+            self._dim_idx: tuple[int] = idx
         else:
-            self._dimensions: tuple[Dimension] = (dimensions, )
-            self._dim_members: tuple[MemberList] = (member_lists, )
-            self._dim_idx: tuple[int] = (idx, )
+            self._dimensions: tuple[Dimension] = (dimensions,)
+            self._dim_members: tuple[MemberList] = (member_lists,)
+            self._dim_idx: tuple[int] = (idx,)
 
         self._dim_count = len(self._dimensions)
         self._members_counts = tuple([len(members) for members in self._dim_members])
@@ -84,7 +82,6 @@ class ViewAxis(Iterable[ViewAxisPosition]):
     def __repr__(self):
         return self.__str__()
 
-
     @property
     def positions_count(self):
         """Returns the number of position on the axis."""
@@ -105,14 +102,15 @@ class ViewAxis(Iterable[ViewAxisPosition]):
         """Returns the number of position on the axis."""
         return self._positions
 
+
 class View:
     """
     Represents a view to a cube. Used for reporting purposes. Views manage, optimize
     and provide the client side access to data from a TinyOlap cube.
     """
 
-    def __init__(self, cube: Cube, view_definition = None, zero_suppression_on_rows: bool = False,
-                 zero_suppression_on_columns: bool = False ):
+    def __init__(self, cube: Cube, view_definition=None, zero_suppression_on_rows: bool = False,
+                 zero_suppression_on_columns: bool = False):
         """
         Initializes a new view for the given cube.
         :param cube: The Cube to create a view for.
@@ -252,7 +250,7 @@ class View:
             idx_address[axis._dim_idx[i]] = axis.positions[col][i].index
             super_level += axis.positions[col][i].level
 
-        value = self.cube._get((super_level, tuple(idx_address), ))
+        value = self.cube._get((super_level, tuple(idx_address),))
         return ViewCell(value, str(value))
 
     def __setitem__(self, coordinates, value):
@@ -384,10 +382,11 @@ class View:
         # set up filter axis
         if remaining > 0:
             self._filter_axis = ViewAxis(self,
-                     idx=tuple([idx for idx in range(remaining)]),
-                     dimensions=tuple([dimensions[idx] for idx in range(remaining)]),
-                     member_lists=tuple([MemberList(dimension=dimensions[idx], members=dimensions[idx].members[0])
-                                         for idx in range(remaining)]))
+                                         idx=tuple([idx for idx in range(remaining)]),
+                                         dimensions=tuple([dimensions[idx] for idx in range(remaining)]),
+                                         member_lists=tuple(
+                                             [MemberList(dimension=dimensions[idx], members=dimensions[idx].members[0])
+                                              for idx in range(remaining)]))
 
     def as_console_output(self, hide_zeros: bool = True) -> str:
         """Renders the view suitable for console output. The output contains
@@ -430,7 +429,7 @@ class View:
                     if hide_zeros and value == 0.0:
                         value = f"-".rjust(cell_width)
                     else:
-                        value = f"{value:,.2f}".rjust(cell_width)
+                        value = f"{value:,.0f}".rjust(cell_width)
                 elif value is None:
                     value = f"-".rjust(cell_width)
                 else:
@@ -441,7 +440,7 @@ class View:
                         text += "\n"
                     for pos, member in enumerate(self._row_axis.positions[r]):
                         caption = member.name
-                        # caption = (" " * indentation[pos]) + caption
+                        caption = (" " * (member.dimension.get_top_level() - member.level)) + caption
                         if len(caption) > row_header_width:
                             caption = caption[:row_header_width - 3].strip() + "..."
                         if pos in previous:
