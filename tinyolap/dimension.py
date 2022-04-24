@@ -93,7 +93,7 @@ class AttributeField:
         """Clears all attribute values for all members of the dimension."""
         self._cache = dict()
         for member in self._dimension.members:
-            del self._dimension.member_defs[member.idx][self._dimension.ATTRIBUTES][self._name]
+            del self._dimension.member_defs[member.index][self._dimension.ATTRIBUTES][self._name]
 
     def set(self, member, value):
         """
@@ -857,11 +857,11 @@ class Dimension:
 
     def __str__(self):
         """Returns the string representation of the dimension."""
-        return f"dim:{self._name}"
+        return self._name
 
     def __repr__(self):
         """Returns the string representation of the dimension."""
-        return f"dim{self._name}"
+        return self._name
 
     def __len__(self):
         """Returns the length (number of member_defs) of the dimension"""

@@ -132,7 +132,6 @@ class TestCube(TestCase):
     def test_big_cube(self,  console_output: bool = False):
         min_dims = 3
         max_dims = 8
-        measures = [f"measure_{i}" for i in range(0, 10)]
         base_members = [f"member_{i}" for i in range(0, 100)]
         max_loop_base_level = 100
         max_loop_aggregation = 100
@@ -152,15 +151,14 @@ class TestCube(TestCase):
                 dimension.commit()
                 dimensions.append(dimension)
                 members.append(base_members)
-            cube = db.add_cube("cube", dimensions, measures)
+            cube = db.add_cube("cube", dimensions)
 
             if console_output:
-                print(f"Cube with {dims} dimensions sized {', '.join(str(len(d)) for  d in dimensions)} "
-                      f"and {len(measures)} measures: ")
+                print(f"Cube with {dims} dimensions sized {', '.join(str(len(d)) for  d in dimensions)} : ")
 
             z = max_loop_base_level
             value = 0
-            addresses = self.shuffle_addresses(members, measures, max_loop_base_level)
+            addresses = self.shuffle_addresses(members, max_loop_base_level)
 
             start = time.time()
             for address in addresses:
@@ -181,7 +179,6 @@ class TestCube(TestCase):
             cube.caching = False
             start = time.time()
             total_address = ["Total"] * dims
-            total_address.append(measures[0])
             total_address = tuple(total_address)
             for i in range(max_loop_aggregation):
                 value = cube.get(total_address)
@@ -192,13 +189,12 @@ class TestCube(TestCase):
                       f"{(max_loop_aggregation * value) / duration:,.0f} aggregations/sec")
             cube.caching = True
 
-    def shuffle_addresses(self, members, measures, count):
+    def shuffle_addresses(self, members,  count):
         records = []
         for i in range(0, count):
             record = []
             for member in members:
                 record.append(member[randrange(len(member))])
-            record.append(measures[randrange(len(measures))])
             records.append(record)
 
         return tuple(records)

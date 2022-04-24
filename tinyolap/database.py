@@ -21,6 +21,7 @@ from tinyolap.cube import Cube
 from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *
 from tinyolap.history import History
+from utilities.hybrid_dict import HybridDict
 
 
 class Database:
@@ -77,8 +78,10 @@ class Database:
                 raise TinyOlapInvalidKeyError(f"'{name}' is not a valid database name or path. "
                                           f"For database names alphanumeric characters and underscore supported only, "
                                           f"no whitespaces, no special characters.")
-        self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
-        self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
+        # self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
+        self.dimensions: HybridDict[Dimension] = HybridDict()
+        # self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
+        self.cubes: HybridDict[Cube] = HybridDict()
         self._code_manager: CodeManager = CodeManager()
         self._history: History = History(self)
         self._name: str = name
@@ -215,7 +218,7 @@ class Database:
         :param value: Set value to ``True`` to activate caching, ``False`` to deactivate caching.
         """
         self._caching = value
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             cube.caching = value
 
     # endregion
@@ -269,7 +272,7 @@ class Database:
         if self._storage_provider:
             self._storage_provider.add_meta("db", self._to_json())
             self._storage_provider.add_meta("code", self._code_manager.to_json())
-            for cube in self.cubes.values():
+            for cube in self.cubes:
                 self._storage_provider.add_cube(cube.name, cube.to_json())
 
     def close(self):
@@ -354,9 +357,9 @@ class Database:
         exporter.open()
         exporter.add_meta("db", self._to_json())
         exporter.add_meta("code", self._code_manager.to_json())
-        for dimension in self.dimensions.values():
+        for dimension in self.dimensions:
             exporter.add_dimension(dimension.name, dimension.to_json())
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             exporter.add_cube(cube.name, cube.to_json())
             exporter.set_records(cube.name, cube._get_records())
         exporter.close()
@@ -436,7 +439,7 @@ class Database:
         if name not in self.dimensions:
             raise TinyOlapKeyNotFoundError(f"A dimension named '{name}' does not exist.")
 
-        uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
+        uses = [cube.name for cube in self.cubes if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
             raise TinyOlapDimensionInUseError(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                           f"and therefore can not be removed. Remove cubes first.")
@@ -461,7 +464,9 @@ class Database:
     # endregion
 
     # region Cube related methods
-    def add_cube(self, name: str, dimensions: list, measures=None, description: str = None):
+    # def add_cube(self, name: str, dimensions: list, measures=None, description: str = None):
+    def add_cube(self, name: str, dimensions: list, description: str = None):
+
         """
         Creates a new :ref:`cube<cubes>` and adds it to the database.
 
@@ -524,18 +529,20 @@ class Database:
             else:
                 raise TinyOlapCubeCreationError(f"Unsupported dimension type '{str(dimension)}'.")
         # validate measures
-        if measures:
-            if type(measures) is str:
-                if not utilities.utils.is_valid_member_name(measures):
-                    raise TinyOlapCubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
-                                                f"Please refer the documentation for further details.")
-            elif isinstance(measures, Iterable):
-                for m in measures:
-                    if not utilities.utils.is_valid_member_name(m):
-                        raise TinyOlapCubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
-                                                    f"Please refer the documentation for further details.")
+        # if measures:
+        #     if type(measures) is str:
+        #         if not utilities.utils.is_valid_member_name(measures):
+        #             raise TinyOlapCubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
+        #                                         f"Please refer the documentation for further details.")
+        #     elif isinstance(measures, Iterable):
+        #         for m in measures:
+        #             if not utilities.utils.is_valid_member_name(m):
+        #                 raise TinyOlapCubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
+        #                                             f"Please refer the documentation for further details.")
+
         # create and return the cube
-        cube = Cube.create(self._storage_provider, name, dims, measures, description)
+        # cube = Cube.create(self._storage_provider, name, dims, measures, description)
+        cube = Cube.create(self._storage_provider, name, dims, description)
         cube.caching = self.caching
         cube._database = self
         self.cubes[name] = cube
@@ -601,7 +608,7 @@ class Database:
             data = provider.get_cubes()
             for cube_tuple in data:
                 cube_name, cube_json = cube_tuple
-                cube = Cube.create(provider, cube_name, None, None, None)
+                cube = Cube.create(provider, cube_name, None, None)
                 cube._database = self
                 cube.from_json(cube_json)
                 self.cubes[cube_name] = cube
@@ -614,12 +621,12 @@ class Database:
         Formulas containing that member will get invalidated."""
 
         # broadcast to all cubes...
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             cube._remove_members(dimension, members)
 
     def _flush_cache(self):
         """Flushes all caches of all cubes"""
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             cube._cache = {}
 
     # endregion

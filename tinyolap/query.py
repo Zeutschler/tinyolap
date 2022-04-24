@@ -79,9 +79,11 @@ class Query:
                 from_index = index
                 cube_name = tokens[index + 1].normalized
                 # check for cube name
-                cube = self.database.cubes.lookuptry(cube_name)
-                if not cube:
+                # cube = self.database.cubes.try_lookup(cube_name)
+                # if not cube:
+                if cube_name not in self.database.cubes:
                     raise KeyError(f"Cube '{cube_name}' does not exit in database '{self.database.name}'.")
+                cube = self.database.cubes[cube_name]
                 cube_name = cube.name
                 break
         else:

@@ -40,8 +40,12 @@ class TestBaseFunction(TestCase):
         dim_products.add_member("Total", ["A", "B", "C"])
         dim_products.commit()
 
-        measures = ["Sales", "Cost", "Profit"]
-        self.cube = db.add_cube("sales", [dim_datatype, dim_years, dim_months, dim_products], measures)
+        dim_measures = db.add_dimension("measures")
+        dim_measures.edit()
+        dim_measures.add_member(["Sales", "Cost", "Profit"])
+        dim_measures.commit()
+
+        self.cube = db.add_cube("sales", [dim_datatype, dim_years, dim_months, dim_products, dim_measures])
 
     def test_formula(self):
 

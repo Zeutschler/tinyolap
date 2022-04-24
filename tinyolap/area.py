@@ -98,13 +98,18 @@ class Area:
             idx_address = facts.addresses[row]
             record = self._cube._idx_address_to_address(idx_address, include_cube_name=include_cube_name)
 
+            # if as_list:
+            #     for key in facts.facts[row]:
+            #         value = facts.facts[row][key]
+            #         record.append(value)
+            # else:
+            #     values = tuple(facts.facts[row].values())
+            #     record = [tuple(record), values]
+
             if as_list:
-                for key in facts.facts[row]:
-                    value = facts.facts[row][key]
-                    record.append(value)
+                record.append(facts.facts[row])
             else:
-                values = tuple(facts.facts[row].values())
-                record = [tuple(record), values]
+                record = [tuple(record), facts.facts[row]]
 
             yield record
 
@@ -128,7 +133,8 @@ class Area:
             #     record.append(value)
 
             # create a (idx_address, value) tuple for direct use
-            records.append((record, dict(facts.facts[row])))
+            # records.append((record, dict(facts.facts[row])))
+            records.append((record, facts.facts[row],))
         return records
 
     def addresses(self, include_cube_name: bool = False, enumerate_data_space: bool = False,
@@ -324,14 +330,24 @@ class Area:
             else:
                 self._rows = rows
                 facts = self._cube._facts.facts
+                # if callable(value):
+                #     for row in rows:
+                #         for k in facts[row]:
+                #             facts[row][k] = value()
+                # else:
+                #     for row in rows:
+                #         for k in facts[row]:
+                #             facts[row][k] = value
+
                 if callable(value):
                     for row in rows:
-                        for k in facts[row]:
-                            facts[row][k] = value()
+                        facts[row] = value()
                 else:
                     for row in rows:
-                        for k in facts[row]:
-                            facts[row][k] = value
+                        facts[row] = value
+
+
+
 
     def multiply(self, factor: float):
         """
@@ -341,10 +357,14 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for k, v in facts[row].items():
+        #         if type(v) is float:
+        #             facts[row][k] = v * factor
         for row in rows:
-            for k, v in facts[row].items():
-                if type(v) is float:
-                    facts[row][k] = v * factor
+            v = facts[row]
+            if type(v) is float:
+                facts[row] = v * factor
 
     def increment(self, value: float):
         """
@@ -354,10 +374,14 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for k, v in facts[row].items():
+        #         if type(v) is float:
+        #             facts[row][k] = v + value
         for row in rows:
-            for k, v in facts[row].items():
-                if type(v) is float:
-                    facts[row][k] = v + value
+            v = facts[row]
+            if type(v) is float:
+                facts[row] = v + value
 
     def min(self):
         """
@@ -367,13 +391,20 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for v in facts[row].values():
+        #         if type(v) is float:
+        #             if not minimum:
+        #                 minimum = v
+        #             if v < minimum:
+        #                 minimum = v
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    if not minimum:
-                        minimum = v
-                    if v < minimum:
-                        minimum = v
+            v = facts[row]
+            if type(v) is float:
+                if not minimum:
+                    minimum = v
+                if v < minimum:
+                    minimum = v
         return minimum
 
     def max(self):
@@ -384,13 +415,20 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for v in facts[row].values():
+        #         if type(v) is float:
+        #             if not maximum:
+        #                 maximum = v
+        #             if v > maximum:
+        #                 maximum = v
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    if not maximum:
-                        maximum = v
-                    if v > maximum:
-                        maximum = v
+            v = facts[row]
+            if type(v) is float:
+                if not maximum:
+                    maximum = v
+                if v > maximum:
+                    maximum = v
         return maximum
 
     def avg(self):
@@ -402,11 +440,16 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for v in facts[row].values():
+        #         if type(v) is float:
+        #             avg += v
+        #             z += 1
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    avg += v
-                    z += 1
+            v = facts[row]
+            if type(v) is float:
+                avg += v
+                z += 1
         if z == 0:
             return None
         return avg / z
@@ -420,11 +463,16 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for v in facts[row].values():
+        #         if type(v) is float:
+        #             total += v
+        #             z += 1
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    total += v
-                    z += 1
+            v = facts[row]
+            if type(v) is float:
+                total += v
+                z += 1
         if z == 0:
             return None
         return total
@@ -694,20 +742,25 @@ class Area:
             if other._pinned:
                 for record in other._pinned_records:
                     idx_address = record[0]
-                    values = record[1]
 
                     for modifier in self._modifiers:
                         idx_dim = modifier[0]
                         idx_member = modifier[2][0]
                         idx_address[idx_dim] = idx_member
 
-                    for key in values:
-                        value = values[key]
-                        if other._func:
-                            value = other._func(value)
-                        bolt = (0, tuple(idx_address), key)
-                        self._cube._set(bolt, value)
-                        # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+                    # values = record[1]
+                    # for key in values:
+                    #     value = values[key]
+                    #     if other._func:
+                    #         value = other._func(value)
+                    #     bolt = (0, tuple(idx_address), key)
+                    #     self._cube._set(bolt, value)
+                    #     # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+                    value = record[1]
+                    if other._func:
+                        value = other._func(value)
+                    bolt = (0, tuple(idx_address))
+                    self._cube._set(bolt, value)
 
             else:
                 if not other._rows:
@@ -722,13 +775,19 @@ class Area:
                         idx_member = modifier[2][0]
                         idx_address[idx_dim] = idx_member
 
-                    for key in facts.facts[row]:
-                        value = facts.facts[row][key]
-                        if other._func:
-                            value = other._func(value)
-                        bolt = (0, tuple(idx_address), key)
-                        self._cube._set(bolt, value)
-                        # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+                    # for key in facts.facts[row]:
+                    #     value = facts.facts[row][key]
+                    #     if other._func:
+                    #         value = other._func(value)
+                    #     bolt = (0, tuple(idx_address), key)
+                    #     self._cube._set(bolt, value)
+                    #     # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+                    value = facts.facts[row]
+                    if other._func:
+                        value = other._func(value)
+                    bolt = (0, tuple(idx_address))
+                    self._cube._set(bolt, value)
+
 
     def identical_modifiers(self, modifiers_a, modifiers_b) -> bool:
         if len(modifiers_a) != len(modifiers_b):

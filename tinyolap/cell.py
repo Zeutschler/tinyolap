@@ -115,7 +115,8 @@ class Cell(SupportsFloat):
 
         key_level = 6  # LEVEL
         key_name = 1  # NAME
-        super_level, idx_address, idx_measure = self._bolt
+        # super_level, idx_address, idx_measure = self._bolt
+        super_level, idx_address = self._bolt
         idx_address = list(idx_address)
         address = list(self._address)
 
@@ -138,7 +139,8 @@ class Cell(SupportsFloat):
 
         for modifier in modifiers:
             idx_address[modifier[0]] = modifier[1]
-        bolt = (super_level, tuple(idx_address), idx_measure)
+        # bolt = (super_level, tuple(idx_address), idx_measure)
+        bolt = (super_level, tuple(idx_address))
         return Cell.create(self._cube, self._names, address, bolt)
 
     def member(self, dimension_and_or_member_name: str) -> Member:
@@ -193,7 +195,8 @@ class Cell(SupportsFloat):
             item = (item,)
 
         key_level = 6  # LEVEL
-        super_level, idx_address, idx_measure = self._bolt
+        # super_level, idx_address, idx_measure = self._bolt
+        super_level, idx_address = self._bolt
         idx_address = list(idx_address)
 
         for member in item:
@@ -215,7 +218,8 @@ class Cell(SupportsFloat):
         # Finally modify the idx_address and set the value
         for modifier in modifiers:
             idx_address[modifier[0]] = modifier[1]
-        bolt = (super_level, tuple(idx_address), idx_measure)
+        # bolt = (super_level, tuple(idx_address), idx_measure)
+        bolt = (super_level, tuple(idx_address))
         return bolt
 
     def _get_member(self, member):

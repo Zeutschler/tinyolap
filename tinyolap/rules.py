@@ -156,6 +156,7 @@ class Rules:
         # new implementation
         self.rules: dict[RuleScope, list[Rule]] = {}
         self.patterns: dict[RuleScope, list[list[tuple[int, int]]]] = {}
+        self._rules_count: int = 0
 
         # old implementation
         self.any: bool = False
@@ -197,6 +198,9 @@ class Rules:
             self.rules[scope] = [rule]
             self.patterns[scope] = [rule.idx_trigger_pattern]
 
+        # update number of rules
+        self._rules_count = sum([len(rules) for rules in self.rules.values()])
+
     def match(self, scope: RuleScope, idx_address: list[tuple[int, int]]) -> (bool, object):
         """
         Returns the first trigger match, if any, for a given cell address.
@@ -224,7 +228,8 @@ class Rules:
         return self.functions is True
 
     def __len__(self):
-        return len(self.functions)
+        return self._rules_count
+        # return len(self.functions)
 
     def register(self, function, cube: str, function_name: str,
                  pattern: list[str], idx_pattern: list[tuple[int, int]],

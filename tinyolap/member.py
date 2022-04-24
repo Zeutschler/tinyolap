@@ -77,7 +77,7 @@ class Member:
         return self._name
 
     @property
-    def idx(self) -> int:
+    def index(self) -> int:
         """ Returns the internal index of the member."""
         return self._idx_member
 

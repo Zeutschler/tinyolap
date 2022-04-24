@@ -112,18 +112,20 @@ class FactTable:
         self.cache_machtes: int = 0
         self.cached_seq_machting = None
 
-    def set(self, address: tuple, measure, value):
+    # def set(self, address: tuple, measure, value):
+    def set(self, address: tuple, value):
+
         record_hash = hash(address)
         if record_hash in self.row_lookup:
             # overwrite existing record/value
             row = self.row_lookup[record_hash]
-            self.facts[row][measure] = value
+            self.facts[row] = value
             return True
         else:
             # add new record
             row = len(self.facts)
             self.row_lookup[record_hash] = row
-            self.facts.append({measure: value})
+            self.facts.append(value)
             self.addresses.append(address)
             # update index
             self.index.set(address, row)
@@ -131,13 +133,14 @@ class FactTable:
                 self.cube._update_aggregation_index(self.index, address, row)
             return True
 
-    def get(self, address, measure):
+    # def get(self, address, measure):
+    def get(self, address):
+
         record_hash = hash(address)
         if record_hash in self.row_lookup:
             # overwrite existing record/value
             row = self.row_lookup[record_hash]
-            if measure in self.facts[row]:
-                return self.facts[row][measure]
+            return self.facts[row]
         return 0.0
 
     def get_facts(self, record):
@@ -163,10 +166,8 @@ class FactTable:
     def get_record_by_row(self, row: int):
         return self.addresses[row], self.facts[row]
 
-    def get_value_by_row(self, row, measure):
-        if measure in self.facts[row]:
-            return self.facts[row][measure]
-        return None
+    def get_value_by_row(self, row):
+        return self.facts[row]
 
     def query(self, idx_address):
         """

@@ -83,14 +83,14 @@ class Slice:
         self.zero_rows = []
         self.zero_cols = []
         self.dimensions = {}
-        self.measures = []
+        # self.measures = []
         self.cube = cube  # weakref.ref(cube) if cube else None
         self.definition = definition
         self.suppress_zero_columns = suppress_zero_columns
         self.suppress_zero_rows = suppress_zero_rows
         self.title = ""
 
-        self.__validate()
+        self._validate()
         self.__prepare()
         self.refresh()
 
@@ -122,17 +122,18 @@ class Slice:
         of the Slice or since the last to 'refresh()'."""
         dim_count = len(self.cube._dimensions)
         address = [""] * dim_count
-        measure = ""
+        # measure = ""
         grid = []
         formats = {}
 
         # set fixed header values
         for member in self.axis[0]:
             dim_ordinal = member[0]
-            if dim_ordinal == -1:
-                measure = member[1]
-            else:
-                address[dim_ordinal] = member[1]
+            # if dim_ordinal == -1:
+            #     measure = member[1]
+            # else:
+            #     address[dim_ordinal] = member[1]
+            address[dim_ordinal] = member[1]
 
         # iterate over columns and rows
         row = 0
@@ -145,10 +146,11 @@ class Slice:
                 indent = dimension.get_top_level() - dimension.member_get_level(row_member[1])
                 row_member_indent.append(indent)
                 row_members.append(row_member[1])
-                if dim_ordinal == -1:
-                    measure = row_member[1]
-                else:
-                    address[dim_ordinal] = row_member[1]
+                # if dim_ordinal == -1:
+                #     measure = row_member[1]
+                # else:
+                #     address[dim_ordinal] = row_member[1]
+                address[dim_ordinal] = row_member[1]
 
             col = 0
             for col_member_set in self.axis[1]:
@@ -156,10 +158,11 @@ class Slice:
                 for col_member in col_member_set:
                     dim_ordinal = col_member[0]
                     col_members.append(col_member[1])
-                    if dim_ordinal == -1:
-                        measure = col_member[1]
-                    else:
-                        address[dim_ordinal] = col_member[1]
+                    # if dim_ordinal == -1:
+                    #     measure = col_member[1]
+                    # else:
+                    #     address[dim_ordinal] = col_member[1]
+                    address[dim_ordinal] = col_member[1]
 
                 # check formats
                 number_format = '{:,.0f}' # default format
@@ -174,9 +177,12 @@ class Slice:
                         number_format = formats[member]
 
                 # now we have a valid idx_address to be evaluated
-                value = self.cube.get(tuple(address) + (measure,))
+                # value = self.cube.get(tuple(address) + (measure,))
+                # grid.append([col, row, value, col_members, row_members, tuple(address),
+                #              measure, number_format, row_member_indent])
+                value = self.cube.get(tuple(address))
                 grid.append([col, row, value, col_members, row_members, tuple(address),
-                             measure, number_format, row_member_indent])
+                             number_format, row_member_indent])
 
                 col += 1
             row += 1
@@ -188,7 +194,7 @@ class Slice:
         # execute zero suppression
         self.__zero_suppression()
 
-    def __validate(self):
+    def _validate(self):
         """Validates the definition and adds missing information"""
 
         self.dimensions = {dim.name: False for dim in self.cube._dimensions}
@@ -221,15 +227,15 @@ class Slice:
                         "member": member_list
                     })
 
-        # add missing measure, if required
-        if not self.measures:
-            # simply use the first measure and wrap it into a list.
-            self.measures = [list(self.cube.get_measures())[0]]
-            if "header" not in self.definition:
-                self.definition["header"] = []
-            self.definition["header"].append({
-                "measure": self.measures
-            })
+        # # add missing measure, if required
+        # if not self.measures:
+        #     # simply use the first measure and wrap it into a list.
+        #     self.measures = [list(self.cube.get_measures())[0]]
+        #     if "header" not in self.definition:
+        #         self.definition["header"] = []
+        #     self.definition["header"].append({
+        #         "measure": self.measures
+        #     })
 
         return True
 
@@ -243,18 +249,21 @@ class Slice:
                 if not type(member_def) is dict:
                     raise ValueError(f"Slice axis '{axis}' expected to contain a list of definitions of type 'dict', "
                                      f"but instead 'dict' type {type(member_def)} was found.")
-                if ("dimension" not in member_def) and ("measure" not in member_def):
-                    raise ValueError(f"Slice axis '{axis}' expected to contain either keys 'dimension' or 'measure', "
+                # if ("dimension" not in member_def) and ("measure" not in member_def):
+                #     raise ValueError(f"Slice axis '{axis}' expected to contain either keys 'dimension' or 'measure', "
+                #                      f"but definition '{member_def}' does contain neither.")
+                if ("dimension" not in member_def):
+                    raise ValueError(f"Slice axis '{axis}' expected to contain keys 'dimension', "
                                      f"but definition '{member_def}' does contain neither.")
 
                 # ******************************************
                 # validate dimension definition
                 # ******************************************
                 if "dimension" in member_def:
-                    if "measure" in member_def:
-                        raise ValueError(
-                            f"Slice axis '{axis}' contains both keys 'dimension' and 'measure' in "
-                            f"definition '{member_def}', but only one key is allowed per definition.")
+                    # if "measure" in member_def:
+                    #     raise ValueError(
+                    #         f"Slice axis '{axis}' contains both keys 'dimension' and 'measure' in "
+                    #         f"definition '{member_def}', but only one key is allowed per definition.")
                     dimension = member_def["dimension"]
                     if dimension not in self.dimensions:
                         raise ValueError(
@@ -287,33 +296,33 @@ class Slice:
                         type_name = type(member_def["member"])
                         raise ValueError(f"Slice axis '{axis}' contains an invalid definition '{member_def}'.")
 
-                # ******************************************
-                # validate measure definition
-                # ******************************************
-                elif "measure" in member_def:
-                    if "dimension" in member_def:
-                        raise ValueError(
-                            f"Slice axis '{axis}' contains both keys 'dimension' and 'measure' in "
-                            f"definition '{member_def}', but only one key is allowed per definition.")
-
-                    measure = member_def["measure"]
-                    if (not measure) or (measure == "*"):
-                        self.definition[axis][position]["measure"] = self.cube.measures  # get all measures
-                    if type(measure) is str:
-                        if measure not in self.cube.measures:
-                            raise ValueError(
-                                f"Slice axis '{axis}' contains an unknown measure '{measure}' in "
-                                f"definition '{member_def}'.")
-                        self.definition[axis][position]["measure"] = [measure]
-                    if type(measure) is list:
-                        for m in measure:
-                            if m not in self.cube._measures:
-                                raise ValueError(
-                                    f"Slice axis '{axis}' contains an unknown measure '{m}' in "
-                                    f"definition '{member_def}'.")
-                        self.measures = measure
-                    else:
-                        raise ValueError(f"Slice axis '{axis}' contains an invalid definition '{member_def}'.")
+                # # ******************************************
+                # # validate measure definition
+                # # ******************************************
+                # elif "measure" in member_def:
+                #     if "dimension" in member_def:
+                #         raise ValueError(
+                #             f"Slice axis '{axis}' contains both keys 'dimension' and 'measure' in "
+                #             f"definition '{member_def}', but only one key is allowed per definition.")
+                #
+                #     measure = member_def["measure"]
+                #     if (not measure) or (measure == "*"):
+                #         self.definition[axis][position]["measure"] = self.cube.measures  # get all measures
+                #     if type(measure) is str:
+                #         if measure not in self.cube.measures:
+                #             raise ValueError(
+                #                 f"Slice axis '{axis}' contains an unknown measure '{measure}' in "
+                #                 f"definition '{member_def}'.")
+                #         self.definition[axis][position]["measure"] = [measure]
+                #     if type(measure) is list:
+                #         for m in measure:
+                #             if m not in self.cube._measures:
+                #                 raise ValueError(
+                #                     f"Slice axis '{axis}' contains an unknown measure '{m}' in "
+                #                     f"definition '{member_def}'.")
+                #         self.measures = measure
+                #     else:
+                #         raise ValueError(f"Slice axis '{axis}' contains an invalid definition '{member_def}'.")
 
             return self.definition[axis]
         else:
@@ -328,6 +337,9 @@ class Slice:
         self.axis = []
         for axis_index, axis_name in enumerate(axes):
             self.axis.append([])
+            if not "header" in self.definition:
+                continue
+
             for definition in self.definition[axis_name]:
                 members = []
                 if "dimension" in definition:
@@ -335,10 +347,10 @@ class Slice:
                     dim_ordinal = self.cube.get_dimension_ordinal(dimension)
                     for member in definition["member"]:
                         members.append((dim_ordinal, member, dimension))
-                elif "measure" in definition:
-                    for measure in definition["measure"]:
-                        members.append((-1, measure))
-                    pass
+                # elif "measure" in definition:
+                #     for measure in definition["measure"]:
+                #         members.append((-1, measure))
+                #     pass
                 else:
                     raise ValueError("Unexpect error in Slice preparation.")
                 self.axis[axis_index].append(members)
@@ -453,8 +465,8 @@ class Slice:
             col = cell[0]
             row = cell[1]
             value = cell[2]
-            num_format = cell[7]
-            indentation = cell[8]
+            num_format = cell[6]
+            indentation = cell[7]
             if type(value) is float:
                 if hide_zeros and value == 0.0:
                     value = f"-".rjust(cell_width)
@@ -552,8 +564,8 @@ class Slice:
             col = cell[0]
             row = cell[1]
             value = cell[2]
-            format = cell[7]
-            indentation = cell[8]
+            format = cell[6]
+            indentation = cell[7]
 
             # row headers
             if col == 0:

@@ -2,7 +2,7 @@
 # TinyOlap, copyright (c) 2021 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
+import random
 import time
 import psutil
 from random import randrange
@@ -21,7 +21,7 @@ members_per_dimension = 100
 def load_huge(console_output: bool = False):
     """
     Creates a simple but huge TinyOlap database. The intended purpose
-    is to see how well a huge database performs, how much memory is
+    is to see how well a huge                                                                                                            database performs, how much memory is
     consumes and how well it uses the CPU (it does not use it well,
     it's just Python)
     """
@@ -54,12 +54,12 @@ def load_huge(console_output: bool = False):
     cube = db.add_cube("huge", dimensions)
 
     # lets check duration and memory consumption
-    if console_output:
-        duration = time.time() - start
-        actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
-        print(f"\tCreating the 'huge' data model with {numbers_of_dimensions}x dimensions, "
-              f"each with {members_per_dimension:,}x members in {duration:.3} sec.")
-        print(f"\tMemory consumption of database without data is ±{actual_memory_consumption:,} MB.\n")
+    # if console_output:
+    #     duration = time.time() - start
+    #     actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
+    #     print(f"\tCreating the 'huge' data model with {numbers_of_dimensions}x dimensions, "
+    #           f"each with {members_per_dimension:,}x members in {duration:.3} sec.")
+    #     print(f"\tMemory consumption of database without data is ±{actual_memory_consumption:,} MB.\n")
 
     # 4. now start the data import
     if console_output:
@@ -82,12 +82,16 @@ def load_huge(console_output: bool = False):
 
     if console_output:
         print()
-        duration = time.time() - start
-        actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
-        print(f"\tImporting {numbers_of_records:,} records into the 'huge' data model in {duration:.3} sec.")
-        print(f"\tMemory consumption of database including {cube.cells_count:,} values "
-          f"is ±{actual_memory_consumption:,} MB, "
-          f"±{round(actual_memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
+        print()
+
+    # if console_output:
+    #     print()
+    #     duration = time.time() - start
+    #     actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
+    #     print(f"\tImporting {numbers_of_records:,} records into the 'huge' data model in {duration:.3} sec.")
+    #     print(f"\tMemory consumption of database including {cube.cells_count:,} values "
+    #       f"is ±{actual_memory_consumption:,} MB, "
+    #       f"±{round(actual_memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
 
     # That's it...
     return db, cube, dimensions, member_lists
@@ -129,8 +133,72 @@ def play_huge(console_output: bool = True):
               f"\n      Reason: randomly generated cell addresses might have create duplicate addresses.")
 
 
+def benchmark_load_database(console_output: bool = True):
+
+    initially_used_memory = psutil.Process().memory_info().rss / (1024 * 1024)
+    start = time.time()
+
+    database, cube, dimensions, member_lists = load_huge(console_output)
+
+    duration = time.time() - start
+    actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
+    print(f"Importing {numbers_of_records:,} records into the 'huge' data model "
+          f"in {duration:.6} sec, {round(numbers_of_records/duration, 0):,} ops/sec, ")
+    print(f"Memory consumption of database including {cube.cells_count:,} values "
+          f"is ±{actual_memory_consumption:,} MB, "
+          f"±{round(actual_memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
+
+    return database, cube, dimensions, member_lists
+
+
+def benchmark_read_random_base_cells(cube, dimensions, loops: int = 10_000, console_output: bool = True):
+    address = []
+    while True:
+        address = [dim.get_leaves()[random.randrange(0, len(dim.get_leaves()))] for dim in dimensions]
+        value = cube.get(address)
+        if value is None or value == 0.0:
+            break
+
+    start = time.time()
+    for l in range(loops):
+        value = cube.get(address)
+    duration = time.time() - start
+    print(f"Reading non-existing base level cell {loops:,}x times from 'huge' data model "
+          f"in {duration:.6} sec, {round(loops/duration, 0):,} ops/sec, ")
+
+    cube.set(address, 1.0)
+    start = time.time()
+    for l in range(loops):
+        value = cube.get(address)
+    duration = time.time() - start
+    print(f"Reading existing base level cell {loops:,}x times from 'huge' data model "
+          f"in {duration:.6} sec, {round(loops/duration, 0):,} ops/sec, ")
+
+
+def benchmark_read_top_cells(cube, dimensions, loops: int = 10, console_output: bool = True):
+    address = ["All" for dim in dimensions]
+    cube.caching = False
+    value = 0.0
+    start = time.time()
+    for l in range(loops):
+        value = cube.get(address)
+    duration = time.time() - start
+    print(f"Reading top level cell {loops:,}x times from 'huge' data model "
+          f"in {duration:.6} sec, {round((loops * value)/duration, 0):,} ops/sec, ")
+
+
+def benchmark(console_output: bool = True):
+    # 1. create and load the database
+
+    database, cube, dimensions, member_lists = benchmark_load_database(console_output)
+    benchmark_read_random_base_cells(cube, dimensions,10_000, console_output)
+    benchmark_read_top_cells(cube, dimensions, 10, console_output)
+
+
+
 def main():
-    play_huge()
+    # play_huge()
+    benchmark(True)
 
 
 if __name__ == "__main__":

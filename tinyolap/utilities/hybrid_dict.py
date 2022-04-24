@@ -20,6 +20,8 @@ class HybridDict(Iterable[Generic[T]]):
         :param source: An (optional) source object to ensure that set operations
         are executed only on items of the same source object.
         """
+        if not isinstance(items, Iterable):
+            items = (items, )
         self._list: list[T] = list(items)
         self._dict: dict[str, T] = {str(item).lower(): item for item in items}
         self._source = source
@@ -51,7 +53,7 @@ class HybridDict(Iterable[Generic[T]]):
                 self._list.append(value)
 
     def __delitem__(self, item):
-        if type(item is T):
+        if type(item) is T:
             while item in self._list:
                 self._list.remove(item)
             del self._dict[str(item)]

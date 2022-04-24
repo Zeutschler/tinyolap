@@ -105,7 +105,6 @@ def create_database(name: str = "enterprise", database_directory: str = None,
 def populate_cube_pnl(db: Database, cube: Cube):
     """Populate the Profit & Loss cube"""
     # This will get a bit weird / tricky as we want to create somehow realistic figures
-    pnl_dim = db.dimensions.get("pnl")
     companies = db.get_dimension("companies").get_leaves()
     years = db.get_dimension("years").get_leaves()  # Jan... Dec
     months = db.get_dimension("periods").get_leaves()  # Jan... Dec
