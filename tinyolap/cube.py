@@ -92,6 +92,11 @@ class Cube:
         return len(self._facts.facts)
 
     @property
+    def database(self):
+        """Returns the database the cube belongs to."""
+        return self._database
+
+    @property
     def name(self) -> str:
         """Returns the name of the cube."""
         return self._name

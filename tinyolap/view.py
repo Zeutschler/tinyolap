@@ -1,17 +1,49 @@
 import itertools
+import json
 import math
+import uuid
+from datetime import datetime
+import time
 from typing import Iterable, List
 from dataclasses import dataclass
 
-from dimension import Dimension
+from tinyolap.config import Config
+from tinyolap.dimension import Dimension
 from tinyolap.member import Member, MemberList
 from tinyolap.cube import Cube
-
 
 @dataclass
 class ViewCell:
     value: float = 0.0
     formatted_value: str = ""
+
+
+@dataclass
+class ViewStatistics:
+    last_refresh: datetime = datetime.min
+    refresh_duration: float = 0.0
+    cells_count: int = 0
+    rows: int = 0
+    columns: int = 0
+    row_dimensions: int = 0
+    column_dimensions: int = 0
+    executed_rules: int = 0
+    executed_cell_requests: int = 0
+    executed_cell_aggregations: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+                'lastRefresh': str(self.last_refresh.isoformat()),
+                'refreshDuration': self.refresh_duration,
+                'cellsCount': self.cells_count,
+                'rowsCount': self.rows,
+                'columnsCount': self.columns,
+                'rowDimensionsCount': self.row_dimensions,
+                'columnDimensionsCount': self.column_dimensions,
+                'executedRules': self.executed_rules,
+                'executedCellRequests': self.executed_cell_requests,
+                'executedCellAggregations': self.executed_cell_aggregations
+        }
 
 
 class ViewAxisPosition:
@@ -102,15 +134,33 @@ class ViewAxis(Iterable[ViewAxisPosition]):
         """Returns the number of position on the axis."""
         return self._positions
 
+    def to_dict(self) -> dict:
+        """Converts the view axis into a serializable Python dictionary."""
+        """FOR INTERNAL USE! Converts the contents of the attribute field to a dict."""
+        return {"dimensions": [
+                    {"name": dim.name, "ordinal": ordinal}
+                        for ordinal, dim in enumerate(self._dimensions)
+                ],
+                "positions": [
+                    {"row": row, "members": [
+                        {"name": member.name, "level": member.level,
+                         "root": member.is_root} for member in position
+                    ]} for row, position in enumerate(self._positions)
+                ],
+                }
+
 
 class View:
     """
     Represents a view to a cube. Used for reporting purposes. Views manage, optimize
     and provide the client side access to data from a TinyOlap cube.
     """
+    # todo: drilldown path
+    # todo: drilldowns ermöglichen
+    # todo: json output fUr clients
 
     def __init__(self, cube: Cube, view_definition=None, zero_suppression_on_rows: bool = False,
-                 zero_suppression_on_columns: bool = False):
+                 zero_suppression_on_columns: bool = False, uid=None):
         """
         Initializes a new view for the given cube.
         :param cube: The Cube to create a view for.
@@ -118,15 +168,21 @@ class View:
         a default view definition, based on the cubes structure, will be created.
         :param zero_suppression_on_rows: Identifies is zero suppression should be applied to the rows of the view.
         :param zero_suppression_on_columns: Identifies is zero suppression should be applied to the columns of the view.
+        :param uid: A uid of the view object. Useful for client/server interaction, persistence and state management.
         """
         self._cube: Cube = cube
         self._def = view_definition
         self._row_zero: bool = zero_suppression_on_rows
         self._col_zero: bool = zero_suppression_on_columns
         self._cells = []
+        self._title: str = "TinyOlap View"
+        self._description: str = ""
+        self._statistics: ViewStatistics = ViewStatistics()
+
+        self._uid: str = str(uid) if uid else str(uuid.uuid4())
 
         if not self._def:
-            self._create_default_definition()
+            self._create_default_view_definition()
         else:
             self._filter_axis: ViewAxis = ...
             self._row_axis: ViewAxis = ...
@@ -143,6 +199,36 @@ class View:
     def definition(self) -> dict:
         """Returns the cube of the view."""
         return self._def
+
+    @property
+    def uid(self) -> str:
+        """Returns the uid of the view. Useful for client/server interaction, persistence and state management."""
+        return self._uid
+
+    @property
+    def title(self) -> str:
+        """Returns the title of the view."""
+        return self._title
+
+    @title.setter
+    def title(self, value: bool):
+        """Sets the title of the view."""
+        self._title = value
+
+    @property
+    def description(self) -> bool:
+        """Returns the description of the view."""
+        return self._row_zero
+
+    @description.setter
+    def description(self, value: bool):
+        """Sets the description of the view."""
+        self._row_zero = value
+
+    @property
+    def statistics(self) -> ViewStatistics:
+        """Returns the statistic information about the view."""
+        return self._statistics
 
     @property
     def zero_suppression_on_rows(self) -> bool:
@@ -221,20 +307,7 @@ class View:
             row = 0
             raise NotImplementedError()
 
-        # # collect address by name
-        # address = [None] * self._cube.dimensions_count
-        # axis = self._filter_axis
-        # for i in range(axis._dim_count):
-        #     address[axis._dim_idx[i]] = axis.positions[0][i].name
-        # axis = self._row_axis
-        # for i in range(axis._dim_count):
-        #     address[axis._dim_idx[i]] = axis.positions[row][i].name
-        # axis = self._col_axis
-        # for i in range(axis._dim_count):
-        #     address[axis._dim_idx[i]] = axis.positions[col][i].name
-        # value = self.cube[address]
-
-        # collect address by index
+        # collect address by index (not by name, by index is much faster)
         idx_address = [0] * self._cube.dimensions_count
         axis = self._filter_axis
         super_level = 0
@@ -324,6 +397,15 @@ class View:
 
     def refresh(self):
         """Refreshes (updates) the view."""
+
+        # prepare statistics
+        stat = self._statistics
+        stat.refresh_duration = time.time()
+        stat.executed_cell_requests = self._cube.counter_cell_requests
+        stat.executed_cell_aggregations = self._cube.counter_aggregations
+        stat.executed_rules = self._cube.counter_rule_requests
+
+        # refresh data
         cells = []
         filter_level = 0
         idx_address = [0] * self._cube.dimensions_count
@@ -345,17 +427,30 @@ class View:
                     idx_address[cols._dim_idx[i]] = cols.positions[col][i].index
                     super_level += cols.positions[col][i].level
 
-                value = self.cube._get((super_level, tuple(idx_address),))
+                value = self._cube._get((super_level, tuple(idx_address),))
 
                 view_cell = ViewCell(value, str(value))
                 if col == 0:
                     cells.append([view_cell, ])
                 else:
                     cells[row].append(view_cell)
-
         self._cells = cells
 
-    def _create_default_definition(self):
+        # update statistics
+        stat.last_refresh = datetime.now()
+        stat.refresh_duration = round(time.time() - stat.refresh_duration, 6)
+        stat.executed_cell_requests = self._cube.counter_cell_requests - stat.executed_cell_requests
+        stat.executed_cell_aggregations = self._cube.counter_aggregations - stat.executed_cell_aggregations
+        stat.executed_rules = self._cube.counter_rule_requests - stat.executed_rules
+        stat.rows = rows.positions_count
+        stat.columns = cols.positions_count
+        stat.cells_count = stat.rows * stat.columns
+        stat.row_dimensions = rows._dim_count
+        stat.column_dimensions = cols._dim_count
+
+        return self
+
+    def _create_default_view_definition(self):
         """Creates a default view definition.
 
         The last dimension of the cube will be placed in the column axis of the view,
@@ -454,3 +549,33 @@ class View:
 
                 text += value
         return text
+
+    def to_json(self, indent=None) -> str:
+        """Converts the current state of the view into a json string. Useful for serialization.
+        :param indent: Indentation for json formatting.
+        """
+        return json.dumps(self.to_dict(), indent=indent)
+
+    def to_dict(self) -> dict:
+        """Converts the current state of the view into a serializable Python dictionary."""
+        """FOR INTERNAL USE! Converts the contents of the attribute field to a dict."""
+        return {"contentType": Config.ContentTypes.VIEW,
+                "version": Config.VERSION,
+                "uid": self.uid,
+                "title": self.title,
+                "description": self.description,
+                "database": str(self.cube.database.name),
+                "cube": str(self.cube.name),
+                "statistics": self._statistics.to_dict(),
+                "axes": {
+                    "filters": self._filter_axis.to_dict(),
+                    "rows": self._row_axis.to_dict(),
+                    "columns": self._col_axis.to_dict(),
+                },
+                "cells": [
+                    {"row": row_id, "cells": [
+                        {"row": row_id, "col": col_id, "value": cell.value,
+                         "text": cell.formatted_value} for col_id, cell in enumerate(row)
+                    ]} for row_id, row in enumerate(self._cells)
+                ]
+                }

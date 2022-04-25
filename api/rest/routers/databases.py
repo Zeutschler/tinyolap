@@ -4,7 +4,7 @@ from pydantic import BaseModel, parse_obj_as
 from fastapi import APIRouter, Depends, HTTPException
 from ..dependencies import lock
 from ..tiny.catalog import catalog
-from ..tiny.setup import server
+from ..tiny.initialization import server
 
 from tinyolap.database import Database
 

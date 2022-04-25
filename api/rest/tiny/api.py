@@ -1,22 +1,17 @@
-# -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2022 Thomas Zeutschler
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
 import random
 
+from tinyolap.cube import Cube
 from tinyolap.server import Server
 from tinyolap.database import Database
+from tinyolap.view import View
 
-
-# region create sample database and simple read/write functions
+# region Create a very small sample database
 dim1 = ["2021", "2022", "2023"]
 dim2 = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
 dim3 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
 dim4 = ["X", "Z", "Y"]
 members = [dim1, dim2, dim3, dim4]
-
-
-def tinyolap_db() -> Database:
+def very_small_sample_db() -> Database:
     db = Database("db")
     cube = db.add_cube("cube", [
         create_dim(db, "dim1", dim1),
@@ -28,8 +23,6 @@ def tinyolap_db() -> Database:
         cube.set([members[d][random.randrange(0,len(members[d]))]
                   for d in range(len(members))], round(random.random() * 1000.0, 0))
     return db
-
-
 def create_dim(db, name, members):
     dim = db.add_dimension(name).edit()
     for member in members:
@@ -37,8 +30,10 @@ def create_dim(db, name, members):
     dim.add_member("All", members)
     dim.commit()
     return dim
+# endregion
 
 
+# API functions
 def random_read(db: Database) -> (str, str, list[str], float):
     cube = db.cubes["cube"]
     address = [members[d][random.randrange(0,len(members[d]))]
@@ -55,10 +50,10 @@ def random_write(db: Database) -> (str, str, list[str], float):
     cube[address] = value
     value = cube[address]
     return db.name, cube.name, address, value
+
+
+def create_view(cube: Cube) -> View:
+    return View(cube)
+
+
 # endregion
-
-
-# set up the server, create or add available databases
-server = Server()
-server.add_database(tinyolap_db())
-

@@ -7,11 +7,14 @@ class TinyOlapRestUser(HttpUser):
 
     @task(4)
     def random_read(self):
-        response = self.client.get("read")
-        # response = self.client.post("/", response = self.client.post("/login", {"username":"testuser", "password":"secret"}))
-        # print("Response text:", response.text)
+        response = self.client.get("cells/")
 
     @task(1)
     def random_write(self):
-        response = self.client.get("write")
-        # print("Response text:", response.text)
+        response = self.client.put("cells/")
+
+    @task(10)
+    def random_view(self):
+        response = self.client.get("views/")
+
+

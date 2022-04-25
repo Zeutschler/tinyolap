@@ -2,7 +2,7 @@ from typing import Final
 
 
 class Config:
-    """Provides access to configuration and meta data of the TinyOlap library."""
+    """Provides access to configuration and metadata of the TinyOlap engine."""
     VERSION: Final = "0.8.16"
     LOWEST_COMPATIBLE_VERSION: Final = "0.8.9"
     BUILTIN_VALUE_TYPES: Final = {'str': str, 'int': int, "float": float, 'bool': bool, 'complex': complex,
@@ -10,11 +10,13 @@ class Config:
                                'bytes': bytes, 'bytearray': bytearray,}
 
     class ContentTypes:
-        ATTRIBUTES: Final = "TinyOlap.Attributes"
         ATTRIBUTE: Final = "TinyOlap.Attribute"
-        DIMENSIONS: Final = "TinyOlap.Dimensions"
+        ATTRIBUTES: Final = "TinyOlap.Attributes"
         DIMENSION: Final = "TinyOlap.Dimension"
-        SUBSETS: Final = "TinyOlap.Subsets"
+        DIMENSIONS: Final = "TinyOlap.Dimensions"
         SUBSET: Final = "TinyOlap.Subset"
-        RULES: Final = "TinyOlap.Rules"
+        SUBSETS: Final = "TinyOlap.Subsets"
         RULE: Final = "TinyOlap.Rule"
+        RULES: Final = "TinyOlap.Rules"
+        VIEW: Final = "TinyOlap.View"
+        VIEWS: Final = "TinyOlap.Views"
