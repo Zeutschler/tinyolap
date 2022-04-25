@@ -19,7 +19,7 @@ async def resolve_read():
     database = server["TinyCorp"]
     try:
         with lock[database].gen_rlock():
-            view = create_view(database.cubes["pnl"])
+            view = create_view(database.cubes["pnl"], random_view=True)
             view.refresh()
             return JSONResponse(
                 content=view.to_dict(),  #.to_json(indent=4),

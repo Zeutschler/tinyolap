@@ -1,6 +1,7 @@
 import itertools
 import json
 import math
+import random
 import uuid
 from datetime import datetime
 import time
@@ -11,6 +12,7 @@ from tinyolap.config import Config
 from tinyolap.dimension import Dimension
 from tinyolap.member import Member, MemberList
 from tinyolap.cube import Cube
+
 
 @dataclass
 class ViewCell:
@@ -33,16 +35,16 @@ class ViewStatistics:
 
     def to_dict(self) -> dict:
         return {
-                'lastRefresh': str(self.last_refresh.isoformat()),
-                'refreshDuration': self.refresh_duration,
-                'cellsCount': self.cells_count,
-                'rowsCount': self.rows,
-                'columnsCount': self.columns,
-                'rowDimensionsCount': self.row_dimensions,
-                'columnDimensionsCount': self.column_dimensions,
-                'executedRules': self.executed_rules,
-                'executedCellRequests': self.executed_cell_requests,
-                'executedCellAggregations': self.executed_cell_aggregations
+            'lastRefresh': str(self.last_refresh.isoformat()),
+            'refreshDuration': self.refresh_duration,
+            'cellsCount': self.cells_count,
+            'rowsCount': self.rows,
+            'columnsCount': self.columns,
+            'rowDimensionsCount': self.row_dimensions,
+            'columnDimensionsCount': self.column_dimensions,
+            'executedRules': self.executed_rules,
+            'executedCellRequests': self.executed_cell_requests,
+            'executedCellAggregations': self.executed_cell_aggregations
         }
 
 
@@ -138,16 +140,16 @@ class ViewAxis(Iterable[ViewAxisPosition]):
         """Converts the view axis into a serializable Python dictionary."""
         """FOR INTERNAL USE! Converts the contents of the attribute field to a dict."""
         return {"dimensions": [
-                    {"name": dim.name, "ordinal": ordinal}
-                        for ordinal, dim in enumerate(self._dimensions)
-                ],
-                "positions": [
-                    {"row": row, "members": [
-                        {"name": member.name, "level": member.level,
-                         "root": member.is_root} for member in position
-                    ]} for row, position in enumerate(self._positions)
-                ],
-                }
+            {"name": dim.name, "ordinal": ordinal}
+            for ordinal, dim in enumerate(self._dimensions)
+        ],
+            "positions": [
+                {"row": row, "members": [
+                    {"name": member.name, "level": member.level,
+                     "root": member.is_root} for member in position
+                ]} for row, position in enumerate(self._positions)
+            ],
+        }
 
 
 class View:
@@ -155,12 +157,18 @@ class View:
     Represents a view to a cube. Used for reporting purposes. Views manage, optimize
     and provide the client side access to data from a TinyOlap cube.
     """
+
     # todo: drilldown path
     # todo: drilldowns ermöglichen
     # todo: json output fUr clients
 
-    def __init__(self, cube: Cube, view_definition=None, zero_suppression_on_rows: bool = False,
-                 zero_suppression_on_columns: bool = False, uid=None):
+    def __init__(self, cube: Cube,
+                 view_definition=None,
+                 zero_suppression_on_rows: bool = False,
+                 zero_suppression_on_columns: bool = False,
+                 uid=None,
+                 random_view: bool = False,
+                 use_first_root_members_for_filters: bool = False):
         """
         Initializes a new view for the given cube.
         :param cube: The Cube to create a view for.
@@ -169,6 +177,10 @@ class View:
         :param zero_suppression_on_rows: Identifies is zero suppression should be applied to the rows of the view.
         :param zero_suppression_on_columns: Identifies is zero suppression should be applied to the columns of the view.
         :param uid: A uid of the view object. Useful for client/server interaction, persistence and state management.
+        :param random_view: Flag to force the creation of a random view, instead of the default view, upon
+            the given cube. Only valid for the case that no view definition is defined.
+        :param use_first_root_members_for_filters: Flag to force to set the first root member for all filter dimensions.
+            This applies to both random views and the default view.
         """
         self._cube: Cube = cube
         self._def = view_definition
@@ -177,10 +189,11 @@ class View:
         self._cells = []
         self._title: str = "TinyOlap View"
         self._description: str = ""
-        self._statistics: ViewStatistics = ViewStatistics()
-
         self._uid: str = str(uid) if uid else str(uuid.uuid4())
+        self._random_view: bool = random_view
+        self._use_first_root_members_for_filters = use_first_root_members_for_filters
 
+        self._statistics: ViewStatistics = ViewStatistics()
         if not self._def:
             self._create_default_view_definition()
         else:
@@ -211,19 +224,19 @@ class View:
         return self._title
 
     @title.setter
-    def title(self, value: bool):
+    def title(self, value: str):
         """Sets the title of the view."""
         self._title = value
 
     @property
-    def description(self) -> bool:
+    def description(self) -> str:
         """Returns the description of the view."""
-        return self._row_zero
+        return self._description
 
     @description.setter
-    def description(self, value: bool):
+    def description(self, value: str):
         """Sets the description of the view."""
-        self._row_zero = value
+        self._description = value
 
     @property
     def statistics(self) -> ViewStatistics:
@@ -251,6 +264,16 @@ class View:
         """Sets the zero-suppression setting for the columns of the view."""
         # todo: refresh the view when changing zero suppression
         self._col_zero = value
+
+    @property
+    def use_first_root_members_for_filters(self) -> bool:
+        """Returns if the first root member will be set for all filter dimensions in random or default views."""
+        return self._use_first_root_members_for_filters
+
+    @use_first_root_members_for_filters.setter
+    def use_first_root_members_for_filters(self, value: bool):
+        """Sets if the first root member should be set for all filter dimensions in random or default views."""
+        self._use_first_root_members_for_filters = value
 
     @property
     def filter_axis(self):
@@ -405,7 +428,7 @@ class View:
         stat.executed_cell_aggregations = self._cube.counter_aggregations
         stat.executed_rules = self._cube.counter_rule_requests
 
-        # refresh data
+        # refresh filter axis first to create a FactTableRowSet
         cells = []
         filter_level = 0
         idx_address = [0] * self._cube.dimensions_count
@@ -413,6 +436,7 @@ class View:
         for i in range(axis._dim_count):
             idx_address[axis._dim_idx[i]] = axis.positions[0][i].index
             filter_level += axis.positions[0][i].level
+        row_set = self._cube._facts.create_row_set(idx_address)
 
         rows = self._row_axis
         cols = self._col_axis
@@ -427,7 +451,10 @@ class View:
                     idx_address[cols._dim_idx[i]] = cols.positions[col][i].index
                     super_level += cols.positions[col][i].level
 
-                value = self._cube._get((super_level, tuple(idx_address),))
+                value = self._cube._get((super_level, tuple(idx_address), ), row_set=row_set)
+
+                if type(value) is not float:  # e.g.  for Rule Errors
+                    value = str(value)
 
                 view_cell = ViewCell(value, str(value))
                 if col == 0:
@@ -457,30 +484,45 @@ class View:
         the previous last (if such exists) in the row axis and all remaining dimensions
         will be placed in the filter axis"""
 
+        # todo:  missing random implementation
+
         dimensions = self._cube.dimensions
+        ordinal = list(range(len(dimensions)))
+        if self._random_view:
+            random.shuffle(ordinal)
         remaining = len(dimensions)
 
         # set up column axis
         if remaining > 0:
             idx = remaining - 1
-            self._col_axis = ViewAxis(self, idx=idx, dimensions=dimensions[idx],
-                                      member_lists=dimensions[idx].members)
+            self._col_axis = ViewAxis(self, idx=ordinal[idx], dimensions=dimensions[ordinal[idx]],
+                                      member_lists=dimensions[ordinal[idx]].members)
             remaining -= 1
 
         # set up row axis
         if remaining > 0:
             idx = remaining - 1
-            self._row_axis = ViewAxis(self, idx=idx, dimensions=dimensions[idx],
-                                      member_lists=dimensions[idx].members)
+            self._row_axis = ViewAxis(self, idx=ordinal[idx], dimensions=dimensions[ordinal[idx]],
+                                      member_lists=dimensions[ordinal[idx]].members)
             remaining -= 1
 
         # set up filter axis
         if remaining > 0:
-            self._filter_axis = ViewAxis(self,
-                                         idx=tuple([idx for idx in range(remaining)]),
-                                         dimensions=tuple([dimensions[idx] for idx in range(remaining)]),
+            if self._use_first_root_members_for_filters:
+                self._filter_axis = ViewAxis(self,
+                                         idx=tuple([ordinal[idx] for idx in range(remaining)]),
+                                         dimensions=tuple([dimensions[ordinal[idx]] for idx in range(remaining)]),
                                          member_lists=tuple(
-                                             [MemberList(dimension=dimensions[idx], members=dimensions[idx].members[0])
+                                             [MemberList(dimension=dimensions[ordinal[idx]],
+                                                         members=dimensions[ordinal[idx]].root_members[0])
+                                              for idx in range(remaining)]))
+            else:
+                self._filter_axis = ViewAxis(self,
+                                         idx=tuple([ordinal[idx] for idx in range(remaining)]),
+                                         dimensions=tuple([dimensions[ordinal[idx]] for idx in range(remaining)]),
+                                         member_lists=tuple(
+                                             [MemberList(dimension=dimensions[ordinal[idx]],
+                                                         members=dimensions[ordinal[idx]].members[0])
                                               for idx in range(remaining)]))
 
     def as_console_output(self, hide_zeros: bool = True) -> str:

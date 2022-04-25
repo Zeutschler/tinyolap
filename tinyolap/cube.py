@@ -68,6 +68,7 @@ class Cube:
         self._has_rules: bool = False
         self._rules = Rules(self._name)
 
+        self._cache_hit_counter: int = 0
         self._cell_request_counter: int = 0
         self._rule_request_counter: int = 0
         self._aggregation_counter: int = 0
@@ -131,11 +132,19 @@ class Cube:
         """Returns the number aggregations that have been executed."""
         return self._aggregation_counter
 
+    @property
+    def counter_cache_hits(self) -> int:
+        """Returns the number cache hits that have occurred."""
+        return self._cache_hit_counter
+
+
+
     def reset_counters(self):
         """Resets the internal counters for cell- and rule-requests and aggregations."""
         self._cell_request_counter = 0
         self._rule_request_counter = 0
         self._aggregation_counter = 0
+        self._cache_hit_counter = 0
 
     @property
     def caching(self) -> bool:
@@ -240,10 +249,12 @@ class Cube:
         bolt = self._address_to_bolt(address)
         return self._set(bolt, value)
 
-    def _get(self, bolt, bypass_rules=False):
+    def _get(self, bolt, bypass_rules=False, row_set=None):
         """
         Returns a value from the cube for a given idx_address.
         If no records exist for the given idx_address, then 0.0 will be returned.
+
+        Info: The argument row_set is only used for the refresh of Views on cubes.
         """
         (super_level, idx_address) = bolt
         self._cell_request_counter += 1
@@ -252,6 +263,7 @@ class Cube:
         if not bypass_rules:
             # caching
             if self._caching and bolt in self._cache:
+                self._cache_hit_counter += 1
                 return self._cache[bolt]
 
             if self._has_rules:
@@ -289,6 +301,7 @@ class Cube:
                         except Exception as err:
                             return RuleError.ERROR
 
+            # BASE_LEVEL values
             return self._facts.get(idx_address)
 
         else:  # aggregated cells
@@ -311,7 +324,7 @@ class Cube:
                             return RuleError.ERROR
 
             # get records row ids for current cell idx_address
-            rows = self._facts.query(idx_address)
+            rows = self._facts.query(idx_address, row_set)
             self._aggregation_counter += len(rows)
 
             if not rows:

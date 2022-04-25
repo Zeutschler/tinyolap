@@ -10,7 +10,7 @@ from art import *
 
 from tinyolap.database import Database
 from tinyolap.slice import Slice
-
+from tinyolap.view import View
 
 # adjust to your liking... and the abilities of your PC ;-)
 numbers_of_records = 1_000_000
@@ -33,6 +33,7 @@ def load_huge(console_output: bool = False):
 
     # 1. create a database
     db = Database("huge", in_memory=True)
+    db.caching = False
 
     # 2. create dimensions
     dimensions = []
@@ -172,7 +173,25 @@ def benchmark_read_random_base_cells(cube, dimensions, loops: int = 10_000, cons
         value = cube.get(address)
     duration = time.time() - start
     print(f"Reading existing base level cell {loops:,}x times from 'huge' data model "
-          f"in {duration:.6} sec, {round(loops/duration, 0):,} ops/sec, ")
+          f"in {duration:.6} sec, "
+          f"{round(loops/duration, 0):,} cells/sec, ")
+
+
+def benchmark_read_aggregated_cells(cube, dimensions, loops: int = 100, console_output: bool = True):
+    # let'"'s create an aggregated member [All, All, All, ..., All, 0]
+    address = [dim.members[len(dim)-1] for i, dim in enumerate(dimensions)]
+    address[-1] = dimensions[-1].members[0]
+
+    aggregations = 0.0
+    start = time.time()
+    for l in range(loops):
+        aggregations += cube.get(address)
+    duration = time.time() - start
+    print(f"Reading aggregated cell (including {round(aggregations/loops, 0):,} base cells) "
+          f"{loops:,}x times from 'huge' data model "
+          f"in {duration:.6} sec, "
+          f"{round(loops/duration, 0):,} cells/sec, "
+          f"{round(aggregations/duration, 0):,} agg./sec")
 
 
 def benchmark_read_top_cells(cube, dimensions, loops: int = 10, console_output: bool = True):
@@ -184,17 +203,34 @@ def benchmark_read_top_cells(cube, dimensions, loops: int = 10, console_output: 
         value = cube.get(address)
     duration = time.time() - start
     print(f"Reading top level cell {loops:,}x times from 'huge' data model "
-          f"in {duration:.6} sec, {round((loops * value)/duration, 0):,} ops/sec, ")
+          f"in {duration:.6} sec, "
+          f"{round(loops/duration, 0):,} cells/sec, "
+          f"{round((loops * value)/duration, 0):,} agg./sec ")
+
+
+def benchmark_view(cube, loops: int = 1, console_output: bool = True):
+    view = View(cube, use_first_root_members_for_filters=True)
+    start = time.time()
+    for l in range(loops):
+        view.refresh()
+    duration = time.time() - start
+    stat = view.statistics
+    print(f"Reading {loops:,}x times a view[{stat.rows:,}, {stat.columns:,}] "
+          f"with {stat.cells_count:,} cells from 'huge' data model "
+          f"in {duration:.6} sec, "
+          f"{round(loops * stat.cells_count/duration, 0):,} cells/sec, "
+          f"{round((loops * stat.executed_cell_aggregations)/duration, 0):,} agg./sec ")
 
 
 def benchmark(console_output: bool = True):
     # 1. create and load the database
 
     database, cube, dimensions, member_lists = benchmark_load_database(console_output)
-    benchmark_read_random_base_cells(cube, dimensions,10_000, console_output)
+    database.caching = False
+    benchmark_read_random_base_cells(cube, dimensions, 10_000, console_output)
+    benchmark_read_aggregated_cells(cube, dimensions, 100, console_output)
     benchmark_read_top_cells(cube, dimensions, 10, console_output)
-
-
+    benchmark_view(cube, 1, console_output)
 
 def main():
     # play_huge()

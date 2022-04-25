@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
+from copy import deepcopy
 
 
 class FactTable:
@@ -11,6 +12,36 @@ class FactTable:
     Stores all records in simple row store and maintains an index
     over all member_defs for faster aggregations and queries.
     """
+
+    class FactTableRowSet:
+        """
+        Represents a set of rows matching a certain address pattern, e.g. all rows that
+        match the pattern (1, *, 2, *).
+
+        Used to accelerate views. The FactTableRowSet is generated once for the filter dimensions
+        of the view and then reused for all cell queries of the view. This can drastically speed
+        the performance of views.
+        """
+        def __init__(self, address: tuple[int], rows:set):
+            self.pattern = deepcopy(address)
+            self.idx_pattern: tuple = tuple([dim_idx for dim_idx, member in enumerate(address) if member > 0])
+            self.idx_residual: tuple = tuple([dim_idx for dim_idx, member in enumerate(address) if member <= 0])
+            self.rows = rows
+
+        def match(self, address):
+            """
+            Checks if an address pattern matches the current rowset pattern,
+            e.g., (1, 6, 2, 5) ≈ (1, *, 2, *) := True
+            """
+            for idx in self.idx_pattern:
+                if address[idx] != self.pattern[idx]:
+                    return False
+            return True
+
+        @property
+        def is_empty(self) -> bool:
+            """Identifies if the row set is empty."""
+            return len(self.rows) == 0
 
     class FactTableIndex:
         """
@@ -109,22 +140,16 @@ class FactTable:
         self.cached_set = None
         self.cached_idx = []
         self.cached_seq = []
-        self.cache_machtes: int = 0
-        self.cached_seq_machting = None
+        self.cache_matches: int = 0
+        self.cached_seq_matching = None
 
-    # def set(self, address: tuple, measure, value):
     def set(self, address: tuple, value):
+        row = self.row_lookup.get(address, None)
 
-        record_hash = hash(address)
-        if record_hash in self.row_lookup:
-            # overwrite existing record/value
-            row = self.row_lookup[record_hash]
-            self.facts[row] = value
-            return True
-        else:
+        if row is None:
             # add new record
             row = len(self.facts)
-            self.row_lookup[record_hash] = row
+            self.row_lookup[address] = row
             self.facts.append(value)
             self.addresses.append(address)
             # update index
@@ -133,23 +158,16 @@ class FactTable:
                 self.cube._update_aggregation_index(self.index, address, row)
             return True
 
-    # def get(self, address, measure):
+        # overwrite existing record/value
+        row = self.row_lookup[address]
+        self.facts[row] = value
+        return True
+
     def get(self, address):
-
-        record_hash = hash(address)
-        if record_hash in self.row_lookup:
-            # overwrite existing record/value
-            row = self.row_lookup[record_hash]
-            return self.facts[row]
-        return 0.0
-
-    def get_facts(self, record):
-        record_hash = hash(record)
-        if record_hash in self.row_lookup:
-            # overwrite existing record/value
-            row = self.row_lookup[record_hash]
-            return self.facts[row]
-        return None
+        row = self.row_lookup.get(address, None)
+        if row is None:
+            return None
+        return self.facts[row]
 
     def clear(self):
         """
@@ -169,21 +187,36 @@ class FactTable:
     def get_value_by_row(self, row):
         return self.facts[row]
 
-    def query(self, idx_address):
+    def query(self, address, row_set=None):
         """
         Evaluates the record rows required for an OLAP aggregation.
-        :param idx_address: The cell address to be evaluated.
+        :param address: The cell address to be evaluated.
+        :param row_set: (optional) a previously evaluated row set.
         """
-        get_rows = self.index.get_rows
-        # get the row sets to be intersected
-        sets = []
-        for i in range(0, len(idx_address)):
-            if idx_address[i] != 0:
-                if self.index.exists(i, idx_address[i]):
-                    sets.append(get_rows(i, idx_address[i]))
-                else:
-                    # if the key is not available in the index then no records exist, we're done
-                    return set()  # an empty set
+        if row_set:
+            if row_set.is_empty:
+                return set()
+
+            get_rows = self.index.get_rows
+            # get the row sets to be intersected
+            sets = [row_set.rows, ]  # first the already prepared row set
+            for i in row_set.idx_residual:  # all residual dimensions, not yet contained in the row set
+                if address[i] != 0:
+                    if self.index.exists(i, address[i]):
+                        sets.append(get_rows(i, address[i]))
+                    else:
+                        return set()  # an empty set
+
+        else:
+            get_rows = self.index.get_rows
+            # get the row sets to be intersected
+            sets = []
+            for i in range(0, len(address)):
+                if address[i] != 0:
+                    if self.index.exists(i, address[i]):
+                        sets.append(get_rows(i, address[i]))
+                    else:
+                        return set()  # an empty set
 
         # Order matters most!!! So we order the sets ascending by their length, to intersect smaller sets first.
         # This improves the performance of intersections quite nicely, -10% worst, +200% on average and +600% best.
@@ -197,9 +230,22 @@ class FactTable:
                 break
         return result
 
+    def create_row_set(self, address) -> FactTableRowSet:
+        """
+        Creates a set of rows matching a certain address pattern, e.g. all rows that
+        match the pattern (1, *, 2, *). The address needs to contain 0 for all
+        '*' members to not be included in the pattern. For more information please
+        refer class 'FactTableRowSet'.
+
+        :param address: The cell pattern for the row set.
+        """
+        return self.FactTableRowSet(address, self.query(address))
+
+
     def cached_query(self, idx_address):
         """
-        Evaluates the records required for OLAP aggregation using a cache to minimize set operations.
+        FOR FUTURE USE!
+        Evaluates the records required for an OLAP aggregation using a cache to minimize set operations.
         Using this method only pays back for very special use cases where many aggregations need to be performed
         and subsequent calls have very similar pattern.
         :param idx_address: The cell address to be evaluated.
@@ -240,7 +286,7 @@ class FactTable:
             # save to cache
             self.cached_set = base_set
             self.cached_idx = idx_address
-            self.cached_seq_machting = seq_matching
+            self.cached_seq_matching = seq_matching
 
             # get remaining sets to be intersected
             for d, idx in seq_remaining:
@@ -290,14 +336,14 @@ class FactTable:
 
         # only if there are at least 2 matching indexes, then using the chached set will be beneficial
         if matches > 1:
-            if self.cached_seq_machting and self.cached_seq_machting == seq_matching:  # ensure the cache exactly mathes
+            if self.cached_seq_matching and self.cached_seq_matching == seq_matching:  # ensure the cache exactly mathes
                 return self.cached_set, seq_matching, seq_remaining, False  # 'False' indicates that we keep the cache
             else:
                 return None, seq_matching, seq_remaining, True  # the 'True' indicates that caching this cell is requested.
         else:
             # flush the cached set, but remember the index
             self.cached_set = None
-            self.cached_seq_machting = None
+            self.cached_seq_matching = None
             self.cached_idx = idx_address
             return None, None, None, False
 

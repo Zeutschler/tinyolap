@@ -978,9 +978,22 @@ class Dimension:
     def members(self) -> MemberList:
         """
         Returns the list of member in the dimension.
-        :return:
         """
         return self._members
+
+    @property
+    def root_members(self) -> MemberList:
+        """
+        Returns a list of root members (members with a parent) of the dimension.
+        """
+        return MemberList(self, [member for member in self._members if member.is_root])
+
+    @property
+    def leaf_members(self) -> MemberList:
+        """
+        Returns a list of all leave members (members without children) of the dimension.
+        """
+        return MemberList(self, [member for member in self._members if member.is_leaf])
 
     def member(self, member) -> Member:
         if type(member) is int:
