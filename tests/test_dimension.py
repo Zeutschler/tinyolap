@@ -28,11 +28,11 @@ class TestDimension(TestCase):
 
         dim.edit()
         for name in valid_names:
-            dim.add_member(name)
+            dim.add_many(name)
 
         for name in invalid_names:
             with self.assertRaises(KeyError):
-                dim.add_member(name)
+                dim.add_many(name)
         dim.commit()
 
         for name in valid_names:
@@ -43,23 +43,23 @@ class TestDimension(TestCase):
 
     def test_circular_member_hierarchy(self):
         dim = self.db.add_dimension("non_circular").edit()
-        dim.add_member("All", ["A", "B", "C"])
+        dim.add_many("All", ["A", "B", "C"])
         dim.commit()
         self.db.dimension_remove("non_circular")
 
         dim = self.db.add_dimension("circular").edit()
-        dim.add_member("All", ["A", "B", "C"])
-        dim.add_member("A", ["A1", "A2", "A3"])
+        dim.add_many("All", ["A", "B", "C"])
+        dim.add_many("A", ["A1", "A2", "A3"])
         with self.assertRaises(Exception):
-            dim.add_member("A1", ["All"])
+            dim.add_many("A1", ["All"])
         dim.commit()
         self.db.dimension_remove("circular")
 
     def test_children_and_parents(self):
         dim = self.db.add_dimension("children_and_parents").edit()
-        dim.add_member("All", ["A", "B", "C"])
-        dim.add_member("A", ["A1", "A2", "A3"])
-        dim.add_member("A1", ["A1.1", "A1.1", "A1.1"])
+        dim.add_many("All", ["A", "B", "C"])
+        dim.add_many("A", ["A1", "A2", "A3"])
+        dim.add_many("A1", ["A1.1", "A1.1", "A1.1"])
         dim.commit()
 
         member = dim.member("A")
@@ -75,7 +75,7 @@ class TestDimension(TestCase):
         root_members = members
         dim = self.db.add_dimension("flat_dimension").edit()
         for member in members:
-            dim.add_member(member)
+            dim.add_many(member)
         dim.commit()
         self.execute_dimension_test(dim, members, parents, root_members)
 
@@ -85,12 +85,12 @@ class TestDimension(TestCase):
         root_members = ["total"]
         dim = self.db.add_dimension("SomeDimension").edit()
         for member in members:
-            dim.add_member(member=member, description=f"Description for {member}")
+            dim.add_many(member=member, description=f"Description for {member}")
         for index, member in enumerate(members):
             parent = f"parent_{(index % 10):03d}"
-            dim.add_member(parent, member, description=f"Description for {parent}")
+            dim.add_many(parent, member, description=f"Description for {parent}")
         for parent in parents:
-            dim.add_member(root_members[0], parent, description=f"Description for {root_members[0]}")
+            dim.add_many(root_members[0], parent, description=f"Description for {root_members[0]}")
         parents = parents
         dim.commit()
         self.execute_dimension_test(dim, members, parents, root_members)

@@ -32,32 +32,32 @@ class TestCube(TestCase):
 
         dim_years = db.add_dimension("years")
         dim_years.edit()
-        dim_years.add_member(["2020", "2021", "2022"])
+        dim_years.add_many(["2020", "2021", "2022"])
         dim_years.commit()
 
         dim_months = db.add_dimension("months")
         dim_months.edit()
-        dim_months.add_member(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+        dim_months.add_many(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
                                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-        dim_months.add_member(["Q1", "Q2", "Q3", "Q4"],
-                              [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
+        dim_months.add_many(["Q1", "Q2", "Q3", "Q4"],
+                            [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
                                ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
-        dim_months.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
+        dim_months.add_many("Year", ("Q1", "Q2", "Q3", "Q4"))
         dim_months.commit()
 
         dim_regions = db.add_dimension("regions")
         dim_regions.edit()
-        dim_regions.add_member("Total", ("North", "South", "West", "East"))
+        dim_regions.add_many("Total", ("North", "South", "West", "East"))
         dim_regions.commit()
 
         dim_products = db.add_dimension("products")
         dim_products.edit()
-        dim_products.add_member("Total", ["A", "B", "C"])
+        dim_products.add_many("Total", ["A", "B", "C"])
         dim_products.commit()
 
         dim_measures = db.add_dimension("measures")
         dim_measures.edit()
-        dim_measures.add_member(["Sales", "Cost", "Profit"])
+        dim_measures.add_many(["Sales", "Cost", "Profit"])
         dim_measures.commit()
 
         measures = ["Sales", "Cost", "Profit"]
@@ -145,9 +145,9 @@ class TestCube(TestCase):
                 dimension = db.add_dimension(f"dim_{d}")
                 dimension.edit()
                 for member in base_members:
-                    dimension.add_member(member)
+                    dimension.add_many(member)
                 for member in base_members:
-                    dimension.add_member("Total", member)
+                    dimension.add_many("Total", member)
                 dimension.commit()
                 dimensions.append(dimension)
                 members.append(base_members)

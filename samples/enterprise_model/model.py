@@ -205,12 +205,12 @@ def add_dimension_periods(db: Database, name: str = "periods") -> Dimension:
     """
 
     dim = db.add_dimension(name).edit()
-    dim.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
-    dim.add_member(["Q1", "Q2", "Q3", "Q4"],
-                   [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
+    dim.add_many("Year", ("Q1", "Q2", "Q3", "Q4"))
+    dim.add_many(["Q1", "Q2", "Q3", "Q4"],
+                 [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
                     ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
-    dim.add_member(["HY1", "HY2"], [("Jan", "Feb", "Mar", "Apr", "Mai", "Jun"),
-                                    ("Jul", "Aug", "Sep", "Oct", "Nov", "Dec")])
+    dim.add_many(["HY1", "HY2"], [("Jan", "Feb", "Mar", "Apr", "Mai", "Jun"),
+                                  ("Jul", "Aug", "Sep", "Oct", "Nov", "Dec")])
     dim.commit()
 
     # Attributes
@@ -244,7 +244,7 @@ def add_dimension_years(db: Database, name: str = "years",
     if last < first:
         last = first
     for y in range(first, last + 1):
-        d.add_member(str(y))
+        d.add_many(str(y))
     return d.commit()
 
 
@@ -262,7 +262,7 @@ def add_dimension_datatype(db: Database, name: str = "datatype") -> Dimension:
     :return: The new dimension.
     """
     d = db.add_dimension(name).edit()
-    d.add_member(["Actual", "Plan", "Forecast",
+    d.add_many(["Actual", "Plan", "Forecast",
                   "ACTvsPL", "ACTvsPL%",
                   "ACTvsFC", "ACTvsFC%",
                   "ACTvsACTpy", "ACTvsACTpy%",
@@ -291,20 +291,20 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
     dim = db.add_dimension(name).edit()
 
     # Revenue
-    dim.add_member(["Gross Sales",
+    dim.add_many(["Gross Sales",
                     "Sales Returns",
                     "Discounts and Allowances"])
-    dim.add_member("Net Sales", ["Gross Sales", "Sales returns", "Discounts and Allowances"])
+    dim.add_many("Net Sales", ["Gross Sales", "Sales returns", "Discounts and Allowances"])
     # Cost of Goods Sold
-    dim.add_member(["Raw Materials",
+    dim.add_many(["Raw Materials",
                     "Direct Labor",
                     "Overheads"])
-    dim.add_member("Cost of Goods Sold", ["Raw Materials", "Direct Labor", "Overheads"])
+    dim.add_many("Cost of Goods Sold", ["Raw Materials", "Direct Labor", "Overheads"])
     # Gross Profit
-    dim.add_member("Gross Profit", ["Net Sales", "Cost of Goods Sold"])
+    dim.add_many("Gross Profit", ["Net Sales", "Cost of Goods Sold"])
     # Operating Expenses
-    dim.add_member("Operating Expenses",
-                   ["Advertising",
+    dim.add_many("Operating Expenses",
+                 ["Advertising",
                     "Delivery/Freight",
                     "Depriciation",
                     "Insurance",
@@ -316,9 +316,9 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
                     "Utilities",
                     "Other Expenses"])
 
-    dim.add_member("Operating Profit", ["Gross Profit", "Operating Expenses"])
-    dim.add_member("Profit Before Taxes", ["Operating Profit", "Interest Income", "Other Income"])
-    dim.add_member("Net Profit", ["Profit Before Taxes", "Tax Expense"])
+    dim.add_many("Operating Profit", ["Gross Profit", "Operating Expenses"])
+    dim.add_many("Profit Before Taxes", ["Operating Profit", "Interest Income", "Other Income"])
+    dim.add_many("Net Profit", ["Profit Before Taxes", "Tax Expense"])
     dim.commit()
 
     # Attributes
@@ -390,12 +390,12 @@ def add_dimension_company(db: Database, name: str = "companies", group_name: str
     # create company dimension
     dim = db.add_dimension(name).edit()
     if not international:
-        dim.add_member(group_name, [fake.company() for i in range(companies_count)])
+        dim.add_many(group_name, [fake.company() for i in range(companies_count)])
     else:
-        dim.add_member(group_name, ["EMEA", "NA", "LATAM", "APAC"])
+        dim.add_many(group_name, ["EMEA", "NA", "LATAM", "APAC"])
         companies_per_region = int(companies_count / 4)
         for region in ["EMEA", "NA", "LATAM", "APAC"]:
-            dim.add_member(region, [fake.company() for i in range(companies_per_region)])
+            dim.add_many(region, [fake.company() for i in range(companies_per_region)])
     dim.commit()
 
     # Attributes
@@ -454,8 +454,8 @@ def add_dimension_products(db: Database, name: str = "products", products_count:
         if len(remaining_lines) == 0:
             break
 
-        dim.add_member("All Products", family)
-        dim.add_member(family, line)
+        dim.add_many("All Products", family)
+        dim.add_many(family, line)
 
         # select some editions
         min = random.randrange(0, len(editions) - 1)
@@ -470,7 +470,7 @@ def add_dimension_products(db: Database, name: str = "products", products_count:
                 min, max = max, min
             for pack in packs[min:max + 1]:
                 product = line + ", " + edition + " (" + pack + ")"
-                dim.add_member(line, product)
+                dim.add_many(line, product)
                 products.append(product)
 
                 z = z + 1
@@ -502,7 +502,7 @@ def add_dimension_sales_figures(db: Database, name: str = "salesfig") -> Dimensi
     :return: The new dimension.
     """
     d = db.add_dimension(name).edit()
-    d.add_member(["Sales", "Quantity", "Price"])
+    d.add_many(["Sales", "Quantity", "Price"])
     d.commit()
     for member in ["Sales", "Quantity"]:
         d.member_set_format(member, "{:,.0f}")
@@ -540,9 +540,9 @@ def add_dimension_employees(db: Database, company_dim_name: str = "companies", n
             hierarchy.append(parents[0])
             parents = company_dim.member_get_parents(parents[0])
         for i in range(len(hierarchy)-1, 0, -1):
-            dim.add_member(hierarchy[i], [hierarchy[i-1]])
+            dim.add_many(hierarchy[i], [hierarchy[i - 1]])
         # now add employees
-        dim.add_member(company, [fake.name() for i in range(employees_per_company)])
+        dim.add_many(company, [fake.name() for i in range(employees_per_company)])
     dim.commit()
 
     # Attributes
@@ -559,7 +559,7 @@ def add_dimension_hr_figures(db: Database, name: str = "hrfig") -> Dimension:
     :return: The new dimension.
     """
     d = db.add_dimension(name).edit()
-    d.add_member(["Base Salary", "Bonus", "Holiday claim", "Holidays taken"])
+    d.add_many(["Base Salary", "Bonus", "Holiday claim", "Holidays taken"])
     d.commit()
     for member in ["Holiday claim", "Holidays taken"]:
         d.member_set_format(member, "{:,.0f}")

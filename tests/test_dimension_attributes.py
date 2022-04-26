@@ -11,7 +11,7 @@ class TestDimensionAttributes(TestCase):
     def setUp(self) -> None:
         self.db = Database("attribute_test", in_memory=True)
         self.dim = self.db.add_dimension("attributes").edit()
-        self.dim.add_member("All", ["A", "B", "C"])
+        self.dim.add_many("All", ["A", "B", "C"])
         self.dim.commit()
 
     def tearDown(self) -> None:

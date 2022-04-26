@@ -808,6 +808,7 @@ class Dimension:
     BASE_CHILDREN = 8
     ALIASES = 9
     FORMAT = 10
+    PARENT_WEIGHTS = 11
 
     MEMBERS = 3
     IDX_MEMBERS = 4
@@ -833,9 +834,10 @@ class Dimension:
         self.member_counter = 0
         self.highest_idx = 0
         self._members = None
+        self._is_weighted: bool = False
 
         self.database = None
-        self._storage_provider: StorageProvider = None
+        self._storage_provider: StorageProvider
         self.edit_mode: bool = False
         self.recovery_json = ""
         self.recovery_idx = set()
@@ -903,6 +905,12 @@ class Dimension:
         """Returns the member attributes defined for the dimension."""
         return self._subsets
 
+    @property
+    def is_weighted(self) -> bool:
+        """Identifies if the dimension contains any weighted aggregation other
+        than +1.0, which is the default for an unweighted plain aggregation."""
+        return self._is_weighted
+
     # region Dimension editing
     def clear(self) -> Dimension:
         """
@@ -927,7 +935,7 @@ class Dimension:
         :return: The dimension itself.
         """
         if self.edit_mode:
-            raise TinyOlapDimensionEditModeError("Failed to set edit mode. 'edit_begin()' was already called before.")
+            raise TinyOlapDimensionEditModeError("Failed to set edit mode. 'edit()' has already been called before.")
         self.edit_mode = True
         self.recovery_json = self.to_json()
         self.recovery_idx = set(self._member_idx_lookup.values())
@@ -956,6 +964,9 @@ class Dimension:
                    member_level=self.member_defs[idx][self.LEVEL], idx_member=idx)
             for idx in self.member_defs.keys()
         ])
+
+        # prepare weighting informations.
+        self._is_weighted = True
 
         self.edit_mode = False
         self.database._flush_cache()
@@ -1015,13 +1026,16 @@ class Dimension:
         raise KeyError(f"Failed to return Member '{member}'. The member does not exist.")
 
     # region add, remove, rename member_defs
-    def add_member(self, member, children=None, description=None, number_format=None) -> Dimension:
+    def add_many(self, member, children=None, weights=None, description=None, number_format=None) -> Dimension:
         """Adds one or multiple member_defs and (optionally) associated child-member_defs to the dimension.
 
         :param member: A single string or an iterable of strings containing the member_defs to be added.
         :param children: A single string or an iterable of strings containing the child member_defs to be added.
                If parameter 'member' is an iterable of strings, then children must be an iterable of same size,
                either containing strings (adds a single child) or itself an iterable of string (adds multiple children).
+        :param weights: (optional) the weights to be used to aggregate the children into the parent.
+               Default value for aggregation is 1.0. If defined, the shape of the weights arguments (scalar, lists or
+               tuples) must have the same shape as the children argument.
         :param description: A description for the member to be added. If parameter 'member' is an iterable,
                then description will be ignored. For that case, please set descriptions for each member individually.
         :param number_format: A format string for output formatting, e.g. for numbers or percentages.
@@ -1052,23 +1066,58 @@ class Dimension:
         if not children:
             children_list = [None] * len(member_list)
 
-        for m, c in zip(member_list, children_list):
+        # member_list = member
+        # children_list = children
+        # multi = False
+        #
+        # if isinstance(member, str):
+        #     if not self.__valid_member_name(member):
+        #         raise KeyError(f"Failed to add member. Invalid member name '{member}'. "
+        #                        f"'\\t', '\\n' and '\\r' characters are not supported.")
+        #     member_list = [member, ]
+        # elif type(member) is Member:
+        #     member_list = [member.name, ]
+        #
+        # multi = True
+        # if isinstance(children, Iterable):
+        #     children_list = children
+        # else:
+        #     children_list = [children] if children else [None] * len(member_list)
+        if isinstance(weights, Iterable):
+            weights_list = weights
+        else:
+            weights_list = [weights] if weights else [None] * len(member_list)
+
+        for m, c, w in zip(member_list, children_list, weights_list):
             # add the member
-            idx_member = self.__member_add_parent_child(member=m, parent=None,
-                                                        description=(None if multi else description))
+            idx_member = self._member_add_parent_child(member=m, parent=None,
+                                                       description=(None if multi else description))
             if number_format:
                 self.member_defs[idx_member][self.FORMAT] = number_format
 
             if c:
-                # add children
+                # add the children
                 if isinstance(c, str):
                     c = [c]
-                # elif not (isinstance(c, Sequence) and not isinstance(c, str)):
+
                 elif not (isinstance(c, Iterable) and not isinstance(c, str)):
                     raise TinyOlapDimensionEditModeError(
                         f"Failed to member '{m}' to dimension '{self._name}'. Unexpected type "
                         f"'{type(c)}' of parameter 'children' found.")
-                for child in c:
+                if w is None:
+                    # copy the structure of c
+                    neww = []
+                    for cc in c:
+                        if isinstance(cc, Iterable):
+                            ww = []
+                            for ccc in cc:
+                                ww = [].append(1.0)
+                        else:
+                            ww = 1.0
+                        neww.append(ww)
+                    w = neww
+
+                for child, weight in zip(c, w):
                     if type(child) is Member:
                         child = child.name
                     if not isinstance(child, str):
@@ -1078,7 +1127,14 @@ class Dimension:
                     if not self.__valid_member_name(child):
                         raise KeyError(f"Failed to add member. Invalid member name '{child}'. "
                                        f"'\\t', '\\n' and '\\r' characters are not supported.")
-                    self.__member_add_parent_child(member=child, parent=m, weight=1.0)
+                    if weight is None:
+                        weight = 1.0
+                    elif type(weight) is not float:
+                        raise TinyOlapDimensionEditModeError(
+                            f"Failed to add child to member '{m}' of dimension '{self._name}. Unexpected type "
+                            f"'{type(w)}' of parameter 'weight' for child '{child}' found.")
+
+                    self._member_add_parent_child(member=child, parent=m, weight=weight)
 
         return self
 
@@ -1922,13 +1978,13 @@ class Dimension:
     def __valid_member_name(name):
         return not (("\t" in name) or ("\n" in name) or ("\r" in name))
 
-    def __member_add_parent_child(self, member, parent, weight: float = 1.0, description: str = None) -> int:
+    def _member_add_parent_child(self, member, parent, weight: float = 1.0, description: str = None) -> int:
         if member in self._member_idx_lookup:
             member_idx = self._member_idx_lookup[member]
             if description:
                 self.member_defs[member_idx][self.DESC] = description
             if parent:
-                self.__add_parent(member, parent)
+                self._add_parent(member, parent, weight)
         else:
             self.member_counter += 1
             member_idx = self._member_idx_manager.pop()
@@ -1944,13 +2000,14 @@ class Dimension:
                                             self.BASE_CHILDREN: [],
                                             self.ALIASES: [],
                                             self.FORMAT: None,
+                                            self.PARENT_WEIGHTS: {}
                                             }
 
             if parent:
-                self.__add_parent(member, parent)
+                self._add_parent(member, parent, weight)
         return member_idx
 
-    def __add_parent(self, member: str, parent: str = None):
+    def _add_parent(self, member: str, parent: str = None, weight: float = 1.0):
         member_idx = self._member_idx_lookup[member]
         level = self.member_defs[member_idx][self.LEVEL]
         if parent not in self._member_idx_lookup:
@@ -1969,12 +2026,15 @@ class Dimension:
                                             self.BASE_CHILDREN: [],
                                             self.ALIASES: [],
                                             self.FORMAT: None,
+                                            self.PARENT_WEIGHTS: {}
                                             }
+            self.member_defs[member_idx][self.PARENT_WEIGHTS][parent_idx] = weight
         else:
             parent_idx = self._member_idx_lookup[parent]
             self.member_defs[parent_idx][self.LEVEL] = level + 1
             if member_idx not in self.member_defs[parent_idx][self.CHILDREN]:
                 self.member_defs[parent_idx][self.CHILDREN].append(member_idx)
+            self.member_defs[member_idx][self.PARENT_WEIGHTS][parent_idx] = weight
 
         # add new parent to member
         if parent_idx not in self.member_defs[member_idx][self.PARENTS]:

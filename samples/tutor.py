@@ -93,12 +93,12 @@ def load_tutor(console_output: bool = False):
                     weight = 1.0
 
                 if level.upper() == "C":
-                    dim.add_member(member)
+                    dim.add_many(member)
                     parent = member
                 elif level.upper() == "N":
-                    dim.add_member(member)
+                    dim.add_many(member)
                 else:
-                    dim.add_member(parent, member)
+                    dim.add_many(parent, member)
 
         # when we're done, we need to commit the changes we did on the dimension.
         dim.commit()

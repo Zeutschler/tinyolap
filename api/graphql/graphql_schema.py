@@ -53,8 +53,8 @@ def tinyolap_db() -> Database:
 def create_dim(db, name, members):
     dim = db.add_dimension(name).edit()
     for member in members:
-        dim.add_member(str(member))
-    dim.add_member("All", members)
+        dim.add_many(str(member))
+    dim.add_many("All", members)
     dim.commit()
     return dim
 

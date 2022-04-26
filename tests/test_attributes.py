@@ -9,7 +9,7 @@ class TestDimensionAttributes(TestCase):
 
     def setUp(self) -> None:
         self.db = Database("test", in_memory=True)
-        self.dim = self.db.add_dimension("test").edit().add_member("All", ["A", "B", "C"]).commit()
+        self.dim = self.db.add_dimension("test").edit().add_many("All", ["A", "B", "C"]).commit()
 
 
     def test_add_and_set_attributes(self):

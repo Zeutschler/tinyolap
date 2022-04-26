@@ -9,10 +9,10 @@ class TestMember(TestCase):
     def setUp(self) -> None:
         self.db = Database("attribute_test", in_memory=True)
         dim = self.db.add_dimension("member_defs").edit()
-        dim.add_member("All", ["A", "B", "C"])
-        dim.add_member("A", ["A1", "A2", "A3"])
-        dim.add_member("A1", ["A1.1", "A1.2", "A1.3"])
-        dim.add_member("BC", ["B", "C"])
+        dim.add_many("All", ["A", "B", "C"])
+        dim.add_many("A", ["A1", "A2", "A3"])
+        dim.add_many("A1", ["A1.1", "A1.2", "A1.3"])
+        dim.add_many("BC", ["B", "C"])
         dim.commit()
         self.dim = dim
 

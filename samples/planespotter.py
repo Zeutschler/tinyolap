@@ -34,20 +34,20 @@ def create_database(console_output: bool = False):
     dim_horz = db.add_dimension("horz").edit()
     dim_vert = db.add_dimension("vert").edit()
     for i in range(-radius - raster_size, +radius + raster_size, raster_size):
-        dim_horz.add_member("Total", f"{i:+} km")
-        dim_vert.add_member("Total", f"{i:+} km")
+        dim_horz.add_many("Total", f"{i:+} km")
+        dim_vert.add_many("Total", f"{i:+} km")
     dim_horz.commit()
     dim_vert.commit()
 
     # Create a dimension for plane names (the actual plane names will be added later)
     dim_plane = db.add_dimension("planes").edit()
-    dim_plane.add_member("some plane")
-    dim_plane.add_member("All", "some plane")
+    dim_plane.add_many("some plane")
+    dim_plane.add_many("All", "some plane")
     dim_plane.commit()
 
     # Create a dimension for plane data
     dim_data = db.add_dimension("data").edit()
-    dim_data.add_member(["count", "altitude"])
+    dim_data.add_many(["count", "altitude"])
     dim_data.commit()
     dim_data.member_set_format("altitude", "{:,.0f} ft")
 
@@ -91,10 +91,8 @@ def update_database_from_flight_data(db: Database):
         dim_planes.remove_member(list(planes_to_remove))
     for idx, plane in enumerate(new_planes):
         if plane:  # Note: some planes have no name (e.g. military air-planes)
-            dim_planes.add_member("All", countries[idx])
-            dim_planes.add_member(countries[idx], plane)
-            # dim_planes.add_member(plane)
-            # dim_planes.add_member("All", plane)
+            dim_planes.add_many("All", countries[idx])
+            dim_planes.add_many(countries[idx], plane)
     dim_planes.commit()
 
     # clear all data from the cube and import the new data

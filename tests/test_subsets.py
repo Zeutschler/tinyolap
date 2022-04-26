@@ -15,10 +15,10 @@ class TestDimensionSubsets(TestCase):
         # setup a dimension
         self.members = ["A", "B", "C", "D", "E", "F"]
         self.dim = self.db.add_dimension("test")\
-            .edit().add_member("All", self.members).commit()
+            .edit().add_many("All", self.members).commit()
 
         self.other_dim = self.db.add_dimension("other")\
-            .edit().add_member("All", ["A", "B", "C"]).commit()
+            .edit().add_many("All", ["A", "B", "C"]).commit()
 
         # create some attributes
         self.names = ["Alfred", "Axel", "Bert", "Cesar", "Dorin", "Ella", "Fred"]

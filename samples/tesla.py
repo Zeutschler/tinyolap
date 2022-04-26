@@ -27,15 +27,15 @@ def play_tesla(console_output: bool = True):
     # 1st - define an appropriate 5-dimensional cube (the data space)
     db = Database("tesla")
     cube = db.add_cube("sales", [
-        db.add_dimension("datatypes").edit().add_member(
+        db.add_dimension("datatypes").edit().add_many(
             ["Actual", "Plan", "Deviation", "Deviation %"]).commit(),
-        db.add_dimension("years").edit().add_member(
+        db.add_dimension("years").edit().add_many(
             ["2021", "2022", "2023"]).commit(),
-        db.add_dimension("periods").edit().add_member(
+        db.add_dimension("periods").edit().add_many(
             "Year", ["Q1", "Q2", "Q3", "Q4"]).commit(),
-        db.add_dimension("regions").edit().add_member(
+        db.add_dimension("regions").edit().add_many(
             "Total", ["North", "South", "West", "East"]).commit(),
-        db.add_dimension("products").edit().add_member(
+        db.add_dimension("products").edit().add_many(
             "Total", ["Model S", "Model 3", "Model X", "Model Y"]).commit()
     ])
     # 2nd - (if required) add custom business logic, so called 'rules'.

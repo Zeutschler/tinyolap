@@ -25,10 +25,10 @@ class TestDatabaseOperations(TestCase):
         db = Database(self.db_name, in_memory=True)
         self.db = db
         dim1 = db.add_dimension(name1).edit()
-        dim1.add_member(total_member, members1)
+        dim1.add_many(total_member, members1)
         dim1.commit()
         dim2 = db.add_dimension(name2).edit()
-        dim2.add_member(total_member, members2)
+        dim2.add_many(total_member, members2)
         dim2.commit()
         cube = db.add_cube(cube_name, [dim1, dim2])
 
@@ -63,7 +63,7 @@ class TestDatabaseOperations(TestCase):
 
         # remove member_defs
         dim1.edit()
-        dim1.add_member(total_member, "b")
+        dim1.add_many(total_member, "b")
         dim1.commit()
         members1.append("b")
 

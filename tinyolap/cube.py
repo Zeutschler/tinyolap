@@ -19,6 +19,34 @@ from tinyolap.rules import Rule, Rules, RuleError, RuleScope, RuleInjectionStrat
 from tinyolap.storage.storageprovider import StorageProvider
 
 
+class CubeWeightManager:
+    """Manages weights for aggregations of base level members."""
+    def __init__(self, cube: Cube):
+        self.is_weighted_cube = True
+        self.cube = cube
+        self.dim_count = cube.dimensions_count
+        self.wdims: tuple[int] = tuple(range(3))
+        self.wlookup = {c: {p: 1.0 for p in range(200)} for c in range(200)}
+        self.wlkup = [[1.0 for p in range(200)] for c in range(200)]
+
+    def get_parent_weightings(self, parent: tuple[int]):
+        return False, self.wdims, tuple([self.wlookup[parent[i]] if (i in self.wdims) else None for i in range(self.dim_count)])
+
+    def weight(self, child: tuple[int], parent: tuple[int]) -> float:
+        w = 1.0
+        for dim in self.wdims:
+            # if child[dim] != parent[dim]:
+            w *= self.wlookup[child[dim]][parent[dim]]
+            # w *= self._wlkup[child[dim]][parent[dim]]
+        return w
+
+    def refresh(self):
+        """Refreshes the weight manager based on the dimensions of the associated cube."""
+        # evaluate which dimension are weighted. Only those need to be processed
+        # self._wdims: tuple[int] = tuple([idx for idx, dim in enumerate(self._cube._dimensions) if dim.is_weighted])
+        self.wdims: tuple[int] = tuple(range(len(self.cube._dimensions)))
+        pass
+
 class Cube:
     """Represents a multi-dimensional table."""
     __magic_key = object()
@@ -61,6 +89,7 @@ class Cube:
         self._names = []
         self._dim_lookup = CaseInsensitiveDict([(dim.name, idx) for idx, dim in enumerate(self._dimensions)])
         self._facts = FactTable(self._dim_count, self)
+        self._weights = CubeWeightManager(self)
 
         self._database = None
         self._storage_provider: StorageProvider  # = None
@@ -323,19 +352,47 @@ class Cube:
                         except Exception as err:
                             return RuleError.ERROR
 
+            # *****************************************************************
+            # THE FOLLOWING CODE IS HIGHLY PERFORMANCE OPTIMIZED!!!
+            # This is the section where the roll up OLAP aggregations happen.
+            # DO NOT CHANGE THE CODE WITHOUT PERFORMANCE IMPACT ANALYSIS!!!
+            # *****************************************************************
             # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address, row_set)
             self._aggregation_counter += len(rows)
-
             if not rows:
-                return 0.0
-            facts = self._facts.facts
+                return 0.0  # no records, so nothing to aggregate
+
+            # Check if we have a standard or a weighted aggregation.
+            # Note: weighted aggregations are 2x up to 4x slower due to the weight lookup and multiplication
+            weighted_aggregation, w_idx, w_lookup = self._weights.get_parent_weightings(idx_address)
             total = 0.0
-            # todo: add support for ROLL_UP rules
-            for row in rows:
-                value = facts[row]
-                if type(value) is float:
-                    total += value
+            facts = self._facts.facts # put object in local scope. this results in 16% faster code
+            if weighted_aggregation:
+                # weighted aggregation
+                addresses = self._facts.addresses  # put object in local scope. this results in 16% faster code
+                # todo: add support for ROLL_UP rules
+                value = 0.0  # LOL, this normally unnecessary assigment makes the overall code 3% faster
+                for row in rows:
+                    value = facts[row]
+                    if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
+                        w = 1.0
+                        for idx in w_idx:  # only process dimensions with non-standard (+1.0) weighting
+                            # read the weight for the roll up of the current row member to its requested
+                            # Note: when both are the same element, we normally would not have to execute the
+                            # weight look up. But it turned out that an extra if statement is more expensive
+                            # just do unnecessary multiplications.
+                            w *= w_lookup[idx].get(addresses[idx], 1.0)
+                        total += float(value) * w
+            else:
+                # default additive aggregation
+                # todo: add support for ROLL_UP rules
+                value = 0.0
+                for row in rows:
+                    value = facts[row]
+                    # if type(value) is float:
+                    if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
+                        total += value
             if self._caching:
                 self._cache[bolt] = total  # save value to cache
             return total

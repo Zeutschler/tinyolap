@@ -25,10 +25,10 @@ def load_tiny42(console_output: bool = False) -> Database:
     if console_output:
         print(f"Creating the 'tiny42' template database. Please wait...")
     db = Database("tiny42_template", in_memory=True)
-    dim_time = db.add_dimension("time").edit().add_member(
+    dim_time = db.add_dimension("time").edit().add_many(
         "Total").commit()  # , f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}").commit()
-    dim_sensors = db.add_dimension("sensors").edit().add_member("machine", "sensor").commit()
-    dim_values = db.add_dimension("values").edit().add_member(["count", "temperature"]).commit()
+    dim_sensors = db.add_dimension("sensors").edit().add_many("machine", "sensor").commit()
+    dim_values = db.add_dimension("values").edit().add_many(["count", "temperature"]).commit()
     db.add_cube("sensors", [dim_sensors, dim_time, dim_values])
     return db
 
@@ -54,7 +54,7 @@ def machine(arg):
 
     # add machine with some sensors (2 to 10) to the 'sensor' dimension
     sensors = [f"{machine_name}_s_{i:02d}" for i in range(random.randrange(2, 10))]
-    dim_sensors.edit().add_member(machine_name, sensors).commit()
+    dim_sensors.edit().add_many(machine_name, sensors).commit()
 
     # create some sensor data for simulated 10 seconds - we won't wait, but just create the timestamps
     # set a random start temperature for the machine (37° indicate, they're humanoid machines, somehow)
@@ -66,7 +66,7 @@ def machine(arg):
         ts = machine_start_time + datetime.timedelta(seconds=float(s))
         timestamp = f"{ts:%Y-%m-%d %H:%M:%S}"
         if not dim_time.member_exists(timestamp):
-            dim_time.edit().add_member(timestamp).commit()
+            dim_time.edit().add_many(timestamp).commit()
 
         # write 'count' and 'temperature' value for all sensors to the 'sensors' cube
         for sensor in sensors:
@@ -96,15 +96,15 @@ def consolidate(template: Database, machine_dbs: list[Database]) -> Database:
     timestamps.sort()
     if "Total" in timestamps:
         timestamps.remove("Total")
-    consolidated_db.dimensions["time"].edit().add_member("Total", timestamps).commit()
+    consolidated_db.dimensions["time"].edit().add_many("Total", timestamps).commit()
 
     # get all sensors from all machine_dbs and adjust the sensor dimension
     dim_sensors = consolidated_db.dimensions["sensors"].edit()
     for machine_db in machine_dbs:
         machine_name = machine_db.dimensions["sensors"].get_root_members()[1]
-        dim_sensors.add_member("Total", machine_name)
+        dim_sensors.add_many("Total", machine_name)
         sensor_names = machine_db.dimensions["sensors"].member_get_children(machine_name)
-        dim_sensors.add_member(machine_name, sensor_names)
+        dim_sensors.add_many(machine_name, sensor_names)
     # lets also remove the unneeded template member_defs
     dim_sensors.remove_member(["sensor", "machine"])
     dim_sensors.commit()

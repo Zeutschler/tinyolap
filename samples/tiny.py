@@ -42,15 +42,15 @@ def create_tiny_database(console_output: bool = False) -> Database:
     # The edit mode must be closed with a call to the ``commit()`` method.
     dim_years = db.add_dimension("years")
     dim_years.edit()
-    dim_years.add_member("2021")
-    dim_years.add_member("2022")
-    dim_years.add_member("2023")
+    dim_years.add_many("2021")
+    dim_years.add_many("2022")
+    dim_years.add_many("2023")
     # To add an aggregated member just add it, followed by a list that
     # contains the children that the member should aggregate.
     # The following command would even the only one you would have needed
     # to create the 'years' dimension, as children that do not exist
     # will be automatically added. So, beware of typos.
-    dim_years.add_member("All years", ["2021", "2022", "2023"])
+    dim_years.add_many("All years", ["2021", "2022", "2023"])
     dim_years.commit()
 
     # You can also add multiples member_defs by using a list or tuple of
@@ -59,12 +59,12 @@ def create_tiny_database(console_output: bool = False) -> Database:
     # providing a list of lists or tuples for the children.
     dim_months = db.add_dimension("months")
     dim_months.edit()
-    dim_months.add_member(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+    dim_months.add_many(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-    dim_months.add_member(["Q1", "Q2", "Q3", "Q4"],
-                          [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
+    dim_months.add_many(["Q1", "Q2", "Q3", "Q4"],
+                        [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
                            ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
-    dim_months.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
+    dim_months.add_many("Year", ("Q1", "Q2", "Q3", "Q4"))
     dim_months.commit()
     # Subsets are a collection of some member_defs. This useful for
     # reporting purposes as well as the definition of advanced
@@ -74,7 +74,7 @@ def create_tiny_database(console_output: bool = False) -> Database:
 
     dim_regions = db.add_dimension("regions")
     dim_regions.edit()
-    dim_regions.add_member("Total", ("North", "South", "West", "East"))
+    dim_regions.add_many("Total", ("North", "South", "West", "East"))
     # Attributes are properties dimension member_defs. They are very
     # useful to store aliases, master-data or whatever you want to.
     # Please note that attributes can take any Python data type.
@@ -92,16 +92,16 @@ def create_tiny_database(console_output: bool = False) -> Database:
     # Circular references are not supported and will raise an error.
     dim_products = db.add_dimension("products")
     dim_products.edit()
-    dim_products.add_member("Total", ["cars", "trucks", "motorcycles"])
-    dim_products.add_member("cars", ["coupe", "sedan", "sports", "van"])
-    dim_products.add_member("best sellers", ["sports", "motorcycles"])
+    dim_products.add_many("Total", ["cars", "trucks", "motorcycles"])
+    dim_products.add_many("cars", ["coupe", "sedan", "sports", "van"])
+    dim_products.add_many("best sellers", ["sports", "motorcycles"])
     dim_products.commit()
 
     # Finally lets add a measures-dimension for our business logic,
     # here a super simple 'profit & loss' schema.
     dim_measures = db.add_dimension("measures")
     dim_measures.edit()
-    dim_measures.add_member(["Sales", "Cost", "Profit", "Profit in %"])
+    dim_measures.add_many(["Sales", "Cost", "Profit", "Profit in %"])
     dim_measures.commit()
 
     # You can also define some nice number formatting to dimension measures
