@@ -155,6 +155,7 @@ def load_tutor(console_output: bool = False):
 
 @rule("verkauf", ["Abweichung"])
 def rule_delta(c: Cell):
+    return c.Ist - c.Plan  # pydantic style
     return c["Ist"] - c["Plan"]
 
 
@@ -210,6 +211,7 @@ def play_tutor(console_output: bool = True):
     # of the cubes dimension and your done.
     # The first cell request is a 'base level cell', it returns a
     # single value that is actually stored in the database.
+    value = cube["1993", "Abweichung", "USA", "ProView VGA 12", "Januar", "Umsatz"]
     value = cube["1993", "Ist", "USA", "ProView VGA 12", "Januar", "Umsatz"]
     if console_output:
         print(f"verkauf:[('1993, 'Ist', 'USA', 'ProView VGA 12', 'Januar', 'Umsatz')] := {value}")

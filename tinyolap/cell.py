@@ -181,7 +181,15 @@ class Cell(SupportsFloat):
 
     def __delitem__(self, args):
         self.__setitem__(args, None)
+    # endregion
 
+    # region - Dynamic attribute resolving
+    def __getattr__(self, name):
+        return self.__getitem__(name)
+
+    # def __getattribute__(*args):
+    #     print("Class getattribute invoked")
+    #     return object.__getattribute__(*args)
     # endregion
 
     # region Cell manipulation
