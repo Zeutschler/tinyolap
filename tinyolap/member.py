@@ -409,6 +409,13 @@ class Member:
         """
         return len(self._dimension.member_defs[self._idx_member][self._dimension.PARENTS])
 
+
+    def parent_weight(self, parent:Member) -> float:
+        """Returns the weight of the member when rolling up (aggregation) to as specific parent."""
+        return self._dimension.member_defs[self._idx_member][self._dimension.PARENT_WEIGHTS].get(parent.index, None)
+
+
+
     @property
     def children(self) -> MemberList:
         """

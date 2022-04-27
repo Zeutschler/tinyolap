@@ -629,4 +629,14 @@ class Database:
         for cube in self.cubes:
             cube._cache = {}
 
+    def _update_weighting(self, dimension:Dimension):
+        """Update all dimension member weighting information for all affected cubes."""
+        if dimension:
+            for cube in self.cubes:
+                if dimension in cube.dimensions:
+                    return cube._weights.refresh()
+        else:
+            for cube in self.cubes:
+                return cube._weights.refresh()
+
     # endregion

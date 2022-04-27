@@ -720,6 +720,55 @@ class Subsets(Sequence[Subset]):
         """
         self.from_dict(json.loads(subsets_as_json_string))
 
+
+class DimensionWeightManager:
+    """Manages weight information for aggregations of base level members."""
+    def __init__(self, dimension: Dimension, refresh: bool = False):
+        self.is_weighted_dimension = False
+        self.dimension = dimension
+        self.weight_lookup = dict()
+        if refresh:
+            self.refresh()
+
+    def get_parent_weightings(self, parent_idx: int):
+        weights = self.weight_lookup.get(parent_idx, default=dict())
+        return bool(weights), weights
+
+    def refresh(self):
+        """Refreshes the weight manager based on the current members of the dimension."""
+        self.is_weighted_dimension = False
+        # we only need to process aggregated members!
+        # Travers each aggregated member down to their leaves.
+        weight_lookups = dict()
+        for parent in self.dimension.aggregated_members:
+            weighted_leaves = self.get_weighted_leaves(parent, 1.0)
+            # are there any leave members that has a non default weighting.
+            # if NO, the current parent (and its dimension) does not require weighted aggregation
+            # if YES, we need to keep these leave members to, lookup their weight while aggregation
+            if weighted_leaves:
+                weight_lookups[parent.index] = weighted_leaves
+
+        # if there is at least one weighted parent in the dimension
+        # then the dimension requires weighted aggregation.
+        self.weight_lookup = weight_lookups
+        if weight_lookups:
+            self.is_weighted_dimension = True
+
+    def get_weighted_leaves(self, member:Member, base_weight: float = 1.0) -> dict[int, float]:
+        """Returns all weighted leaves from a parent member."""
+        weighted_leaves = {}
+        for child in member.children:
+            weight = child.parent_weight(member)
+            if child.is_parent:
+                # merge results
+                weighted_leaves = {**weighted_leaves, **self.get_weighted_leaves(child, base_weight * weight)}
+            else:
+                # add child and its weight
+                if base_weight * weight != 1.0:
+                    weighted_leaves[child.index] = base_weight * weight
+        return weighted_leaves
+
+
 class Dimension:
     """
     Dimensions are used to define the axis of a multi-dimensional :ref:`cube <cubes>`.
@@ -835,6 +884,7 @@ class Dimension:
         self.highest_idx = 0
         self._members = None
         self._is_weighted: bool = False
+        self._weights = DimensionWeightManager(self, False)
 
         self.database = None
         self._storage_provider: StorageProvider
@@ -964,12 +1014,13 @@ class Dimension:
                    member_level=self.member_defs[idx][self.LEVEL], idx_member=idx)
             for idx in self.member_defs.keys()
         ])
-
         # prepare weighting informations.
-        self._is_weighted = True
+        self._weights.refresh()
+        self._is_weighted = self._weights.is_weighted_dimension
 
-        self.edit_mode = False
         self.database._flush_cache()
+        self.database._update_weighting(self)
+        self.edit_mode = False
         return self
 
     def rollback(self) -> Dimension:
@@ -998,6 +1049,14 @@ class Dimension:
         Returns a list of root members (members with a parent) of the dimension.
         """
         return MemberList(self, [member for member in self._members if member.is_root])
+
+    @property
+    def aggregated_members(self) -> MemberList:
+        """
+        Returns a list of all aggregated members (members with children) of the dimension.
+
+        """
+        return MemberList(self, [member for member in self._members if member.is_parent])
 
     @property
     def leaf_members(self) -> MemberList:
@@ -1048,6 +1107,7 @@ class Dimension:
 
         member_list = member
         children_list = children
+        weight_list = weights
         multi = False
 
         if isinstance(member, str):
@@ -1057,38 +1117,28 @@ class Dimension:
 
             member_list = [member, ]
             children_list = [children]
+            weight_list = [weights]
             multi = True
         elif type(member) is Member:
             member_list = [member.name, ]
             children_list = [children]
+            weight_list = [weights]
             multi = True
 
         if not children:
             children_list = [None] * len(member_list)
+            weight_list = [1.0] * len(member_list)
 
-        # member_list = member
-        # children_list = children
-        # multi = False
-        #
-        # if isinstance(member, str):
-        #     if not self.__valid_member_name(member):
-        #         raise KeyError(f"Failed to add member. Invalid member name '{member}'. "
-        #                        f"'\\t', '\\n' and '\\r' characters are not supported.")
-        #     member_list = [member, ]
-        # elif type(member) is Member:
-        #     member_list = [member.name, ]
-        #
-        # multi = True
-        # if isinstance(children, Iterable):
-        #     children_list = children
+
+        if weight_list is None:
+            weight_list = tuple([tuple(1.0 for member in childs) for childs in children_list])
+
+        # if isinstance(weights, Iterable):
+        #     weights_list = weights
         # else:
-        #     children_list = [children] if children else [None] * len(member_list)
-        if isinstance(weights, Iterable):
-            weights_list = weights
-        else:
-            weights_list = [weights] if weights else [None] * len(member_list)
+        #     weights_list = [weights] if weights else [None] * len(member_list)
 
-        for m, c, w in zip(member_list, children_list, weights_list):
+        for m, c, w in zip(member_list, children_list, weight_list):
             # add the member
             idx_member = self._member_add_parent_child(member=m, parent=None,
                                                        description=(None if multi else description))
@@ -1104,16 +1154,17 @@ class Dimension:
                     raise TinyOlapDimensionEditModeError(
                         f"Failed to member '{m}' to dimension '{self._name}'. Unexpected type "
                         f"'{type(c)}' of parameter 'children' found.")
-                if w is None:
+
+                if not isinstance(w, Iterable):
                     # copy the structure of c
                     neww = []
                     for cc in c:
                         if isinstance(cc, Iterable):
                             ww = []
                             for ccc in cc:
-                                ww = [].append(1.0)
+                                ww = [].append(1.0 if w is None else w)
                         else:
-                            ww = 1.0
+                            ww = 1.0 if w is None else w
                         neww.append(ww)
                     w = neww
 
