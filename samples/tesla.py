@@ -17,12 +17,6 @@ def delta_percent(c: Cell):
         return c.Delta / c.Plan
     return None
 
-@rule("sales", ["Delta %"])
-def delta_percent_classic(c: Cell):
-    if c["Plan"]:  # prevent potential division by zero
-        return c["Delta"] / c["Plan"]
-    return None
-
 def elons_random_numbers(low: float = 1000.0, high: float = 2000.0):
     return random.uniform(low, high)
 
