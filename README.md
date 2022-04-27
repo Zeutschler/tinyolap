@@ -33,7 +33,6 @@ of electric car manufacturing company. So, here's how Elon Musk is doing his bus
     from tinyolap.slice import Slice
     from tinyolap.view import View
     
-    
     @rule("sales", ["Delta %"])
     def delta_percent(c: Cell):
         if c.Plan:  # prevent potential division by zero
