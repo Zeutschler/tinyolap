@@ -8,9 +8,11 @@ from tinyolap.cell import Cell
 from tinyolap.decorators import rule
 from tinyolap.database import Database
 from tinyolap.slice import Slice
+from tinyolap.view import View
+
 
 @rule("sales", ["Delta %"])
-def delta_percent(c: Cell):  # pythonic approach
+def delta_percent(c: Cell):
     if c.Plan:  # prevent potential division by zero
         return c.Delta / c.Plan
     return None
@@ -20,7 +22,6 @@ def delta_percent_classic(c: Cell):
     if c["Plan"]:  # prevent potential division by zero
         return c["Delta"] / c["Plan"]
     return None
-
 
 def elons_random_numbers(low: float = 1000.0, high: float = 2000.0):
     return random.uniform(low, high)
@@ -45,7 +46,7 @@ def play_tesla(console_output: bool = True):
             "Total", ["Model S", "Model 3", "Model X", "Model Y"]).commit()
     ])
     # 2nd - (if required) add custom business logic, so called 'rules'.
-    #       Register the 2 rules that have been implemented above. Take a look.
+    #       Register the rule that has been implemented above. Take a look.
     cube.register_rule(delta_percent)
 
     # 3rd - (optional) some beautifying, set number formats
@@ -80,15 +81,12 @@ def play_tesla(console_output: bool = True):
 
     # 6th - reading data and simple reporting
     if console_output:
-        # let's create a minimal report and dump it to the console
-        print(Slice(cube, {"title": "Tesla - Sales 2023 by region and products",
-                           "header": [{"dimension": "years", "member": "2023"},
-                                      {"dimension": "periods", "member": "Year"}],
-                           "columns": [{"dimension": "datatypes"}],
-                           "rows": [{"dimension": "products"}]
-                           }))
+        # let's create a minimal default report and dump it to the console
+        print(View(cube).refresh().as_console_output())
+
+        # finally, let's congratulate Elon
         dev_percent = cube["Delta %", "2023", "Year", "Total", "Total"]
-        print(f"\nTesla's 2023 performance is {dev_percent:+.2%} above 'Plan'. "
+        print(f"\nTesla's is {dev_percent:+.2%} above 'Plan' for 2023. "
               f"Congratulations, Elon!")
 
     return db
