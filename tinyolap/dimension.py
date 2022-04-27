@@ -1149,6 +1149,7 @@ class Dimension:
                 # add the children
                 if isinstance(c, str):
                     c = [c]
+                    w = [w]
 
                 elif not (isinstance(c, Iterable) and not isinstance(c, str)):
                     raise TinyOlapDimensionEditModeError(
@@ -1159,12 +1160,18 @@ class Dimension:
                     # copy the structure of c
                     neww = []
                     for cc in c:
-                        if isinstance(cc, Iterable):
+                        if not isinstance(cc, str) and not isinstance(cc, Member):
                             ww = []
                             for ccc in cc:
-                                ww = [].append(1.0 if w is None else w)
+                                if w is None:
+                                    ww.append(1.0)
+                                else:
+                                    ww.append(w)
                         else:
-                            ww = 1.0 if w is None else w
+                            if w is None:
+                                ww = 1.0
+                            else:
+                                ww = w
                         neww.append(ww)
                     w = neww
 

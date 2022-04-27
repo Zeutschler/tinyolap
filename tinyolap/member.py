@@ -49,7 +49,7 @@ class Member:
         :param item: Name of the attribute.
         :return: Value of the member attribute.
         """
-        return self._dimension.get_attribute(item)
+        return self._dimension.get_attribute(item, self)
 
     def __setitem__(self, item, value):
         """
@@ -57,7 +57,7 @@ class Member:
         :param item: Name of the attribute.
         :param value: Value to be set.
         """
-        self._dimension.set_attribute(item, value)
+        self._dimension.set_attribute(item, self,  value)
 
     def __eq__(self, other):
         """Checks if two member instances are equal."""
@@ -165,6 +165,7 @@ class Member:
         if self._ordinal < self._dimension.member_counter - 1:
             idx_member = self._dimension._member_idx_list[self._ordinal + 1]
             return self._create_member(idx_member)
+        return None
         raise IndexError(f"No next member available. Member '{self.member_name}' is already the last member.")
 
     @property
@@ -189,6 +190,7 @@ class Member:
         if self._ordinal > 0:
             idx_member = self._dimension._member_idx_list[self._ordinal - 1]
             return self._create_member(idx_member)
+        return None
         raise IndexError(f"No previous member available. Member '{self.member_name}' is already the first member.")
 
     @property

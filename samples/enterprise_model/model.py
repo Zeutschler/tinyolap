@@ -294,6 +294,101 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
     dim.add_many(["Gross Sales",
                     "Sales Returns",
                     "Discounts and Allowances"])
+    dim.add_many("Net Sales", ["Gross Sales", "Sales returns", "Discounts and Allowances"], [1.0, -1.0, -1.0])
+    # Cost of Goods Sold
+    dim.add_many(["Raw Materials",
+                    "Direct Labor",
+                    "Overheads"])
+    dim.add_many("Cost of Goods Sold", ["Raw Materials", "Direct Labor", "Overheads"])
+    # Gross Profit
+    dim.add_many("Gross Profit", ["Net Sales", "Cost of Goods Sold"], [1.0, -1.0])
+    # Operating Expenses
+    dim.add_many("Operating Expenses",
+                 ["Advertising",
+                    "Delivery/Freight",
+                    "Depriciation",
+                    "Insurance",
+                    "Office Supplies",
+                    "Rent/Lease",
+                    "Maintenance and Repairs",
+                    "Travel",
+                    "Wages",
+                    "Utilities",
+                    "Other Expenses"])
+
+    dim.add_many("Operating Profit", ["Gross Profit", "Operating Expenses"], [1.0, -1.0])
+    dim.add_many("Profit Before Taxes", ["Operating Profit", "Interest Income", "Other Income"], [1.0, -1.0, 1.0])
+    dim.add_many("Net Profit", ["Profit Before Taxes", "Tax Expense"], [1.0, -1.0])
+    dim.commit()
+
+    # Attributes
+    # we add an attribute that contains somehow realistic sample values
+    # for our P&L figures. These will be used later to generate randomized data.
+    dim.add_attribute("sample", float)
+    for pair in (("Gross Sales", 78000.0),
+                 ("Sales Returns", 3200.0),
+                 ("Discounts and Allowances", 1000.0),
+                 ("Raw Materials", 8100.0),
+                 ("Direct Labor", 10000.0),
+                 ("Overheads", 2100.0),
+                 ("Advertising", 600.0),
+                 ("Delivery/Freight", 1500.0),
+                 ("Depriciation", 8000.0),
+                 ("Insurance", 550.0),
+                 ("Office Supplies", 1300.0),
+                 ("Rent/Lease", 5800.0),
+                 ("Maintenance and Repairs", 200.0),
+                 ("Travel", 200.0),
+                 ("Wages", 10000.0),
+                 ("Utilities", 800.0),
+                 ("Other Expenses", 230.0),
+                 ("Interest Income", 1700.0),
+                 ("Other Income", 1250.0),
+                 ("Tax Expense", 10000.0)):
+        dim.set_attribute("sample", pair[0], pair[1])
+
+    # Subsets
+    dim.add_subset("Expenses",
+                   ["Advertising",
+                    "Delivery/Freight",
+                    "Depriciation",
+                    "Insurance",
+                    "Office Supplies",
+                    "Rent/Lease",
+                    "Maintenance and Repairs",
+                    "Travel",
+                    "Wages",
+                    "Utilities",
+                    "Other Expenses"])
+
+    dim.add_subset("Overview",
+                   ["Gross Sales",
+                    "Net Sales",
+                    "Gross Profit",
+                    "Operating Expenses",
+                    "Operating Profit",
+                    "Profit Before Taxes",
+                    "Net Profit"])
+
+    return dim
+
+
+def add_dimension_pnl_statement_old(db: Database, name: str = "pnl") -> Dimension:
+    """
+    Dimension defining the chart of account for a profit & loss statement:
+    The chart of account and the required calcuation logic are maintained in a speparate file.
+    Will also dynamically create rule from that file. Better than to type all the rules by hand.
+
+    :param db: The target database.
+    :param name: Name of the dimension
+    :return: The new dimension.
+    """
+    dim = db.add_dimension(name).edit()
+
+    # Revenue
+    dim.add_many(["Gross Sales",
+                    "Sales Returns",
+                    "Discounts and Allowances"])
     dim.add_many("Net Sales", ["Gross Sales", "Sales returns", "Discounts and Allowances"])
     # Cost of Goods Sold
     dim.add_many(["Raw Materials",

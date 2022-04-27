@@ -174,7 +174,12 @@ class Cell(SupportsFloat):
         if not isinstance(args, (str, Member)) and (args[-1] == self.BYPASS_RULES):
             return self._cube._get(self.__item_to_bold(args[:len(args) - 1]), True)
         else:
-            return self._cube._get(self.__item_to_bold(args))
+            value = self._cube._get(self.__item_to_bold(args))
+            if value is None:
+                return 0.0  # Rules need numeric values
+            else:
+                return value
+            # return self._cube._get(self.__item_to_bold(args))
 
     def __setitem__(self, args, value):
         self._cube._set(self.__item_to_bold(args), value)

@@ -42,7 +42,7 @@ def play_enterprise(console_output=True):
                                           "member": ["Jan", "Feb", "Mar", "Q1", "Q2", "Q3", "Q4", "Year"]}],
                              "rows": [{"dimension": "products",
                                        "member": [products.get_root_members()[0], ] +
-                                                 products.member_get_children(products.get_root_members()[0])}]}
+                                                  products.member_get_children(products.get_root_members()[0])}]}
         start = time.time()
         sales.reset_counters()
         report = Slice(sales, report_definition)

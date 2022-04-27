@@ -71,7 +71,8 @@ def render_report(refresh_only: bool = False) -> str:
 
     footer = f"\tReport with caching {'ON' if cube.caching else 'OFF'} refreshed in {duration:.6} sec. " \
              f"{cube.counter_cell_requests:,}x cell requests, " \
-             f"{cube.counter_aggregations:,}x aggregations calculated and " \
+             f"{cube.counter_aggregations:,}x aggregations " \
+             f"(thereof {cube.counter_weighted_aggregations:,} weighted) and " \
              f"{cube.counter_rule_requests:,}x rules executed."
     return random_report.as_html(footer=footer)
 

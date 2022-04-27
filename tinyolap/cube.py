@@ -113,6 +113,7 @@ class Cube:
         self._cell_request_counter: int = 0
         self._rule_request_counter: int = 0
         self._aggregation_counter: int = 0
+        self._weighted_aggregation_counter: int = 0
         self._caching = True
         self._cache = {}
 
@@ -173,8 +174,13 @@ class Cube:
 
     @property
     def counter_aggregations(self) -> int:
-        """Returns the number aggregations that have been executed."""
+        """Returns the number of overall aggregations that have been executed."""
         return self._aggregation_counter
+
+    @property
+    def counter_weighted_aggregations(self) -> int:
+        """Returns the number weighted aggregations that have been executed."""
+        return self._weighted_aggregation_counter
 
     @property
     def counter_cache_hits(self) -> int:
@@ -188,6 +194,7 @@ class Cube:
         self._cell_request_counter = 0
         self._rule_request_counter = 0
         self._aggregation_counter = 0
+        self._weighted_aggregation_counter = 0
         self._cache_hit_counter = 0
 
     @property
@@ -385,6 +392,7 @@ class Cube:
             facts = self._facts.facts # put object in local scope. this results in 16% faster code
             if weighted_aggregation:
                 # weighted aggregation
+                self._weighted_aggregation_counter += len(rows)
                 addresses = self._facts.addresses  # put object in local scope. this results in 16% faster code
                 # todo: add support for ROLL_UP rules
                 value = 0.0  # LOL, this normally is an unnecessary assigment but makes the overall code 3% faster

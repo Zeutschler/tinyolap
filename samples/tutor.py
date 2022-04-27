@@ -88,6 +88,9 @@ def load_tutor(console_output: bool = False):
                 member = line[1]
                 if len(line) > 2:
                     weight = float(line[2])
+                    if weight != 1.0:
+                        weight = weight * 1.0
+
                 else:
                     weight = 1.0
 
@@ -274,7 +277,8 @@ def play_tutor(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+              f"\n\t{cube.counter_aggregations:,} cell aggregations "
+              f"(thereof {cube.counter_weighted_aggregations:,} weighted)")
 
 
 def main():
