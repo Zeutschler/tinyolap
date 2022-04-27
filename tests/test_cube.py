@@ -2,6 +2,8 @@ from unittest import TestCase
 import os
 from pathlib import Path
 import time
+
+from rules import RuleError
 from tinyolap.database import Database
 from tinyolap.cube import Cube
 from tinyolap.dimension import Dimension
@@ -65,6 +67,9 @@ class TestCube(TestCase):
         # todo: Uppps, not yet supported for measures...
         cube.register_rule(lambda x: x["Sales"] - x["Cost"], "Profit")
         cube.register_rule(lambda x: x["Jan"] - x["Feb"], "Q1")
+        cube.register_rule(lambda x: x["Jan"] / 0.0, "Mar")  # a rule which always throws a #DIV0 error
+        cube.register_rule(lambda x: x["xzy"] * 2.0, "Apr")  # a rule which always throws a #REF error
+        cube.register_rule(lambda x: x[True] * 2.0, "Mai")  # a rule which always throws a #ERR error
 
         # disable caching
         cube.caching = False
@@ -73,6 +78,15 @@ class TestCube(TestCase):
         cube["2020", "Jan", "North", "A", "Sales"] = 123.0
         value = cube["2020", "Jan", "North", "A", "Sales"]
         del cube["2020", "Jan", "North", "A", "Sales"]
+
+        # access rule with error
+        value = cube["2020", "Mar", "North", "A", "Sales"]
+        self.assertEqual(value.value, RuleError.DIV0.value)
+        value = cube["2020", "Apr", "North", "A", "Sales"]
+        self.assertEqual(value.value, RuleError.REF.value)
+        value = cube["2020", "Mai", "North", "A", "Sales"]
+        self.assertEqual(value.value, RuleError.ERR.value)
+
 
         # write/read a value to/from cube
         address = ("2020", "Jan", "North", "A", "Sales")

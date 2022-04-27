@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -9,18 +9,14 @@ from tinyolap.decorators import rule
 from tinyolap.database import Database
 from tinyolap.slice import Slice
 
-@rule("sales", ["Deviation"])
-def deviation(c: Cell):
-    return c["Actual"] - c["Plan"]
-
-@rule("sales", ["Deviation %"])
-def deviation_percent(c: Cell):
-    if c["Plan"]:  # prevent potential division by zero
-        return c["Deviation"] / c["Plan"]
+@rule("sales", ["Delta %"])
+def delta_percent(c: Cell):  # pythonic approach
+    if c.Plan:  # prevent potential division by zero
+        return c.Delta / c.Plan
     return None
 
 @rule("sales", ["Delta %"])
-def delta_percent(c: Cell):
+def delta_percent_classic(c: Cell):
     if c["Plan"]:  # prevent potential division by zero
         return c["Delta"] / c["Plan"]
     return None
@@ -35,7 +31,7 @@ def play_tesla(console_output: bool = True):
     db = Database("tesla")
     cube = db.add_cube("sales", [
         db.add_dimension("datatypes").edit()
-                       .add_many(["Actual", "Plan", "Deviation", "Deviation %"])
+                       .add_many(["Actual", "Plan"])
                        .add_many("Delta", ["Actual", "Plan"], [1.0, -1.0])
                        .add_many("Delta %")
                        .commit(),
@@ -50,13 +46,9 @@ def play_tesla(console_output: bool = True):
     ])
     # 2nd - (if required) add custom business logic, so called 'rules'.
     #       Register the 2 rules that have been implemented above. Take a look.
-    cube.register_rule(deviation)
-    cube.register_rule(deviation_percent)
     cube.register_rule(delta_percent)
 
     # 3rd - (optional) some beautifying, set number formats
-    db.dimensions["datatypes"].member_set_format("Deviation", "{:+,.0f}")
-    db.dimensions["datatypes"].member_set_format("Deviation %", "{:+.2%}")
     db.dimensions["datatypes"].member_set_format("Delta", "{:+,.0f}")
     db.dimensions["datatypes"].member_set_format("Delta %", "{:+.2%}")
 
@@ -95,7 +87,7 @@ def play_tesla(console_output: bool = True):
                            "columns": [{"dimension": "datatypes"}],
                            "rows": [{"dimension": "products"}]
                            }))
-        dev_percent = cube["Deviation %", "2023", "Year", "Total", "Total"]
+        dev_percent = cube["Delta %", "2023", "Year", "Total", "Total"]
         print(f"\nTesla's 2023 performance is {dev_percent:+.2%} above 'Plan'. "
               f"Congratulations, Elon!")
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -15,9 +15,9 @@ enum_tools.documentation.INTERACTIVE = True
 class RuleError(Enum):
     """Defines error values raised by rules, useing an Excel-alike error format."""
     DIV0 = "#DIV/0!"  # doc: Devision by zero.
-    VALUE = "#VALUE!"  # doc: Invalid argument type, e.g. a number was used instead of an expected string.
+    VAL = "#VALUE!"  # doc: Invalid argument type, e.g. a number was used instead of an expected string.
     REF = "#REF!"  # doc: Invalid reference to a member, dimension, attribute or cube name.
-    ERROR = "#ERR!"  # doc: An unknown or unhandable error occurred.
+    ERR = "#ERR!"  # doc: An unknown or unhandable error occurred.
 
 
 @enum_tools.documentation.document_enum

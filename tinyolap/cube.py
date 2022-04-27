@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -330,8 +330,10 @@ class Cube:
                             return value
                     except ZeroDivisionError:
                         return RuleError.DIV0
+                    except KeyError as err:
+                        return RuleError.REF
                     except Exception as err:
-                        return RuleError.ERROR
+                        return RuleError.ERR
 
         if super_level == 0:  # base-level cells
             # BASE_LEVEL rules
@@ -350,7 +352,7 @@ class Cube:
                         except ZeroDivisionError:
                             return RuleError.DIV0
                         except Exception as err:
-                            return RuleError.ERROR
+                            return RuleError.ERR
 
             # BASE_LEVEL values
             return self._facts.get(idx_address)
@@ -372,7 +374,7 @@ class Cube:
                         except ZeroDivisionError:
                             return RuleError.DIV0
                         except Exception as err:
-                            return RuleError.ERROR
+                            return RuleError.ERR
 
             # *****************************************************************
             # THE FOLLOWING CODE IS HIGHLY PERFORMANCE OPTIMIZED!!!
@@ -731,11 +733,15 @@ class Cube:
             trigger = [trigger, ]
 
         # setup and add rule
-        idx_pattern = self._pattern_to_idx_pattern(trigger)
-        rule = Rule(function=function, name=function_name, cube=self.name, trigger=trigger,
-                    idx_trigger_pattern=idx_pattern,
-                    scope=scope, injection=injection, code=code)
-        self._rules.add(rule)
+        try:
+            idx_pattern = self._pattern_to_idx_pattern(trigger)
+            rule = Rule(function=function, name=function_name, cube=self.name, trigger=trigger,
+                        idx_trigger_pattern=idx_pattern,
+                        scope=scope, injection=injection, code=code)
+            self._rules.add(rule)
+        except Exception as err:
+            raise TinyOlapRuleError(f"Failed to add rule function '{function_name}' "
+                                    f"to cube '{self.name}', invalid target definition found. {err}")
 
         # add function to code manager
         self._database._code_manager.register_function(

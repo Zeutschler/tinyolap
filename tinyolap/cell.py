@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -190,6 +190,7 @@ class Cell(SupportsFloat):
 
     # region - Dynamic attribute resolving
     def __getattr__(self, name):
+        name = str(name).replace("_", " ")
         return self.__getitem__(name)
 
     # def __getattribute__(*args):
