@@ -22,9 +22,9 @@ class TestDimensionAttributes(TestCase):
         att["name"]["A"] = "Axel"
         att["name"]["B"] = "Bert"
         att["name"]["C"] = "Cesar"
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             att["name"]["C"] = True
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             att["name"]["C"] = 123.456
 
         father = att.add("father", str)
@@ -36,11 +36,11 @@ class TestDimensionAttributes(TestCase):
         age["A"] = 34
         age["B"] = 45
         age["C"] = 19
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             age["C"] = True
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             age["C"] = 123.456
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             age["C"] = "TinyOlap"
 
         # read attributes

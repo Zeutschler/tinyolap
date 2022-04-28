@@ -21,10 +21,10 @@ class TestArea(TestCase):
         area = cube.area(["2021", "2022"], "months:Jan", ("A", "C"))
         area = cube.area(["2021", "2022"], "months:Jan", ("products:Total",))
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             area = cube.area(123)  # wrong data type
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             area = cube.area(["2021", "2022"], ["2022", "2023"])  # multiple use of a dimension
 
     def test_area_create_modify_clear(self):
@@ -119,13 +119,13 @@ class TestArea(TestCase):
         value_after = cube.get(address)
         self.assertEqual(3.0, value_after)
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             area["Feb"] = area["2021"]  # different dimensions
 
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             area["2020", "Feb"] = area["Jan", "2021"]  # different dimensions
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             area["Feb"] = area["Jan", "2021"]  # different dimensions
 
         area["Feb", "2022"] = area["Jan", "2021"]  # correct = matching dimensions

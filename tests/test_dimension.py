@@ -50,7 +50,7 @@ class TestDimension(TestCase):
         dim = self.db.add_dimension("circular").edit()
         dim.add_many("All", ["A", "B", "C"])
         dim.add_many("A", ["A1", "A2", "A3"])
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             dim.add_many("A1", ["All"])
         dim.commit()
         self.db.dimension_remove("circular")

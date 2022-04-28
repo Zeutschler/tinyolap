@@ -997,7 +997,7 @@ class Dimension:
 
         :return: The dimension itself.
         """
-        self.__update_member_hierarchies()
+        self._update_member_hierarchies()
         if self._storage_provider and self._storage_provider.connected:
             self._storage_provider.add_dimension(self._name, self.to_json())
 
@@ -1008,10 +1008,17 @@ class Dimension:
         # update member list
         self._member_idx_list = [idx for idx in self.member_defs.keys()]
 
+        # ensure that member level are set correct. This might not be the case when
+        # unbalanced hierarchies will be created in random order.
+        for idx in self._member_idx_list:
+            if self.member_defs[idx][self.LEVEL] == 0:
+                self._update_parent_hierarchy_member_levels(idx)
+
         # update the member list
         self._members = MemberList(self, [
             Member(dimension=self, member_name=self.member_defs[idx][self.NAME],
-                   member_level=self.member_defs[idx][self.LEVEL], idx_member=idx)
+                   member_level=self.member_defs[idx][self.LEVEL], idx_member=idx,
+                   number_format=self.member_defs[idx][self.FORMAT])
             for idx in self.member_defs.keys()
         ])
         # prepare weighting informations.
@@ -1072,7 +1079,8 @@ class Dimension:
                 return Member(dimension=self, member_name=member_name,
                               cube=None, idx_dim=-1,
                               idx_member=member,
-                              member_level=self.member_defs[self._member_idx_lookup[member_name]][self.LEVEL])
+                              member_level=self.member_defs[self._member_idx_lookup[member_name]][self.LEVEL],
+                              number_format=self.member_defs[self._member_idx_lookup[member_name]][self.FORMAT])
             except (IndexError, ValueError):
                 raise KeyError(f"Failed to return Member with index '{member}'. The member does not exist.")
 
@@ -1081,7 +1089,8 @@ class Dimension:
             return Member(dimension=self, member_name=member,
                           cube=None, idx_dim=-1,
                           idx_member=idx_member,
-                          member_level=self.member_defs[self._member_idx_lookup[member]][self.LEVEL])
+                          member_level=self.member_defs[self._member_idx_lookup[member]][self.LEVEL],
+                          number_format=self.member_defs[self._member_idx_lookup[member]][self.FORMAT])
         raise KeyError(f"Failed to return Member '{member}'. The member does not exist.")
 
     # region add, remove, rename member_defs
@@ -1111,7 +1120,7 @@ class Dimension:
         multi = False
 
         if isinstance(member, str):
-            if not self.__valid_member_name(member):
+            if not self._valid_member_name(member):
                 raise KeyError(f"Failed to add member. Invalid member name '{member}'. "
                                f"'\\t', '\\n' and '\\r' characters are not supported.")
 
@@ -1140,8 +1149,8 @@ class Dimension:
 
         for m, c, w in zip(member_list, children_list, weight_list):
             # add the member
-            idx_member = self._member_add_parent_child(member=m, parent=None,
-                                                       description=(None if multi else description))
+            idx_member = self.add(member=m, parent=None,
+                                  description=(None if multi else description))
             if number_format:
                 self.member_defs[idx_member][self.FORMAT] = number_format
 
@@ -1182,7 +1191,7 @@ class Dimension:
                         raise TinyOlapDimensionEditModeError(
                             f"Failed to add child to member '{m}' of dimension '{self._name}. Unexpected type "
                             f"'{type(c)}' of parameter 'children' found.")
-                    if not self.__valid_member_name(child):
+                    if not self._valid_member_name(child):
                         raise KeyError(f"Failed to add member. Invalid member name '{child}'. "
                                        f"'\\t', '\\n' and '\\r' characters are not supported.")
                     if weight is None:
@@ -1192,7 +1201,7 @@ class Dimension:
                             f"Failed to add child to member '{m}' of dimension '{self._name}. Unexpected type "
                             f"'{type(w)}' of parameter 'weight' for child '{child}' found.")
 
-                    self._member_add_parent_child(member=child, parent=m, weight=weight)
+                    self.add(member=child, parent=m, weight=weight)
 
         return self
 
@@ -2033,10 +2042,23 @@ class Dimension:
 
     # region auxiliary function to add, remove or rename member_defs
     @staticmethod
-    def __valid_member_name(name):
+    def _valid_member_name(name):
         return not (("\t" in name) or ("\n" in name) or ("\r" in name))
 
-    def _member_add_parent_child(self, member, parent, weight: float = 1.0, description: str = None) -> int:
+    def add(self, member: str, parent: str, weight: float = 1.0, description: str = None) -> int:
+        """
+        Adds a member to the dimension. The dimension must be in 'edit' mode.
+        :param member: Name of the member to be added.
+        :param parent: (optional) Name of a parent-member the member should belong to and aggregate into.
+        :param weight: (optional) The weight of the member to be used when aggregating up to the parent-member.
+            Default value is +1.0 for normal aggregation. Use -1.0 to subtract the value. Or use any other
+            value to define a certain static mathematical dependency between the member and the parent, e.g.,
+            .add('Price', 'Price (incl. 5% discount)', 0.95)
+            .add('Jan', 'Q1 average', 1.0/3.0)... ,or even better and more explicit
+            .add_many('Q1 average', ['Jan', 'Feb', 'Mar'], [1.0/3.0, 1.0/3.0, 1.0/3.0])
+        :param description: an optional description for the member.
+        :return: An 'int' representing the internal index of the member.
+        """
         if member in self._member_idx_lookup:
             member_idx = self._member_idx_lookup[member]
             if description:
@@ -2099,29 +2121,36 @@ class Dimension:
             self.member_defs[member_idx][self.PARENTS].append(parent_idx)
 
         # check for circular references
-        if self.__circular_reference_detection(member_idx, member_idx):
+        if self._circular_reference_detection(member_idx, member_idx):
             # remove the relationship
             self.member_defs[member_idx][self.PARENTS].remove(parent_idx)
             self.member_defs[parent_idx][self.CHILDREN].remove(member_idx)
 
-            raise TinyOlapDimensionEditModeError(f"Circular reference detected on adding parent <-> child relation "
+            raise TinyOlapDimensionEditCircularReferenceError(f"Circular reference detected on adding parent <-> child relation "
                                              f"'{self.member_defs[parent_idx][self.NAME]}' <-> "
                                              f"'{self.member_defs[member_idx][self.NAME]}' "
-                                             f"to dimension {self._name}. Both member_defs were added, "
-                                             f"but the relation was not created.")
+                                             f"to dimension {self._name}. Both members were added to the dimension, "
+                                             f"but the parent child relation was not created.")
 
         # update all-parents list, only relevant for base level member_defs
-        self.__update_all_parents(member_idx, parent_idx)
+        self._update_all_parents(member_idx, parent_idx)
 
-    def __update_all_parents(self, idx, parent_idx):
+    def _update_parent_hierarchy_member_levels(self, idx_member: int, level: int = 0):
+        for idx in self.member_defs[idx_member][self.PARENTS]:
+            if self.member_defs[idx][self.LEVEL] < level + 1:
+                self.member_defs[idx][self.LEVEL] = level + 1
+            # update base level children
+            self._update_parent_hierarchy_member_levels(idx, level + 1)
+
+    def _update_all_parents(self, idx, parent_idx):
         if self.member_defs[idx][self.LEVEL] > 0:
             for child_idx in self.member_defs[idx][self.CHILDREN]:
-                self.__update_all_parents(child_idx, parent_idx)
+                self._update_all_parents(child_idx, parent_idx)
         else:
             if parent_idx not in self.member_defs[idx][self.ALL_PARENTS]:
                 self.member_defs[idx][self.ALL_PARENTS].append(parent_idx)
 
-    def __update_member_hierarchies(self):
+    def _update_member_hierarchies(self):
         for idx in self._member_idx_lookup.values():
             if self.member_defs[idx][self.LEVEL] > 0:
                 # update base level children
@@ -2129,13 +2158,13 @@ class Dimension:
             else:
                 self.member_defs[idx][self.ALL_PARENTS] = self.__get_all_parents(idx)
 
-    def __check_circular_reference(self):
+    def _check_circular_reference(self):
         for idx in self._member_idx_lookup.values():
-            if self.__circular_reference_detection(idx, idx):
+            if self._circular_reference_detection(idx, idx):
                 raise TinyOlapDimensionEditModeError(f"Failed to commit dimension. Circular reference detected "
                                                  f"for member {self.member_defs[idx][self.NAME]}.")
 
-    def __circular_reference_detection(self, start: int, current: int, visited=None):
+    def _circular_reference_detection(self, start: int, current: int, visited=None):
         if visited is None:
             visited = set()
 
@@ -2144,7 +2173,7 @@ class Dimension:
 
         visited.add(current)
         for parent in self.member_defs[current][self.PARENTS]:
-            if self.__circular_reference_detection(current, parent, visited):
+            if self._circular_reference_detection(current, parent, visited):
                 return True
         visited.remove(current)
         return False

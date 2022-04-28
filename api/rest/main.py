@@ -12,17 +12,18 @@ from api.rest.documentation import api_description, tags_metadata
 from api.rest.dependencies import get_query_token, get_token_header
 from api.rest.internal import admin
 from api.rest.routers import root, databases, views, cells, users
-from api.rest.tiny.initialization import setup
+from api.rest.tiny.initialization import setup, TINYOLAP_API_VERSION
 
 # TinyOlap server initialization
 setup()
 
 # FastAPI initialization
-app = FastAPI(title="TinyOlap REST API",
+app = FastAPI(title="TinyOlap API",
               # , dependencies=[Depends(get_query_token)
               description=api_description,
+              terms_of_service="https://tinyolap.com/terms.html",
               openapi_tags=tags_metadata,
-              version="0.8.1",
+              version=TINYOLAP_API_VERSION,
               license_info={"name": "MIT License", "url": "https://tinyolap.com/docs/license.html",}
               )
 

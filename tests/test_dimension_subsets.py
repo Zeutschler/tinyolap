@@ -33,9 +33,9 @@ class TestDimensionSubsets(TestCase):
 
         self.assertEqual(1, dim.subsets_count())
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             dim.add_subset("this is an invalid name", ("A", "B"))
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             dim.add_subset("subset", ("A", "B"))
         with self.assertRaises(TypeError):
             dim.add_subset("invalid_name_but_wrong_type_of_members", "A")

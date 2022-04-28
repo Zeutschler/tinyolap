@@ -68,9 +68,8 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     pnl_cube = db.add_cube("pnl", [datatype, years, periods, company, pnl])
     if console_output:
         print(f"\tGenerating data for cube '{pnl_cube.name}'. This may take a while...")
-    for func in [rule_datatype_actvspl, rule_datatype_actvspl_percent,
-                       rule_datatype_actvsfc, rule_datatype_actvsfc_percent,
-                       rule_datatype_fcvspl, rule_datatype_fcvspl_percent,
+    for func in [rule_datatype_actvspl_percent, rule_datatype_actvsfc_percent,
+                       rule_datatype_fcvspl_percent,
                        rule_datatype_fcvsactpy, rule_datatype_fcvsactpy_percent,
                        rule_datatype_actvactpy, rule_datatype_actvactpy_percent]:
         pnl_cube.register_rule(func)
@@ -268,6 +267,11 @@ def add_dimension_datatype(db: Database, name: str = "datatype") -> Dimension:
                   "ACTvsACTpy", "ACTvsACTpy%",
                   "FCvsPL", "FCvsPL%",
                   "FCvsACTpy", "FCvsACTpy%"])
+
+    d.add_many("ACTvsPL",["Actual", "Plan"], [1.0, -1.0])
+    d.add_many("ACTvsFC",["Actual", "Forecast"], [1.0, -1.0])
+    d.add_many("FCvsPL",["Forecast", "Plan"], [1.0, -1.0])
+
     d.commit()
     for member in ["Actual", "Plan", "Forecast"]:
         d.member_set_format(member, "{:,.0f}")  # set default number format
@@ -673,13 +677,6 @@ def rule_sales_price(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     return None
 # endregion
 
-# region Rules for P&L statement
-@rule("pnl", ["ACTvsPL"])
-def rule_datatype_actvspl(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
-    """Rule to calculate Actual vs Plan."""
-    return c["datatype:Actual"] - c["datatype:Plan"]
-
-
 @rule("pnl", ["ACTvsPL%"])
 def rule_datatype_actvspl_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Plan in %."""
@@ -688,13 +685,6 @@ def rule_datatype_actvspl_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=
         return (c["datatype:Actual"] - plan) / plan
     return None
 
-
-@rule("pnl", ["ACTvsFC"])
-def rule_datatype_actvsfc(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
-    """Rule to calculate Actual vs Forecast."""
-    return c["datatype:Actual"] - c["datatype:Forecast"]
-
-
 @rule("pnl", ["ACTvsFC%"])
 def rule_datatype_actvsfc_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Forecast in %."""
@@ -702,13 +692,6 @@ def rule_datatype_actvsfc_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=
     if fc:
         return (c["datatype:Actual"] - fc) / fc
     return None
-
-
-@rule("pnl", ["FCvsPL"])
-def rule_datatype_fcvspl(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
-    """Rule to calculate Forecast vs Plan."""
-    return c["datatype:Forecast"] - c["datatype:Plan"]
-
 
 @rule("pnl", ["FCvsPL%"])
 def rule_datatype_fcvspl_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
@@ -722,7 +705,7 @@ def rule_datatype_fcvspl_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=F
 @rule("pnl", ["FCvsACTpy"])
 def rule_datatype_fcvsactpy(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Forecast vs Actual Previous Year."""
-    prev_year = c.member("years").previous()
+    prev_year = c.member("years").previous
     if prev_year:
         return c["datatype:Forecast"] - c["years:" + str(prev_year), "datatype:Actual"]
     return None
@@ -731,7 +714,7 @@ def rule_datatype_fcvsactpy(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False)
 @rule("pnl", ["FCvsACTpy%"])
 def rule_datatype_fcvsactpy_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Forecast vs Actual Previous Year in %."""
-    prev_year = c.member("years").previous()
+    prev_year = c.member("years").previous
     if prev_year:
         actual = c["years:" + str(prev_year), "datatype:Actual"]
         if actual:
@@ -743,7 +726,7 @@ def rule_datatype_fcvsactpy_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatil
 @rule("pnl", ["ACTvsACTpy"])
 def rule_datatype_actvactpy(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Actual Previous Year."""
-    prev_year = c.member("years").previous()
+    prev_year = c.member("years").previous
     if prev_year:
         return c["datatype:Actual"] - c["years:" + str(prev_year), "datatype:Actual"]
     return None
@@ -752,7 +735,7 @@ def rule_datatype_actvactpy(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False)
 @rule("pnl", ["ACTvsACTpy%"])
 def rule_datatype_actvactpy_percent(c: Cell, scope=RuleScope.ALL_LEVELS, volatile=False):
     """Rule to calculate Actual vs Actual Previous Year in %."""
-    prev_year = c.member("years").previous()
+    prev_year = c.member("years").previous
     if prev_year:
         actual = c["years:" + str(prev_year), "datatype:Actual"]
         if actual:

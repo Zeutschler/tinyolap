@@ -70,7 +70,7 @@ class Test(TestCase):
 
         self.assertEqual(list(ab.filter("2")), [2])
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             ac = a + c
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             ca = c + a

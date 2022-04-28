@@ -5,6 +5,7 @@
 
 import itertools
 import math
+import random
 import time
 from art import *
 
@@ -102,6 +103,7 @@ def create_tiny_database(console_output: bool = False) -> Database:
     dim_measures = db.add_dimension("measures")
     dim_measures.edit()
     dim_measures.add_many(["Sales", "Cost", "Profit", "Profit in %"])
+    dim_measures.add_many("Profit", ["Sales", "Cost"], [1.0, -1.0])
     dim_measures.commit()
 
     # You can also define some nice number formatting to dimension measures
@@ -125,17 +127,11 @@ def create_tiny_database(console_output: bool = False) -> Database:
     # member combination (e.g. [..., 'Jan', 'Profit']) the rule should actually calculate.
     # For further detailed on how to define and write rules, please refer the TinyOlap documentation.
     # Rules are a big and complex topic!!! Once you've understood the concept, it gets very easy.
-    cube.register_rule(rule_profit)
+    # cube.register_rule(rule_profit)
     cube.register_rule(rule_profit_in_percent)
 
     # That's it! Your first TinyOlap database is ready to use...
     return db
-
-
-@rule("sales", ["Profit"])
-def rule_profit(c: tinyolap.cell.Cell):
-    """Rule to calculate the Profit."""
-    return c["Sales"] - c["Cost"]
 
 
 @rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS, volatile=False)
@@ -242,7 +238,7 @@ def play_tiny(console_output: bool = True):
                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
                                   ("North", "South", "West", "East"),
                                   ("trucks", "motorcycles", "coupe", "sedan", "sports", "van"),
-                                  ("Sales", "Cost", "Profit", "Profit in %")
+                                  ("Sales", "Cost")
                                   )
     for address in addresses:
         cube.set(address, float(randrange(5, 100)))

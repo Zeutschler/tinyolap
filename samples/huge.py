@@ -54,19 +54,10 @@ def load_huge(console_output: bool = False):
     # 3. Create a cube
     cube = db.add_cube("huge", dimensions)
 
-    # lets check duration and memory consumption
-    # if console_output:
-    #     duration = time.time() - start
-    #     actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
-    #     print(f"\tCreating the 'huge' data model with {numbers_of_dimensions}x dimensions, "
-    #           f"each with {members_per_dimension:,}x members in {duration:.3} sec.")
-    #     print(f"\tMemory consumption of database without data is ±{actual_memory_consumption:,} MB.\n")
-
     # 4. now start the data import
     if console_output:
         print(f"Importing {numbers_of_records:,} records into the 'huge' "
               f"data model (10,000 records per dot). Please wait...")
-    start = time.time()
 
     for r in range(numbers_of_records):
         if r > 0 and console_output and r % 10_000 == 0:
@@ -80,19 +71,6 @@ def load_huge(console_output: bool = False):
         # set a value
         # we'll use 1.0 to see, how many rows have been aggregated for a specific cube value.
         cube.set(address, 1.0)
-
-    if console_output:
-        print()
-        print()
-
-    # if console_output:
-    #     print()
-    #     duration = time.time() - start
-    #     actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)
-    #     print(f"\tImporting {numbers_of_records:,} records into the 'huge' data model in {duration:.3} sec.")
-    #     print(f"\tMemory consumption of database including {cube.cells_count:,} values "
-    #       f"is ±{actual_memory_consumption:,} MB, "
-    #       f"±{round(actual_memory_consumption / cube.cells_count * 1000, 2)} kB per value.\n")
 
     # That's it...
     return db, cube, dimensions, member_lists

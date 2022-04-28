@@ -70,8 +70,7 @@ class TestMember(TestCase):
         self.assertEqual("B", str(c.previous))
 
         self.assertFalse(all.has_previous)
-        with self.assertRaises(Exception):
-            x = all.previous
+        self.assertEqual(all.previous, None)
 
     @unittest.skip("Various tests not yet implemented. Keep writing tests Bro... ;-)")
     def test_various_tests_missing(self):

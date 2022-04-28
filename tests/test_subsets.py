@@ -51,10 +51,10 @@ class TestDimensionSubsets(TestCase):
         abc = dim.subsets.add_static_subset(name="abc", members=["A", "B", "C"])
         cde = dim.subsets.add_static_subset(name="cde", members=["C", "D", "E"])
         abc_by_member = dim.subsets.add_static_subset(name="abc-member", members=[a, b, "c"])
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             abx = dim.subsets.add_static_subset(
                 name="abx", members=["A", "B", "X"])  # 'X' does not exist
-        with self.assertRaises(Exception):
+        with self.assertRaises(BaseException):
             abx_by_member = dim.subsets.add_static_subset(
                 name="abx", members=[a_other, b, "c"])  # 'a_other' from different dimension
 

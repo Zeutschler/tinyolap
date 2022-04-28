@@ -14,7 +14,7 @@ class TestCell(TestCase):
 
     def test_initialization(self):
         c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
-        with self.assertRaises(Exception) as context:
+        with self.assertRaises(BaseException) as context:
             c = self.cube.cell("2022", "Jan")
         self.assertEqual(type(TinyOlapInvalidAddressError()), type(context.exception))
 

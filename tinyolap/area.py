@@ -309,8 +309,6 @@ class Area:
                     new_value = scr._func(new_value)
                 self._cube.set(new_address, new_value)
 
-
-
         else:
 
             if enumerate_data_space:
@@ -330,24 +328,12 @@ class Area:
             else:
                 self._rows = rows
                 facts = self._cube._facts.facts
-                # if callable(value):
-                #     for row in rows:
-                #         for k in facts[row]:
-                #             facts[row][k] = value()
-                # else:
-                #     for row in rows:
-                #         for k in facts[row]:
-                #             facts[row][k] = value
-
                 if callable(value):
                     for row in rows:
                         facts[row] = value()
                 else:
                     for row in rows:
                         facts[row] = value
-
-
-
 
     def multiply(self, factor: float):
         """
@@ -415,13 +401,6 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
-        # for row in rows:
-        #     for v in facts[row].values():
-        #         if type(v) is float:
-        #             if not maximum:
-        #                 maximum = v
-        #             if v > maximum:
-        #                 maximum = v
         for row in rows:
             v = facts[row]
             if type(v) is float:
@@ -440,11 +419,6 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
-        # for row in rows:
-        #     for v in facts[row].values():
-        #         if type(v) is float:
-        #             avg += v
-        #             z += 1
         for row in rows:
             v = facts[row]
             if type(v) is float:
@@ -463,11 +437,6 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
-        # for row in rows:
-        #     for v in facts[row].values():
-        #         if type(v) is float:
-        #             total += v
-        #             z += 1
         for row in rows:
             v = facts[row]
             if type(v) is float:
@@ -671,9 +640,8 @@ class Area:
         idx_dim = idx_dims[0]
         for idx in idx_dims[1:]:
             if idx != idx_dim:
-                # raise TinyOlapInvalidAddressError(f"Invalid member definition argument '{str(item)}'. Members do not belong "
-                #                f"to one dimension only, multiple dimensions found.")
-                a = 1
+                raise TinyOlapInvalidAddressError(f"Invalid member definition argument '{str(item)}'. Members do not belong "
+                                f"to one dimension only, multiple dimensions found.")
 
         return idx_dim, members, idx_members, level_members
 
@@ -748,14 +716,6 @@ class Area:
                         idx_member = modifier[2][0]
                         idx_address[idx_dim] = idx_member
 
-                    # values = record[1]
-                    # for key in values:
-                    #     value = values[key]
-                    #     if other._func:
-                    #         value = other._func(value)
-                    #     bolt = (0, tuple(idx_address), key)
-                    #     self._cube._set(bolt, value)
-                    #     # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
                     value = record[1]
                     if other._func:
                         value = other._func(value)
@@ -775,13 +735,6 @@ class Area:
                         idx_member = modifier[2][0]
                         idx_address[idx_dim] = idx_member
 
-                    # for key in facts.facts[row]:
-                    #     value = facts.facts[row][key]
-                    #     if other._func:
-                    #         value = other._func(value)
-                    #     bolt = (0, tuple(idx_address), key)
-                    #     self._cube._set(bolt, value)
-                    #     # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
                     value = facts.facts[row]
                     if other._func:
                         value = other._func(value)

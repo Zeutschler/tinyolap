@@ -7,7 +7,6 @@ import random
 from tinyolap.cell import Cell
 from tinyolap.decorators import rule
 from tinyolap.database import Database
-from tinyolap.slice import Slice
 from tinyolap.view import View
 
 

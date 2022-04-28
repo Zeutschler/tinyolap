@@ -19,9 +19,10 @@ class Member:
     """
     _LEVEL = 6
     _NAME = 1
+    _FORMAT = 10
 
     def __init__(self, dimension, member_name, cube=None,
-                 idx_dim: int = -1, idx_member: int = -1, member_level: int = -1):
+                 idx_dim: int = -1, idx_member: int = -1, member_level: int = -1, number_format: str = ""):
         self._idx_dim = idx_dim
         self._idx_member = idx_member
         self._ordinal = dimension._member_idx_list.index(idx_member)
@@ -29,6 +30,7 @@ class Member:
         self._dimension = dimension
         self._name: str = member_name
         self._cube = cube
+        self._number_format: str = number_format
 
         self._children_weights = None
         self._children = None
@@ -88,6 +90,15 @@ class Member:
         return self._ordinal
 
     @property
+    def number_format(self) -> str:
+        """Returns the number format of the member, if defined. Otherwise and empty string will be returned."""
+        format = self._dimension.member_defs[self._idx_member][self._dimension.FORMAT]
+        if format:
+            return format  # self._dimension.member_defs[self._idx_member][self._dimension.FORMAT]
+        return ""
+        # return self._number_format
+
+    @property
     def qualified_name(self) -> str:
         """Returns the full qualified name of the member, incl. dimension"""
         return self._dimension.name + ":" + self._name
@@ -121,7 +132,9 @@ class Member:
         """Returns a new Member object."""
         member_level = self._dimension.member_defs[idx_member][self._LEVEL]
         member_name = self._dimension.member_defs[idx_member][self._NAME]
-        return Member(self._dimension, member_name, self._cube, self._idx_dim, idx_member, member_level)
+        number_format = self._dimension.member_defs[idx_member][self._FORMAT]
+        return Member(self._dimension, member_name, self._cube, self._idx_dim, idx_member,
+                      member_level= member_level, number_format=number_format)
 
     def __update_member(self, idx_member):
         self._idx_member = idx_member

@@ -18,6 +18,7 @@ from tinyolap.cube import Cube
 class ViewCell:
     value: float = 0.0
     formatted_value: str = ""
+    format: str = ""
 
 
 @dataclass
@@ -168,7 +169,8 @@ class View:
                  zero_suppression_on_columns: bool = False,
                  uid=None,
                  random_view: bool = False,
-                 use_first_root_members_for_filters: bool = False):
+                 use_first_root_members_for_filters: bool = False,
+                 title: str = ""):
         """
         Initializes a new view for the given cube.
         :param cube: The Cube to create a view for.
@@ -181,14 +183,16 @@ class View:
             the given cube. Only valid for the case that no view definition is defined.
         :param use_first_root_members_for_filters: Flag to force to set the first root member for all filter dimensions.
             This applies to both random views and the default view.
+        :param title: (optional) Title for the report, if not defined in view definition.
         """
         self._cube: Cube = cube
         self._def = view_definition
         self._row_zero: bool = zero_suppression_on_rows
         self._col_zero: bool = zero_suppression_on_columns
         self._cells = []
-        self._title: str = "TinyOlap View"
+        self._title = title
         self._description: str = ""
+        self._default_number_format: str = "{:,.0f}"
         self._uid: str = str(uid) if uid else str(uuid.uuid4())
         self._random_view: bool = random_view
         self._use_first_root_members_for_filters = use_first_root_members_for_filters
@@ -237,6 +241,22 @@ class View:
     def description(self, value: str):
         """Sets the description of the view."""
         self._description = value
+
+    @property
+    def default_number_format(self) -> str:
+        """Returns the default number format for the view in Python format.
+        The default number format is: "{:,.0f}"."""
+        return self._default_number_format
+
+    @default_number_format.setter
+    def default_number_format(self, value: str):
+        """Sets the default number format for the view in Python format.
+        Number formats defined for one of the dimension members
+        used in the view will override the default format.
+        Default format is: "{:,.0f}"."""
+        self._default_number_format = value
+
+
 
     @property
     def statistics(self) -> ViewStatistics:
@@ -334,20 +354,30 @@ class View:
         idx_address = [0] * self._cube.dimensions_count
         axis = self._filter_axis
         super_level = 0
+        number_format = 0
         for i in range(axis._dim_count):
             idx_address[axis._dim_idx[i]] = axis.positions[0][i].index
             super_level += axis.positions[0][i].level
+            if axis.positions[0][i].number_format:
+                number_format = axis.positions[0][i].number_format
         axis = self._row_axis
         for i in range(axis._dim_count):
             idx_address[axis._dim_idx[i]] = axis.positions[row][i].index
             super_level += axis.positions[row][i].level
+            if axis.positions[0][i].number_format:
+                number_format = axis.positions[0][i].number_format
         axis = self._col_axis
         for i in range(axis._dim_count):
             idx_address[axis._dim_idx[i]] = axis.positions[col][i].index
             super_level += axis.positions[col][i].level
+            if axis.positions[0][i].number_format:
+                number_format = axis.positions[0][i].number_format
 
         value = self.cube._get((super_level, tuple(idx_address),))
-        return ViewCell(value, str(value))
+        if number_format:
+            return ViewCell(value, number_format.format(value), number_format)
+        else:
+            return ViewCell(value,self._default_number_format.format(value), number_format)
 
     def __setitem__(self, coordinates, value):
         """
@@ -419,7 +449,7 @@ class View:
         return False
 
     def refresh(self):
-        """Refreshes (updates) the view."""
+        """Refreshes the view from the database."""
 
         # prepare statistics
         stat = self._statistics
@@ -430,12 +460,16 @@ class View:
 
         # refresh filter axis first to create a FactTableRowSet
         cells = []
+        number_format = ""
         filter_level = 0
         idx_address = [0] * self._cube.dimensions_count
         axis = self._filter_axis
         for i in range(axis._dim_count):
-            idx_address[axis._dim_idx[i]] = axis.positions[0][i].index
-            filter_level += axis.positions[0][i].level
+            member = axis.positions[0][i]
+            idx_address[axis._dim_idx[i]] = member.index
+            filter_level += member.level
+            if member.number_format:
+                number_format = member.number_format
         row_set = self._cube._facts.create_row_set(idx_address)
 
         rows = self._row_axis
@@ -444,19 +478,34 @@ class View:
             super_level = filter_level
             for i in range(rows._dim_count):
                 idx_address[rows._dim_idx[i]] = rows.positions[row][i].index
-                super_level += rows.positions[row][i].level
+                member = rows.positions[row][i]
+                super_level += member.level
+                if member.number_format:
+                    number_format = member.number_format
 
             for col in range(cols.positions_count):
                 for i in range(cols._dim_count):
-                    idx_address[cols._dim_idx[i]] = cols.positions[col][i].index
-                    super_level += cols.positions[col][i].level
+                    member = cols.positions[col][i]
+                    idx_address[cols._dim_idx[i]] = member.index
+                    super_level += member.level
+                    if member.number_format:
+                        number_format = member.number_format
 
-                value = self._cube._get((super_level, tuple(idx_address), ), row_set=row_set)
+                value = self._cube._get((super_level, tuple(idx_address),), row_set=row_set)
 
-                if type(value) is not float:  # e.g.  for Rule Errors
+                if type(value) is not float:  # e.g.  for Rule Errors or string values
                     value = str(value)
+                    if value is None:
+                        formatted_value = ""
+                    else:
+                        formatted_value = value
+                else:
+                    if not number_format:
+                        formatted_value = self._default_number_format.format(value)
+                    else:
+                        formatted_value = number_format.format(value)
 
-                view_cell = ViewCell(value, str(value))
+                view_cell = ViewCell(value, formatted_value, number_format)
                 if col == 0:
                     cells.append([view_cell, ])
                 else:
@@ -508,22 +557,22 @@ class View:
 
         # set up filter axis
         if remaining > 0:
-            if self._use_first_root_members_for_filters:
+            if not self._use_first_root_members_for_filters or self._random_view:
                 self._filter_axis = ViewAxis(self,
-                                         idx=tuple([ordinal[idx] for idx in range(remaining)]),
-                                         dimensions=tuple([dimensions[ordinal[idx]] for idx in range(remaining)]),
-                                         member_lists=tuple(
-                                             [MemberList(dimension=dimensions[ordinal[idx]],
-                                                         members=dimensions[ordinal[idx]].root_members[0])
-                                              for idx in range(remaining)]))
+                                             idx=tuple([ordinal[idx] for idx in range(remaining)]),
+                                             dimensions=tuple([dimensions[ordinal[idx]] for idx in range(remaining)]),
+                                             member_lists=tuple(
+                                                 [MemberList(dimension=dimensions[ordinal[idx]],
+                                                             members=random.choice(dimensions[ordinal[idx]].members))
+                                                  for idx in range(remaining)]))
             else:
                 self._filter_axis = ViewAxis(self,
-                                         idx=tuple([ordinal[idx] for idx in range(remaining)]),
-                                         dimensions=tuple([dimensions[ordinal[idx]] for idx in range(remaining)]),
-                                         member_lists=tuple(
-                                             [MemberList(dimension=dimensions[ordinal[idx]],
-                                                         members=dimensions[ordinal[idx]].members[0])
-                                              for idx in range(remaining)]))
+                                             idx=tuple([ordinal[idx] for idx in range(remaining)]),
+                                             dimensions=tuple([dimensions[ordinal[idx]] for idx in range(remaining)]),
+                                             member_lists=tuple(
+                                                 [MemberList(dimension=dimensions[ordinal[idx]],
+                                                             members=dimensions[ordinal[idx]].members[0])
+                                                  for idx in range(remaining)]))
 
     def as_console_output(self, hide_zeros: bool = True) -> str:
         """Renders the view suitable for console output. The output contains
@@ -621,3 +670,124 @@ class View:
                     ]} for row_id, row in enumerate(self._cells)
                 ]
                 }
+
+    def to_html(self) -> str:
+        """Converts the current state of the view into a simple static HTML representation."""
+
+        start = time.time()
+
+        tro = "<tr>"
+        trc = "</tr>\n"
+        text = ""
+
+        # title
+        if self.title:
+            text += f"<h2>{self.title} on cube '{self.cube.name}'</h2>\n"
+            if self.description:
+                text += f"<h4>{self.description}</h4>\n"
+
+        stat = self.statistics
+        text += f'<div class="font-italic font-weight-light">View ' \
+                   f'refreshed in {stat.refresh_duration:.5} sec, ' \
+                   f'{stat.executed_cell_requests:,} cells, ' \
+                   f'{stat.executed_cell_aggregations:,} aggregations, ' \
+                   f'{stat.executed_rules:,} rules.</div>'
+
+        row_dims = self._row_axis.dimensions_count
+        col_dims = self._col_axis.dimensions_count
+
+        # header dimensions
+        text += '<table class="table w-auto"><tbody>\n'
+        for position in self._filter_axis.positions:
+            for member in position:
+                text += f'<tr><td>{member.dimension.name}</td><th scope="row">{member.name}</th></tr>\n'
+        text += '</tbody></table>'
+
+        text += '<div style= width: 100%">'
+        text += '<div class"table-responsive">' \
+                '<table class="table table-hover table-striped table-bordered"' \
+                '>\n'
+        text += '<thead">\n'
+
+        # column headers
+        dim_names_inserted = False
+        text += tro
+        for c in range(col_dims):
+            for r in range(row_dims):
+                if dim_names_inserted:
+                    text += f'<th scope="col" class="th-lg" style="width: 80px"></th>\n'
+                else:
+                    dim_names = ", ".join("→" + dimension.name for dimension in self._col_axis.dimensions) # .definition["columns"])
+                    dim_names = dim_names + "</br>" + ", ".join(
+                        "↓" + dimension.name for dimension in self._row_axis.dimensions)  # self.definition["rows"])
+                    text += f'<td scope="col" class="td-lg" style="width: 80px">{dim_names}</td>\n'
+                    dim_names_inserted = True
+            for d in range(self._col_axis.dimensions_count):
+                for position in self._col_axis.positions:
+                    text += f'<th scope="col" class="text-center" style="width: 80px">' \
+                            f'{position[d].name}' \
+                            f'</th>\n'
+
+        text += trc
+        text += '</thead">\n'
+
+        # row headers and cells
+        previous = {}
+        text += tro
+        for row in range(self._row_axis.positions_count):
+            for col in range(self._col_axis.positions_count):
+                # cell = self.cell((col, row))
+                cell = self._cells[row][col]
+
+                # row headers
+                if col == 0:
+                    if row > 0:
+                        text += trc
+                        text += tro
+
+                    for pos, member in enumerate(self._row_axis.positions[row]):
+                    # for pos, member in enumerate(cell[4]):
+                        if pos in previous:
+                            if previous[pos] != member.name:
+                                indent = "&nbsp;&nbsp;&nbsp;" * member.level
+                                text += f'<th class="text-nowrap" scope="row">{indent + member.name}</th>\n'
+                            else:
+                                text += f'<th class="text-nowrap" scope="row"></th>\n'
+                        else:
+                            text += f'<th class="text-nowrap" scope="row">{member.name}</th>\n'
+                        previous[pos] = member.name
+
+                value = cell.value
+                formatted_value = cell.formatted_value
+                negative = False
+                if type(value) is float:
+                    negative = (value < 0.0)
+                if negative:
+                    text += f'<td class="text-nowrap" style="text-align: right; color:darkred">{formatted_value}</td>\n'
+                else:
+                    text += f'<td class="text-nowrap" style="text-align: right">{formatted_value}</td>\n'
+
+        text += trc
+        text += "</table></div>"
+
+        duration = time.time() - start
+        duration = f'<div class="font-italic font-weight-light">HTML rendered in {duration:.5} sec, ' \
+                   f'total time {duration + stat.refresh_duration:.5} sec.' \
+                   f'</div>'
+
+        html = f'<!doctype html>' \
+               f'<html lang="en">' \
+               f'<head><!-- Required meta tags -->' \
+               f'<meta charset="utf-8">' \
+               f'<meta name="viewport" content="width=device-width, initial-scale=1">' \
+               f'<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"/> ' \
+               f'<title>TinyOlap API (sample random view)</title>' \
+               f'<style></style>' \
+               f'</head>' \
+               f'<body>' \
+               f'<div class="p-3">' \
+               f'{text}' \
+               f'</div>' \
+               f'{duration}' \
+               f'</body></html>'
+        return html

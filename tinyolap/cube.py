@@ -296,9 +296,18 @@ class Cube:
         return self._get(bolt)
 
     def set(self, address: tuple, value):
-        """Writes a value to the cube at the given address."""
+        """
+        Writes a value to the cube at the given address. The address is tuple of strings
+        containing one member after another for all dimensions of the cube. Order of members matters.
+
+        UNDER DEVELOPMENT - Please note that you can write any kind of Python object into a cube. If these objects
+        are convertible to 'float' then they can also be used for calculation and reporting purposes.
+        """
         bolt = self._address_to_bolt(address)
-        return self._set(bolt, value)
+        try:
+            self._set(bolt, value)
+        except TinyOlapInvalidOperationError as err:
+            raise TinyOlapInvalidOperationError(f"Failed to write value {value} to address {address}. {str(err)}")
 
     def _get(self, bolt, bypass_rules=False, row_set=None):
         """
@@ -525,7 +534,7 @@ class Cube:
 
     def _address_to_bolt(self, address):
         """Converts a given address into a bolt.
-        A bolt is a tuple of integer address, used for internal access of cells.
+        A bolt is a tuple of integer address, used for internal addressing of cells.
         """
         dim_count = self._dim_count
         dimensions = self._dimensions
@@ -535,7 +544,7 @@ class Cube:
                 f"for cube '{self._name}, but only {len(address)} where passed in.")
 
         # Validate member_defs
-
+        is_valid = True
         idx_address = [None] * dim_count
         super_level = 0
         for i, member in enumerate(address[: dim_count]):
@@ -544,6 +553,7 @@ class Cube:
                 idx_address[i] = dimension._member_idx_lookup[member]
                 super_level += dimension.member_defs[idx_address[i]][6]
             else:
+                is_valid = False
                 raise TinyOlapInvalidAddressError(f"Invalid idx_address. '{member}' is not a member of the {i}. "
                                                          f"dimension '{dimension.name}' in cube {self._name}.")
         idx_address = tuple(idx_address)

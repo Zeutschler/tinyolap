@@ -8,6 +8,7 @@ from api.rest.tiny.api import very_small_sample_db
 from samples.enterprise_model.model import create_database
 
 # set up the global server, create or add available databases
+TINYOLAP_API_VERSION = "0.8.11"
 server_is_initialized: bool = False
 server = Server()
 
