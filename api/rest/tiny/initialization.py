@@ -12,6 +12,8 @@ TINYOLAP_API_VERSION = "0.8.11"
 server_is_initialized: bool = False
 server = Server()
 
+
+
 def setup():
     global server, server_is_initialized
     if not server_is_initialized:

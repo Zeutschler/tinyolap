@@ -1,12 +1,9 @@
-from typing import Optional
-from pydantic import BaseModel, parse_obj_as
-
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse, HTMLResponse
 from ..dependencies import lock
 from ..tiny.catalog import catalog
 from ..tiny.initialization import server
 
-from tinyolap.database import Database
 
 router = APIRouter(
     prefix="/databases",
@@ -15,37 +12,47 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", response_class=JSONResponse)
 async def get_databases():
-    """Returns the list of available databases."""
+    """Returns the list of databases provided through the current TinyOlap API instance."""
     try:
-        # Locking on server (hopefully) not required. >>>  with lock["@"].gen_rlock():
-        return {"databases": [{"id": server.databases[db].name,
+        return JSONResponse(content={"databases": [{"id": server.databases[db].name,
                                "description": server.databases[db].description,
-                               "in_memory": server.databases[db].in_memory} for db in server.databases]}
+                               "in_memory": server.databases[db].in_memory} for db in server.databases]},
+                             status_code=200)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error. " + str(e))
 
 
-@router.get("/{database_id}")
+@router.get("/{database_id}", response_class=JSONResponse)
 async def get_database_info(database_id: str):
-    """Returns the list of cubes and dimensions available in a specific database."""
+    """Returns the list of cubes and dimensions defined in a specific database.
+     :param database_id: id (the name) of the database to return.
+    """
     try:
-        with lock["db"].gen_rlock():
-            if database_id not in server.databases:
-                HTTPException(status_code=404, detail="Database not found")
-            return catalog(db=server.databases[database_id], full_catalog=False)
+        if database_id in server.databases:
+            database = server[database_id]
+            with lock[database].gen_rlock():
+                return JSONResponse(catalog(db=server.databases[database_id], full_catalog=False),
+                                    status_code=200)
+        else:
+            raise HTTPException(status_code=404, detail=f"TinyOlap database_id '{database_id}' not found.")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error. " + str(e))
 
-@router.get("/{database_id}/catalog}")
+
+@router.get("/{database_id}/catalog", response_class=JSONResponse)
 async def get_database_catalog(database_id: str):
     """Returns the catalog of a specific database, containing all relevant meta and
     master data, including members of dimension and rules."""
     try:
-        with lock["db"].gen_rlock():
-            if database_id not in server.databases:
-                HTTPException(status_code=404, detail="Database not found")
-            return catalog(db=server.databases[database_id], full_catalog=True)
+        if database_id in server.databases:
+            database = server[database_id]
+            with lock["db"].gen_rlock():
+                return JSONResponse(content=catalog(db=server.databases[database_id], full_catalog=True),
+                                    status_code=200)
+        else:
+            raise HTTPException(status_code=404, detail=f"TinyOlap database_id '{database_id}' not found.")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error. " + str(e))

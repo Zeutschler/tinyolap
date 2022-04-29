@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-
 import inspect
 import json
 from collections.abc import Iterable
@@ -18,6 +17,8 @@ from tinyolap.exceptions import *
 from tinyolap.facttable import FactTable
 from tinyolap.rules import Rule, Rules, RuleError, RuleScope, RuleInjectionStrategy
 from tinyolap.storage.storageprovider import StorageProvider
+from tinyolap.view import ViewList
+from tinyolap.utilities.hybrid_dict import HybridDict
 
 
 class CubeWeightManager:
@@ -94,7 +95,8 @@ class Cube:
         self._description = description
         if cube_creation_from_json:
             self._dim_count = len(dimensions)
-            self._dimensions = tuple(dimensions)
+            # self._dimensions = tuple(dimensions)
+            self._dimensions: HybridDict[Dimension] = HybridDict(dimensions)
         else:
             self._dim_count = 0
             self._dimensions = tuple()
@@ -105,6 +107,8 @@ class Cube:
 
         self._database = None
         self._storage_provider: StorageProvider  # = None
+
+        self._views = ViewList(self)
 
         self._has_rules: bool = False
         self._rules = Rules(self._name)
@@ -121,10 +125,10 @@ class Cube:
         self._weights.refresh()
 
     def __str__(self):
-        return f"cube '{self.name}'"
+        return self._name
 
     def __repr__(self):
-        return f"cube '{self.name}'"
+        return self._name
 
     # region areas
     def area(self, *args) -> Area:
@@ -158,6 +162,11 @@ class Cube:
         self._description = value
 
     @property
+    def views(self):
+        """Returns the available views for the cube."""
+        return self._views
+
+    @property
     def rules(self) -> Rules:
         """Returns the rules of the sube."""
         return self._rules
@@ -186,8 +195,6 @@ class Cube:
     def counter_cache_hits(self) -> int:
         """Returns the number cache hits that have occurred."""
         return self._cache_hit_counter
-
-
 
     def reset_counters(self):
         """Resets the internal counters for cell- and rule-requests and aggregations."""
@@ -226,6 +233,13 @@ class Cube:
         """Returns the number of dimensions of the cube."""
         return tuple(dim.name for dim in self._dimensions)
 
+    def dimension_contained(self, dimension) -> bool:
+        """Checks if a specific dimension is contained in the cube."""
+        if type(dimension) is Dimension:
+            dimension = dimension.name
+        dimension = str(dimension).lower()
+        return any([True if dim.name.lower() == dimension else False for dim in self.dimensions])
+
     def get_dimension_by_index(self, index: int):
         """Returns a dimension from a cubes list of dimensions at the given index."""
         if (index < 0) or (index > self._dim_count):
@@ -239,7 +253,7 @@ class Cube:
         """
         ordinals = []
         for idx, dim_name in enumerate([dim.name for dim in self._dimensions]):
-            if name == dim_name:
+            if str(name).lower() == dim_name.lower():
                 ordinals.append(idx)
         if not ordinals:
             return -1
@@ -642,13 +656,14 @@ class Cube:
             # load data
             if self._storage_provider:
                 records = self._storage_provider.get_records(self._name)
-                for record in records:
-                    address = str(record[0])
-                    idx_address = tuple(map(int, address[1:-1].split(sep=",")))
+                if records:
+                    for record in records:
+                        address = str(record[0])
+                        idx_address = tuple(map(int, address[1:-1].split(sep=",")))
 
-                    data = json.loads(record[1])
-                    for key, value in data.items():
-                        self._set_base_level_cell(idx_address, value)
+                        data = json.loads(record[1])
+                        for key, value in data.items():
+                            self._set_base_level_cell(idx_address, value)
 
             # initialize rules
             # Note: This should to be done after loading the data, as otherwise push rules

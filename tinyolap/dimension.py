@@ -885,6 +885,8 @@ class Dimension:
         self._members = None
         self._is_weighted: bool = False
         self._weights = DimensionWeightManager(self, False)
+        self._default_member = None
+        # self.get_top_level()
 
         self.database = None
         self._storage_provider: StorageProvider
@@ -1071,6 +1073,23 @@ class Dimension:
         Returns a list of all leave members (members without children) of the dimension.
         """
         return MemberList(self, [member for member in self._members if member.is_leaf])
+
+    @property
+    def top_level(self) -> int:
+        """
+        Returns the highest member level available in the dimension. The level of a member
+        is equal to the depth of its overall child hierarchy. Leave member have a level of
+        0,  their direct parents have 1, their grandparents 2, and so on.
+        """
+        raise NotImplementedError()
+
+    @property
+    def default_member(self) -> Member:
+        if not self._default_member:
+            self._default_member = self._members[0]
+        return self._default_member
+
+
 
     def member(self, member) -> Member:
         if type(member) is int:

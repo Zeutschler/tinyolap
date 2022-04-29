@@ -117,6 +117,12 @@ class Database:
     def __del__(self):
         self.close()
 
+    def __repr__(self):
+        return self._name
+
+    def __str__(self):
+        return self.name
+
     # region Properties
     @property
     def in_memory(self) -> bool:

@@ -52,7 +52,7 @@ def random_write(db: Database) -> (str, str, list[str], float):
     return db.name, cube.name, address, value
 
 
-def create_view(cube: Cube, random_view: bool = True, title:str = "Random View") -> View:
+def create_view(cube: Cube, random_view: bool = True, title: str = "Random View") -> View:
     return View(cube, random_view=random_view, title=title)
 
 

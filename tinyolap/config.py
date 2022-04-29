@@ -19,4 +19,5 @@ class Config:
         RULE: Final = "TinyOlap.Rule"
         RULES: Final = "TinyOlap.Rules"
         VIEW: Final = "TinyOlap.View"
+        VIEW_DEFINITION: Final = "TinyOlap.ViewDefinition"
         VIEWS: Final = "TinyOlap.Views"

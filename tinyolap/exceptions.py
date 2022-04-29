@@ -89,3 +89,8 @@ class TinyOlapDimensionEditCircularReferenceError(BaseException):
     and a parent child relation will be created that would cause a circular reference.
     """
     pass
+
+class TinyOlapViewError(BaseException):
+    """Raised when an error occurred while a view is processed or refreshed.
+    """
+    pass

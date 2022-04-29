@@ -80,14 +80,14 @@ class TestDimension(TestCase):
         self.execute_dimension_test(dim, members, parents, root_members)
 
     def test_hierarchical_dimension(self):
-        members = [f"member_{i:03d}" for i in range(100)]
-        parents = [f"parent_{i:03d}" for i in range(10)]
+        members = [f"member_{i:03d}" for i in range(16)]
+        parents = [f"parent_{i:03d}" for i in range(4)]
         root_members = ["total"]
         dim = self.db.add_dimension("SomeDimension").edit()
         for member in members:
             dim.add_many(member=member, description=f"Description for {member}")
         for index, member in enumerate(members):
-            parent = f"parent_{(index % 10):03d}"
+            parent = f"parent_{(index % 4):03d}"
             dim.add_many(parent, member, description=f"Description for {parent}")
         for parent in parents:
             dim.add_many(root_members[0], parent, description=f"Description for {root_members[0]}")
