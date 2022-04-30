@@ -45,13 +45,16 @@ class TinyOlapStorageError(BaseException):
     """Raised when an error occurs while accessing or handling database storage_provider."""
     pass
 
+
 class TinyOlapSerializationError(BaseException):
     """Raised when an error occurs on serialization or deserialization of TinyOlap objects."""
     pass
 
+
 class TinyOlapIOError(BaseException):
     """Raised when an error occurs while accessing or handling files."""
     pass
+
 
 class TinyOlapFatalError(BaseException):
     """Raised when a fatal error occurs."""
@@ -80,17 +83,21 @@ class TinyOlapInvalidMemberNameError(BaseException):
 
 class TinyOlapDimensionEditModeError(BaseException):
     """Raised when an error occurred while a dimension is in edit mode,
-    or if member were added, removed or renamed while not in edit mode.
-    """
+    or if member were added, removed or renamed while not in edit mode."""
     pass
+
 
 class TinyOlapDimensionEditCircularReferenceError(BaseException):
     """Raised when an error occurred while a dimension is in edit mode,
-    and a parent child relation will be created that would cause a circular reference.
-    """
+    and a parent child relation will be created that would cause a circular reference."""
     pass
 
+
 class TinyOlapViewError(BaseException):
-    """Raised when an error occurred while a view is processed or refreshed.
-    """
+    """Raised when an error occurred while a view is processed or refreshed."""
+    pass
+
+
+class TinyOlapFileError(BaseException):
+    """Raised when an error occurred while TinyOlap handles files (databases, snapshots, logs etc.)."""
     pass

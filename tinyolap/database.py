@@ -12,6 +12,7 @@ from copy import deepcopy
 from typing import Tuple
 
 import utilities.utils
+from tinyolap.snapshot import SnapshotManager
 from tinyolap.storage.sqlite import SqliteStorage
 from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.encryption import EncryptionMethodEnum, Encryptor, NotAnEncryptor, ObfuscationEncryptor, FernetEncryptor
@@ -112,6 +113,9 @@ class Database:
             self._storage_provider: StorageProvider = SqliteStorage(name=self._name, encryptor=self._encryptor)
             self._storage_provider.open(file_name=self._file_name)
         self._load()
+
+        self._snapshots = SnapshotManager(self)
+
         self._caching = True
 
     def __del__(self):
@@ -138,6 +142,11 @@ class Database:
     def history(self) -> History:
         """Returns the history of the database."""
         return self._history
+
+    @property
+    def snapshots(self) -> SnapshotManager:
+        """Returns the snapshot manager of the database. Useful for database backup and version management."""
+        return self._snapshots
 
     @property
     def code_manager(self) -> CodeManager:
@@ -313,7 +322,7 @@ class Database:
         """
         Exports the database to a new database file. This method is useful e.g.
         for creating backups and especially to persist databases that run in
-        in-memory mode.
+        in-memory mode. This method is also used by the snapshot manager of the database.
 
         .. note::
             When **TinyOlap** is used for data processing purposes, rather than
@@ -333,7 +342,7 @@ class Database:
            an FileExistsError will be raised.
 
         :param encryption: Encryption method for database contents when ``ìn-memory = True``.
-          By default no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
+           By default, no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
 
         .. note::
             If encryption is required, using ``encryption = EncryptionMethodEnum.Obfuscation`` should
@@ -349,7 +358,7 @@ class Database:
         """
         if name.lower() == self.name.lower():
             raise TinyOlapStorageError(f"Failed to export database '{self.name}'. "
-                                           f"You cannot export a database under it's current name.")
+                                       f"You cannot export a database under it's current name.")
 
         exporter: StorageProvider = SqliteStorage(name)
         if exporter.exists():

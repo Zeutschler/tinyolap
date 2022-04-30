@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="c5375e7e-f41b-44a5-814d-5c204d02d299" name="ssh.strato.de">
+        <fileTransfer rootFolder="/tinyolap" accessType="SFTP" host="ssh.strato.de" port="22" sshConfigId="0e38de66-0d1d-472b-bc5d-541b4f1d9a1d" sshConfig="510813873.swh.strato-hosting.eu@ssh.strato.de:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
