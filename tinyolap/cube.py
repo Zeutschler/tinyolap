@@ -8,6 +8,7 @@ import inspect
 import json
 from collections.abc import Iterable
 
+from tinyolap.comments import CubeComments
 from tinyolap.area import Area
 from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.cell import Cell
@@ -109,6 +110,7 @@ class Cube:
         self._storage_provider: StorageProvider  # = None
 
         self._views = ViewList(self)
+        self._comments = CubeComments(self)
 
         self._has_rules: bool = False
         self._rules = Rules(self._name)
@@ -162,9 +164,15 @@ class Cube:
         self._description = value
 
     @property
-    def views(self):
+    def views(self) -> ViewList:
         """Returns the available views for the cube."""
         return self._views
+
+    @property
+    def comments(self) -> CubeComments:
+        """Provides access to the cell comments of the cube."""
+        return self._comments
+
 
     @property
     def rules(self) -> Rules:

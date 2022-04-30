@@ -75,7 +75,7 @@ def play_tesla(console_output: bool = True):
     # 6th - reading data and simple reporting
     if console_output:
         # let's create a minimal default report and dump it to the console
-        print(View(cube).refresh().as_console_output())
+        print(View(cube).refresh().to_console_output())
 
         # finally, let's congratulate Elon
         dev_percent = cube["Delta %", "2023", "Year", "Total", "Total"]

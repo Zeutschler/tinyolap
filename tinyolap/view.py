@@ -22,15 +22,19 @@ from tinyolap.utilities.hybrid_dict import HybridDict
 from tinyolap.exceptions import TinyOlapViewError
 
 
-@dataclass
 class ViewCell:
-    value: float = 0.0
-    formatted_value: str = ""
-    format: str = ""
+    """Represents a single data cell in a view."""
+
+    def __init__(self, value: float, formatted_value: str, format: str, comments=None):
+        self.value: float = value
+        self.formatted_value: str = formatted_value
+        self.format: str = format
+        self.comments = comments
 
 
 @dataclass
 class ViewStatistics:
+    """Represents statics about the size and refresh of a view."""
     last_refresh: datetime = datetime.min
     refresh_duration: float = 0.0
     cells_count: int = 0
@@ -679,7 +683,7 @@ class View:
             # no filter in axis defined, that's ok (maybe)
             return ViewAxis(self, [], [], [])
 
-    def refresh(self) -> View:
+    def refresh(self, read_comments: bool = True) -> View:
         """Refreshes the view from the database."""
 
         # todo: Refresh should also work in no row axis or no col axis is defined, and also for both.
@@ -757,8 +761,11 @@ class View:
                         formatted_value = self._default_number_format.format(value)
                     else:
                         formatted_value = number_format.format(value)
+                if read_comments:
+                    view_cell = ViewCell(value, formatted_value, number_format, self._cube.comments[tuple(idx_address)])
+                else:
+                    view_cell = ViewCell(value, formatted_value, number_format)
 
-                view_cell = ViewCell(value, formatted_value, number_format)
                 if col == 0:
                     cells.append([view_cell, ])
                 else:
@@ -855,7 +862,7 @@ class View:
         }
         self._definition = definition
 
-    def as_console_output(self, hide_zeros: bool = True) -> str:
+    def to_console_output(self, hide_zeros: bool = True) -> str:
         """Renders the view suitable for console output. The output contains
         control characters and color definitions and is therefore not suitable
         for other use cases."""
@@ -905,6 +912,10 @@ class View:
                     value = f"-".rjust(cell_width)
                 else:
                     value = f"{str(value)}".rjust(cell_width)
+
+                comments = self._cells[r][c].comments
+                if comments:
+                    value = '\x1b[1;30;47m' + '@' + value[1:] + '\x1b[0m'
 
                 if c == 0:
                     if r > 0:
@@ -957,8 +968,13 @@ class View:
                 },
                 "cells": [
                     {"row": row_id, "cells": [
-                        {"row": row_id, "col": col_id, "value": cell.value,
-                         "text": cell.formatted_value} for col_id, cell in enumerate(row)
+                        {"row": row_id, "col": col_id,
+                         "value": cell.value, "caption": cell.formatted_value, }
+                        if cell.comments is None else
+                        {"row": row_id, "col": col_id,
+                         "value": cell.value, "caption": cell.formatted_value,
+                         "comments": str(cell.comments), }
+                        for col_id, cell in enumerate(row)
                     ]} for row_id, row in enumerate(self._cells)
                 ]
                 }
@@ -1054,9 +1070,20 @@ class View:
                     if type(value) is float:
                         negative = (value < 0.0)
                     if negative:
-                        table += f'<td class="text-nowrap" style="text-align: right; color:darkred">{formatted_value}</td>\n'
+                        color = "DarkRed"
                     else:
-                        table += f'<td class="text-nowrap" style="text-align: right">{formatted_value}</td>\n'
+                        color = "Black"
+
+                    if cell.comments:
+                        back_color = "Cornsilk"  # "#FFF8DC"
+                        table += f'<td class="text-nowrap" style="text-align: right; ' \
+                                 f'color:{color}; background-color:{back_color};" ' \
+                                 f'data-toggle="tooltip" data-placement="top" title="{str(cell.comments)}">' \
+                                 f'{formatted_value}</td>\n'
+                    else:
+                        back_color = "White"
+                        table += f'<td class="text-nowrap" style="text-align: right; ' \
+                                 f'color:{color}; background-color;{back_color};">{formatted_value}</td>\n'
 
         table += trc
         table += "</table></div>"
