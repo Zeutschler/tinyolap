@@ -14,8 +14,6 @@ from api.rest.internal import admin
 from api.rest.routers import root, databases, views, cells, users
 from api.rest.tiny.initialization import setup, TINYOLAP_API_VERSION
 
-# TinyOlap server initialization
-setup()
 
 # FastAPI initialization
 app = FastAPI(title="TinyOlap API",
@@ -35,6 +33,14 @@ app.include_router(views.router)
 app.include_router(admin.router)
 
 
+@app.on_event("startup")
+async def startup_event():
+    # TinyOlap server initialization
+    setup("medium")  # "large", "medium", "small"
+
+
 if __name__ == "__main__":
+
     # Note: reload 'true' will allows real-time changes to the running Python scripts. Very Cool!
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+

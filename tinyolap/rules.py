@@ -93,13 +93,17 @@ class Rule:
     Represents a rule, defining custom calculations or business logic to be assigned to a cube.
     """
 
-    def __init__(self, function, name: str, cube: str, trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
+    def __init__(self, function, name: str, cube: str,
+                 trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
+                 feeder: list[str], idx_feeder_pattern: list[tuple[int, int]],
                  scope: RuleScope, injection: RuleInjectionStrategy, code: str = None):
         self.function = function
         self.cube: str = cube
         self.name: str = name
         self.trigger: list[str] = trigger
+        self.feeder: list[str] = feeder
         self.idx_trigger_pattern = idx_trigger_pattern
+        self.idx_feeder_pattern = idx_feeder_pattern
         self.scope: RuleScope = scope
         self.injection: RuleInjectionStrategy = injection
         self.code: str = code
@@ -219,10 +223,35 @@ class Rules:
                     if idx_address[dim_pattern[0]] != dim_pattern[1]:
                         break
                 else:
-                    return True, self.rules[scope][idx].function  # this statement will be executed only,
-                    # if the inner loop did NOT break
+                    return True, self.rules[scope][idx].function
 
         return False, None
+
+    def match_with_feeder(self, scope: RuleScope, idx_address: list[tuple[int, int]]) -> (bool, object, object, object):
+        """
+        Returns the first trigger match, if any, for a given cell address.
+
+        :param scope: The rule scope for which a matching rule is requested.
+        :param idx_address: The cell address (in index int format) to be evaluated.
+        :return: Returns a tuple (True, *function*) if at least one trigger matches,
+            *function* is the actual rules function to call, or (False, None) if none
+            of the patterns matches the given cell idx_address.
+
+        """
+        patterns = self.patterns.get(scope)
+        if patterns:
+            for idx, function_pattern in enumerate(patterns):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
+                for dim_pattern in function_pattern:  # e.g. (0,3) >> dim0 = member3
+                    if idx_address[dim_pattern[0]] != dim_pattern[1]:
+                        break
+                else:
+                    return True, self.rules[scope][idx].function,\
+                           self.rules[scope][idx].idx_trigger_pattern, \
+                           self.rules[scope][idx].idx_feeder_pattern
+
+        return False, None, None, None
+
+
 
     def __bool__(self):
         return self.functions is True

@@ -84,6 +84,7 @@ class CubeComments:
 
     def __getitem__(self, idx_address) -> CellComments:
         if random.random() < 0.05:
+            # todo remove this random comment generation.
             comment = self._fake.paragraph(nb_sentences=random.randrange(1,5))
             user = self._fake.user_name()
             return CellComments(CellCommentPost(comment=comment, user=user, timestamp=datetime.now()))

@@ -53,8 +53,11 @@ def play_enterprise(console_output=True):
 
 
 def benchmark_view(loops: int = 100, console_output: bool = True):
-    db: Database = create_database(name="TinyCorp", database_directory=None, num_legal_entities=25, num_products=100,
-                                   num_employees=200, console_output=console_output)
+    db: Database = create_database(name="TinyCorp", database_directory=None,
+                                   num_legal_entities=100,
+                                   num_products=500,
+                                   num_employees=200,
+                                   console_output=console_output)
     db.caching = True
     cube = db.cubes["sales"]
     cube.reset_counters()
@@ -89,4 +92,4 @@ def benchmark_view(loops: int = 100, console_output: bool = True):
 if __name__ == "__main__":
     # Playtime!!! ʕ•́ᴥ•̀ʔっ
     # play_enterprise()
-    benchmark_view(loops=100)
+    benchmark_view(loops=1)

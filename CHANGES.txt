@@ -1,3 +1,0 @@
-Changes in 0.8.1
-2022-04-01
-- added basic SQL support

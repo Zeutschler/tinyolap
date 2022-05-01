@@ -94,6 +94,16 @@ class Cell(SupportsFloat):
         else:
             return 0.0
 
+    @property
+    def db(self):
+        """Returns the database the cell belongs to."""
+        return self._cube._database
+
+    @property
+    def cube(self):
+        """Returns the cube the cell belongs to."""
+        return self._cube
+
     # endregion
 
     # region methods
@@ -126,7 +136,7 @@ class Cell(SupportsFloat):
                 raise NotImplementedError("Working on that...")
 
             elif type(member) is str:
-                idx_dim, idx_member, member_level = self._get_member(member)
+                idx_dim, idx_member, member_level, member_name = self._get_member(member)
                 address[idx_dim] = self._cube._dimensions[idx_dim].member_defs[idx_member][key_name]
 
                 # adjust the super_level
@@ -162,8 +172,10 @@ class Cell(SupportsFloat):
 
         :return: A new Member object.
         """
-        idx_dim, idx_member, member_level = self._get_member(dimension_and_or_member_name)
-        member = Member(self._cube._dimensions[idx_dim], dimension_and_or_member_name, self._cube, idx_dim, idx_member,
+        idx_dim, idx_member, member_level, member_name = self._get_member(dimension_and_or_member_name)
+        member = Member(self._cube._dimensions[idx_dim],
+                        member_name,
+                        self._cube, idx_dim, idx_member,
                         member_level)
         return member
 
@@ -221,7 +233,7 @@ class Cell(SupportsFloat):
                 modifiers.append((member._idx_dim, member._idx_member))
 
             elif type(member) is str:
-                idx_dim, idx_member, member_level = self._get_member(member)
+                idx_dim, idx_member, member_level, member_name = self._get_member(member)
                 super_level -= self._cube._dimensions[idx_dim].member_defs[self._bolt[1][idx_dim]][key_level]
                 super_level += member_level
 
@@ -243,7 +255,8 @@ class Cell(SupportsFloat):
         #   c["months:Mar"] = 333.0
         #   c["1:Mar"] = 333.0
 
-        level = self._cube._dimensions[0].LEVEL
+        LEVEL = self._cube._dimensions[0].LEVEL
+        NAME = self._cube._dimensions[0].NAME
         dimensions = self._cube._dimensions
         idx_dim = -1
         pos = member.find(":")
@@ -269,9 +282,10 @@ class Cell(SupportsFloat):
                 raise TinyOlapInvalidAddressError(f"Invalid member key. '{member}'is not a member of "
                                                          f"dimension '{name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member]
+            member_level = dimensions[idx_dim].member_defs[idx_member][LEVEL]
+            member_name = dimensions[idx_dim].member_defs[idx_member][NAME]
 
-            member_level = dimensions[idx_dim].member_defs[idx_member][self._cube._dimensions[0].LEVEL]
-            return idx_dim, idx_member, member_level
+            return idx_dim, idx_member, member_level, member_name
 
         # No dimension identifier in member name, search all dimensions
         # ...we'll search in reverse order, as we assume that it is more likely,
@@ -280,8 +294,9 @@ class Cell(SupportsFloat):
             if member in dimensions[idx_dim]._member_idx_lookup:
                 idx_member = dimensions[idx_dim]._member_idx_lookup[member]
                 # adjust the super_level
-                member_level = dimensions[idx_dim].member_defs[idx_member][level]
-                return idx_dim, idx_member, member_level
+                member_level = dimensions[idx_dim].member_defs[idx_member][LEVEL]
+                member_name = dimensions[idx_dim].member_defs[idx_member][NAME]
+                return idx_dim, idx_member, member_level, member_name
 
         # Still nothing found ? Then it might be just a dimension name or dimension ordinal
         # to reference the current member of that dimension.
@@ -299,16 +314,18 @@ class Cell(SupportsFloat):
                 idx_dim = self._cube._dim_lookup[name]
 
             idx_member = self._bolt[1][idx_dim]
-            member_level = dimensions[idx_dim].member_defs[idx_member][level]
-            return idx_dim, idx_member, member_level
+            member_level = dimensions[idx_dim].member_defs[idx_member][LEVEL]
+            member_name = dimensions[idx_dim].member_defs[idx_member][NAME]
+            return idx_dim, idx_member, member_level, member_name
         else:
             idx_dim = self._cube.get_dimension_ordinal(name)
             if idx_dim > -1:
                 idx_member = self._bolt[1][idx_dim]
-                member_level = dimensions[idx_dim].member_defs[idx_member][level]
-                return idx_dim, idx_member, member_level
+                member_level = dimensions[idx_dim].member_defs[idx_member][LEVEL]
+                member_name = dimensions[idx_dim].member_defs[idx_member][NAME]
+                return idx_dim, idx_member, member_level, member_name
                     
-        # You loose...
+        # You loose, member does not seem to exist...
         if idx_dim == -1:
             raise KeyError(f"'{member}' is not a member of any dimension in "
                            f"cube '{self._cube.name}', or a valid reference to any of it's dimensions.")

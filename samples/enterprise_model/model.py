@@ -20,6 +20,7 @@ from tinyolap.rules import RuleScope, RuleInjectionStrategy
 from tinyolap.area import Area
 from tinyolap.cell import Cell
 from tinyolap.slice import Slice
+from halo import Halo
 
 
 def create_database(name: str = "enterprise", database_directory: str = None,
@@ -37,72 +38,58 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     """
 
     # set up the database
+    spinner = None
     if console_output:
-        print(f"Creating database '{name}' with {num_legal_entities} legal entities, "
-              f"{num_products} products "
-              f"and {num_employees} employees. Please wait...")
+        spinner = Halo(text=f"Creating database '{name}", spinner="dots")
+        spinner.start()
+
     if not database_directory:
         db = Database(name=name, in_memory=True)
     else:
         db = Database(name=os.path.join(database_directory, name, ".db"))
 
-    # setup all dimensions
-    if console_output:
-        print(f"\tCreating dimension...")
     datatype = add_dimension_datatype(db)
     years = add_dimension_years(db)
     periods = add_dimension_periods(db)
     company = add_dimension_company(db, companies_count=num_legal_entities)
     pnl = add_dimension_pnl_statement(db)
-
     products = add_dimension_products(db, products_count=num_products)
     salesfig = add_dimension_sales_figures(db)
 
     employees = add_dimension_employees(db, company_dim_name=company.name, employees_count=num_employees)
     hrfig = add_dimension_hr_figures(db)
 
-    if console_output:
-        print(f"\t\tDone!")
-
     # cube 'PnL'
     pnl_cube = db.add_cube("pnl", [datatype, years, periods, company, pnl])
-    if console_output:
-        print(f"\tGenerating data for cube '{pnl_cube.name}'. This may take a while...")
     for func in [rule_datatype_actvspl_percent, rule_datatype_actvsfc_percent,
                        rule_datatype_fcvspl_percent,
                        rule_datatype_fcvsactpy, rule_datatype_fcvsactpy_percent,
                        rule_datatype_actvactpy, rule_datatype_actvactpy_percent]:
         pnl_cube.register_rule(func)
-    populate_cube_pnl(db, pnl_cube)
-    if console_output:
-        print(f"\t\tDone! Cube '{pnl_cube.name}' contains {pnl_cube.cells_count:,} cells")
+    populate_cube_pnl(db, pnl_cube, spinner)
 
     # setup cubes: Sales
     sales_cube = db.add_cube("sales", [years, periods, company, products, salesfig])
-    if console_output:
-        print(f"\tGenerating data for cube '{sales_cube.name}'. This may take a while...")
     for func in [rule_sales_price]:
         sales_cube.register_rule(func)
-    populate_cube_sales(db, sales_cube)
-    if console_output:
-        print(f"\t\tDone! Cube '{sales_cube.name}' contains {sales_cube.cells_count:,} cells")
+    populate_cube_sales(db, sales_cube, spinner)
 
     # setup cube: HR
     hr_cube = db.add_cube("hr", [years, employees, hrfig])
-    if console_output:
-        print(f"\tGenerating data for cube '{hr_cube.name}'. This may take a while...")
-    populate_cube_hr(db, hr_cube)
-    if console_output:
-        print(f"\t\tDone! Cube '{hr_cube.name}' contains {hr_cube.cells_count:,} cells")
+    populate_cube_hr(db, hr_cube, spinner)
 
     if console_output:
-        print(f"All Done! Database '{db.name}' is now read for use.")
+        spinner.stop()
+
     return db
 
 
 # region Cube Population
-def populate_cube_pnl(db: Database, cube: Cube):
+def populate_cube_pnl(db: Database, cube: Cube, spinner):
     """Populate the Profit & Loss cube"""
+    if spinner:
+        spinner.text = f"Generating data for '{db.name}:{cube.name} "
+
     # This will get a bit weird / tricky as we want to create somehow realistic figures
     companies = db.get_dimension("companies").get_leaves()
     years = db.get_dimension("years").get_leaves()  # Jan... Dec
@@ -131,14 +118,21 @@ def populate_cube_pnl(db: Database, cube: Cube):
                     cube["Actual", year, month, company, position] = actual
                     cube["Plan", year, month, company, position] = plan
                     cube["Forecast", year, month, company, position] = forecast
-                    z = z + 1
+                    z=z+3
+
                 # increase the monthly trend factor
                 trend_factor = trend_factor + random.gauss(0.01, 0.01)
 
+        if spinner:
+            spinner.text = f"Generating data for '{db.name}:{cube.name}' ({z:,} records) -> {company}"
 
-def populate_cube_sales(db: Database, cube: Cube):
+
+def populate_cube_sales(db: Database, cube: Cube, spinner):
     """Populate the Sales cube"""
     # The basic idea is that not all companies sell all products, but only a few (as in real life)
+
+    if spinner:
+        spinner.text = f"Generating data for '{db.name}:{cube.name}: "
 
     companies = db.get_dimension("companies").get_leaves()
     years = db.get_dimension("years").get_leaves()  # Jan... Dec
@@ -172,14 +166,20 @@ def populate_cube_sales(db: Database, cube: Cube):
                         z = z + 2
                 yearly_price_increase += (0.01 + random.random() * 0.04)
 
+        if spinner:
+            spinner.text = f"Generating data for '{db.name}:{cube.name}' ({z:,} records) -> {company}"
 
-def populate_cube_hr(db: Database, cube: Cube):
+
+def populate_cube_hr(db: Database, cube: Cube, spinner):
     """Populate the HR cube"""
+    if spinner:
+        spinner.text = f"Generating data for '{db.name}:{cube.name}: "
+
     years = db.get_dimension("years").get_leaves()  # Jan... Dec
     hr_dim = db.get_dimension("employees")
     employees = hr_dim.get_leaves()  # all non aggregated P&L positions
-    z = 0
     root_salary = 100000.0
+    z = 0
     for employee in employees:
         yearly_salary_increase = 1.0
         salary = max(30000.0, round(root_salary * random.gauss(1.0, 0.2), -4))
@@ -190,6 +190,10 @@ def populate_cube_hr(db: Database, cube: Cube):
             claim = 30.0 if random.random() < 0.8 else 25.0
             cube[year, employee, "Holiday claim"] = 30 if random.random() < 0.8 else 25
             cube[year, employee, "Holidays taken"] = claim - float(random.randrange(0, 5, 1))
+            z = z + 2
+        if spinner:
+            spinner.text = f"Generating data for '{db.name}:{cube.name}' ({z:,} records) -> {employee}"
+
     return cube
 # endregion
 

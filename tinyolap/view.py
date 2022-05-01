@@ -9,6 +9,7 @@ import json
 import math
 import random
 import uuid
+from copy import deepcopy
 from datetime import datetime
 import time
 from typing import Iterable, List
@@ -60,6 +61,48 @@ class ViewStatistics:
             'executedCellAggregations': self.executed_cell_aggregations
         }
 
+
+class ViewWindow:
+    """Defines a window to a view by column (left, right) and row (top, bottom) coordinates."""
+    def __init__(self, top: int, left: int, bottom: int, right: int):
+        self.top = top
+        self.left = left
+        self.bottom = bottom
+        self.right = right
+
+
+    def __len__(self):
+        return (self.bottom - self.top + 1) * (self.right - self.left + 1)
+
+    @property
+    def columns(self) -> int:
+        return self.right - self.left + 1
+
+    @property
+    def rows(self) -> int:
+        return self.bottom - self.top + 1
+
+    def contain(self, row, column) -> bool:
+        """Check if a specific (row, column) coordinate falls into the view window."""
+        return self.top <= row <= self.bottom and self.left <= column <= self.right
+
+    def intersect(self, other: ViewWindow) -> ViewWindow | None:
+        """Returns the intersection of the view window with another view window."""
+        right = min(self.right, other.right)
+        left = max(self.left, other.left)
+        bottom = min(self.bottom, other.bottom)
+        top = max(self.top, other.top)
+        d_cols = right - left
+        d_rows = bottom - top
+        if (d_cols >= 0) and (d_rows >= 0):
+            return ViewWindow(top, left,  bottom, right)
+        return None
+
+    def __str__(self):
+        return f"[{self.top}, {self.left}] <-> [{self.bottom}, {self.right}]"
+
+    def __repr__(self):
+        return self.__str__()
 
 class ViewAxisPositionMember:
     def __init__(self, view, axis, member: Member, indentation: int = 0):
@@ -240,6 +283,8 @@ class View:
         self._row_zero: bool = zero_suppression_on_rows
         self._col_zero: bool = zero_suppression_on_columns
         self._cells = []
+        self._grid = dict()
+
         if not name:
             name = str(uuid.uuid4())[:8]
         self._name = name
@@ -253,6 +298,10 @@ class View:
         self._statistics: ViewStatistics = ViewStatistics()
 
         self._last_refresh = None
+        self._filter_row_set = None
+        self._filter_base_idx_address = None
+        self._filter_level = 0
+        self._filter_number_format = None
 
         # process the view definition, or create a default definition
         if self._definition is None:
@@ -301,6 +350,15 @@ class View:
         if not self._last_refresh:
             return datetime.min
         return self._last_refresh
+
+    def reset(self):
+        """Resets the cell data currently cached by the view.
+        The next access to the view will force a refresh of the requested cell data."""
+        self._grid = dict()
+        self._filter_number_format = None
+        self._filter_level = None
+        self._filter_row_set = None
+        self._filter_base_idx_address = None
 
     @title.setter
     def title(self, value: str):
@@ -683,10 +741,31 @@ class View:
             # no filter in axis defined, that's ok (maybe)
             return ViewAxis(self, [], [], [])
 
-    def refresh(self, read_comments: bool = True) -> View:
-        """Refreshes the view from the database."""
+    def _refresh_missing(self, window: ViewWindow):
+        """Refreshes missing data for a requested view window"""
+        requires_refresh = False
+        grid = self._grid
+        missing = ViewWindow(-1,-1,-1,-1)
 
-        # todo: Refresh should also work in no row axis or no col axis is defined, and also for both.
+        # evaluate the rows and cols that require refresh
+        for row in range(window.top, window.bottom + 1):
+            if (missing.top == -1) and (row not in grid):
+                missing.top = row
+            if row not in grid:
+                missing.bottom = row
+            elif missing.left == -1:
+                for col in range(window.left, window.right + 1):
+                    if (missing.left == -1) and (col not in grid[row]):
+                        missing.left = col
+                    if col not in grid[row]:
+                        missing.right = col
+
+        missing = window.intersect(missing)
+        if missing:
+            self.refresh(window=missing)
+
+    def refresh(self, read_comments: bool = True, window: ViewWindow = None) -> View:
+        """Refreshes the view from the database."""
 
         # prepare statistics
         stat = self._statistics
@@ -695,31 +774,52 @@ class View:
         stat.executed_cell_aggregations = self._cube.counter_aggregations
         stat.executed_rules = self._cube.counter_rule_requests
 
-        # refresh filter axis first to create a FactTableRowSet
-        cells = []
+        rows = self._row_axis
+        cols = self._col_axis
+        indent = dict()
+        indent_max = [0] * rows._dim_count
+        # cells = []
+        if not window:
+            window = ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1)
+        else:
+            # ...to ensure that the requested window is not larger than the entire view
+            window = window.intersect(ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1))
+
+        # refresh filter axis first to create a FactTableRowSet (for faster querying)
         number_format = ""
         filter_level = 0
         idx_address = [0] * self._cube.dimensions_count
-        axis = self._filter_axis
-        for d in range(axis._dim_count):
-            member = axis.positions[0][d]
-            if isinstance(member, Iterable):
-                member = member[0]
-            idx_address[axis._dim_idx[d]] = member.index
-            filter_level += member.level
-            if member.number_format:
-                number_format = member.number_format
-        if axis._dim_count:
-            row_set = self._cube._facts.create_row_set(idx_address)
+
+        # if we not already have cached the filter setup and the row_set
+        if not self._filter_base_idx_address:
+            axis = self._filter_axis
+            for d in range(axis._dim_count):
+                member = axis.positions[0][d]
+                if isinstance(member, Iterable):
+                    # todo: support for multi member selection
+                    member = member[0]
+                idx_address[axis._dim_idx[d]] = member.index
+                filter_level += member.level
+                if member.number_format:
+                    number_format = member.number_format
+            if axis._dim_count:
+                # This can be a very expensive operations (even seconds for very large databases!!!)
+                row_set = self._cube._facts.create_row_set(idx_address)
+            else:
+                row_set = set()
+            self._filter_number_format = number_format
+            self._filter_level = filter_level
+            self._filter_row_set = row_set
+            self._filter_base_idx_address = deepcopy(idx_address)
         else:
-            row_set = set()
+            number_format = self._filter_number_format
+            filter_level = self._filter_level
+            row_set = self._filter_row_set
+            idx_address = self._filter_base_idx_address
 
         # refresh rows and columns
-        rows = self._row_axis
-        cols = self._col_axis
-        indent = []
-        indent_max = [0] * rows._dim_count
-        for row in range(rows.positions_count):
+        # for row in range(rows.positions_count):
+        for row in range(window.top, window.bottom + 1):
             super_level = filter_level
             for d in range(rows._dim_count):
                 idx_address[rows._dim_idx[d]] = rows.positions[row][d].index
@@ -728,16 +828,20 @@ class View:
                 # prepare indentation
                 if member.level > indent_max[d]:
                     indent_max[d] = member.level
-                if d == 0:
-                    indent.append([member.level])
-                else:
-                    indent[row].append(member.level)
+                if row not in indent:
+                    indent[row] = dict()
+                indent[row][d] = member.level
+                # if d == 0:
+                #     indent.append([member.level])
+                # else:
+                #     indent[row].append(member.level)
 
                 if member.number_format:
                     number_format = member.number_format
 
             all_zero = True
-            for col in range(cols.positions_count):
+            # for col in range(cols.positions_count):
+            for col in range(window.left, window.right + 1):
                 for d in range(cols._dim_count):
                     member = cols.positions[col][d]
                     idx_address[cols._dim_idx[d]] = member.index
@@ -766,21 +870,27 @@ class View:
                 else:
                     view_cell = ViewCell(value, formatted_value, number_format)
 
-                if col == 0:
-                    cells.append([view_cell, ])
-                else:
-                    cells[row].append(view_cell)
+                if col == window.left:
+                    if row not in self._grid:
+                        self._grid[row] = dict()
+                self._grid[row][col] = view_cell
+
+                # if col == 0:
+                #     cells.append([view_cell, ])
+                # else:
+                #     cells[row].append(view_cell)
 
             rows.positions[row].all_zero = all_zero
 
         # update indentations
-        for p in range(len(indent)):
+        for row, indents in indent.items():
             for d in range(rows.dimensions_count):
-                indent[p][d] = indent_max[d] - indent[p][d]
-        rows.indentations = indent
+                indent[row][d] = indent_max[d] - indent[row][d]
 
-        # save results
-        self._cells = cells
+        # for p in range(len(indent)):
+        #     for d in range(rows.dimensions_count):
+        #         indent[p][d] = indent_max[d] - indent[p][d]
+        rows.indentations = indent
 
         # update statistics
         stat.last_refresh = datetime.now()
@@ -826,6 +936,13 @@ class View:
                                       member_lists=dimensions[ordinal[idx]].members)
             remaining -= 1
 
+        # if required, flip axis to show less members in the columns and more i the rows
+        if self._row_axis.positions_count < self._col_axis.positions_count:
+            temp = self._row_axis
+            self._row_axis = self._col_axis
+            self._col_axis = temp
+
+
         # set up filter axis
         if remaining > 0:
             if not self._use_first_root_members_for_filters or self._random_view:
@@ -862,20 +979,33 @@ class View:
         }
         self._definition = definition
 
-    def to_console_output(self, hide_zeros: bool = True) -> str:
+    def to_console_output(self, hide_zeros: bool = True, window: ViewWindow = None) -> str:
         """Renders the view suitable for console output. The output contains
         control characters and color definitions and is therefore not suitable
         for other use cases."""
+        start = time.time()
 
+        rows = self._row_axis
+        cols = self._col_axis
+        grid = self._grid
+
+        # ensure that the requested data is avaialble
+        if not window:
+            window = ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1)
+        else:
+            # ...to ensure that the requested window is not larger than  the entire view
+            window = window.intersect(ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1))
         if not self._last_refresh:
-            self.refresh()
+            self.refresh(window=deepcopy(window))
+        else:
+            self._refresh_missing(window=deepcopy(window))
 
         text = "\n"
         cell_width = 14
         row_header_width = 16
 
-        row_dims = self._row_axis.dimensions_count
-        col_dims = self._col_axis.dimensions_count
+        row_dims = rows.dimensions_count
+        col_dims = cols.dimensions_count
 
         # title
         title = str(self)
@@ -888,11 +1018,13 @@ class View:
             text += f"{member.dimension.name} := {member.name}\n"
 
         # col headers
-        for c in range(self._col_axis.dimensions_count):  # range(col_dims):
-            for r in range(self._row_axis.dimensions_count):  # range(row_dims):
+        for c in range(cols.dimensions_count):
+            for r in range(self._row_axis.dimensions_count):
                 text += " ".ljust(row_header_width)
-            for position in self._col_axis.positions:  # self.grid_cols_count):
-                caption = position[c].name  # self.grid[i][3][c]
+            #  for position in self._col_axis.positions:
+            for col in range(window.left, window.right + 1):
+                position = self._col_axis.positions[col]
+                caption = position[c].name
                 if len(caption) > cell_width:
                     caption = caption[:cell_width - 3].strip() + "..."
                 text += caption.center(cell_width)
@@ -900,9 +1032,9 @@ class View:
 
         # row headers & cells
         previous = {}
-        for r in range(self._row_axis.positions_count):
-            for c in range(self._col_axis.positions_count):
-                value = self._cells[r][c].value
+        for r in range(window.top, window.bottom + 1):
+            for c in range(window.left, window.right + 1):
+                value = grid[r][c].value
                 if type(value) is float:
                     if hide_zeros and value == 0.0:
                         value = f"-".rjust(cell_width)
@@ -913,7 +1045,7 @@ class View:
                 else:
                     value = f"{str(value)}".rjust(cell_width)
 
-                comments = self._cells[r][c].comments
+                comments = grid[r][c].comments
                 if comments:
                     value = '\x1b[1;30;47m' + '@' + value[1:] + '\x1b[0m'
 
@@ -935,7 +1067,22 @@ class View:
                         previous[pos] = member
 
                 text += value
-        return text
+
+        duration = time.time() - start
+        stat = self._statistics
+
+        statistics = f'\nView ' \
+                     f'refreshed in {stat.refresh_duration:.5} sec, ' \
+                     f'total time {duration:.5} sec\n' \
+                     f'{stat.executed_cell_requests:,} cells, ' \
+                     f'{stat.executed_cell_aggregations:,} aggregations, ' \
+                     f'{stat.executed_rules:,} rules, ' \
+                     f'caching is ' \
+                     f'is {"ON" if self.cube.database.caching else "OFF"}, ' \
+                     f'zero-suppression ' \
+                     f'is {"ON" if self.zero_suppression_on_rows else "OFF"}'
+
+        return text + statistics
 
     def to_json(self, indent=None) -> str:
         """Converts the current state of the view into a json string. Useful for serialization.
@@ -943,12 +1090,42 @@ class View:
         """
         return json.dumps(self.to_dict(), indent=indent)
 
-    def to_dict(self) -> dict:
+    def to_dict(self, window: ViewWindow = None) -> dict:
         """Converts the current state of the view into a serializable Python dictionary."""
         """FOR INTERNAL USE! Converts the contents of the attribute field to a dict."""
 
+        rows = self._row_axis
+        cols = self._col_axis
+
+        # ensure that the requested data is avaialble
+        if not window:
+            window = ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1)
+        else:
+            # ...to ensure that the requested window is not larger than  the entire view
+            window = window.intersect(ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1))
         if not self._last_refresh:
-            self.refresh()
+            self.refresh(window=deepcopy(window))
+        else:
+            self._refresh_missing(window=deepcopy(window))
+
+        cells = list()
+        for row in range(window.top, window.bottom + 1):
+            row_data = {"row": row}
+            cell_list = list()
+            for col in range(window.left, window.right + 1):
+                cell = self._grid[row][col]
+                if cell.comments:
+                    cell_data = {"row": row, "col": col,
+                                 "value": cell.value,
+                                 "caption": cell.formatted_value,
+                                 "comments": str(cell.comments)}
+                else:
+                    cell_data = {"row": row, "col": col,
+                                 "value": cell.value,
+                                 "caption": cell.formatted_value, }
+                cell_list.append(cell_data)
+            row_data["cells"] = cell_list
+            cells.append(row_data)
 
         return {"contentType": Config.ContentTypes.VIEW,
                 "version": Config.VERSION,
@@ -966,26 +1143,30 @@ class View:
                     "rows": self._row_axis.to_dict(),
                     "columns": self._col_axis.to_dict(),
                 },
-                "cells": [
-                    {"row": row_id, "cells": [
-                        {"row": row_id, "col": col_id,
-                         "value": cell.value, "caption": cell.formatted_value, }
-                        if cell.comments is None else
-                        {"row": row_id, "col": col_id,
-                         "value": cell.value, "caption": cell.formatted_value,
-                         "comments": str(cell.comments), }
-                        for col_id, cell in enumerate(row)
-                    ]} for row_id, row in enumerate(self._cells)
-                ]
+                "cells": cells
                 }
 
-    def to_html(self, endless_loop: bool = False) -> str:
+    def to_html(self, endless_loop: bool = False, window: ViewWindow = None) -> str:
         """Converts the current state of the view into a simple static HTML representation."""
 
-        if not self._last_refresh:
-            self.refresh()
-
         start = time.time()
+
+        rows = self._row_axis
+        cols = self._col_axis
+        grid = self._grid
+
+        # ensure that the requested data is avaialble
+        if not window:
+            window = ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1)
+        else:
+            # ...to ensure that the requested window is not larger than  the entire view
+            window = window.intersect(ViewWindow(0, 0, rows.positions_count - 1, cols.positions_count - 1))
+        some_content_to_show = bool(window)
+        if some_content_to_show:
+            if not self._last_refresh:
+                self.refresh(window=deepcopy(window))
+            else:
+                self._refresh_missing(window=deepcopy(window))
 
         tro = "<tr>"
         trc = "</tr>\n"
@@ -1004,88 +1185,96 @@ class View:
                  '>\n'
         table += '<thead">\n'
 
-        row_dims = self._row_axis.dimensions_count
-        col_dims = self._col_axis.dimensions_count
-
-        # column headers
-        dim_names_inserted = False
-        table += tro
-        for c in range(col_dims):
-            for r in range(row_dims):
-                if dim_names_inserted:
-                    table += f'<th scope="col" class="th-lg" style="width: 80px"></th>\n'
-                else:
-                    dim_names = ", ".join(
-                        "→" + dimension.name for dimension in self._col_axis.dimensions)  # .definition["columns"])
-                    dim_names = dim_names + "</br>" + ", ".join(
-                        "↓" + dimension.name for dimension in self._row_axis.dimensions)  # self.definition["rows"])
-                    table += f'<td scope="col" class="td-lg" style="width: 80px">{dim_names}</td>\n'
-                    dim_names_inserted = True
-            for d in range(self._col_axis.dimensions_count):
-                for position in self._col_axis.positions:
-                    table += f'<th scope="col" class="text-center" style="width: 80px">' \
-                             f'{position[d].name}' \
-                             f'</th>\n'
-
-        table += trc
-        table += '</thead">\n'
-
-        # row headers and cells
-        previous = {}
-        table += tro
-        rows = self._row_axis
-        cols = self._col_axis
         zero_rows = 0
-        for row in range(rows.positions_count):
-            hide_this_row = self.zero_suppression_on_rows and rows.positions[row].all_zero
-            if hide_this_row:
-                zero_rows += 1
-            else:
-                for col in range(cols.positions_count):
-                    cell = self._cells[row][col]
+        if some_content_to_show:
 
-                    # row headers
-                    if col == 0:
-                        if row > 0:
-                            table += trc
-                            table += tro
+            row_dims = self._row_axis.dimensions_count
+            col_dims = self._col_axis.dimensions_count
 
-                        for pos, member in enumerate(rows.positions[row]):
-                            if pos in previous:
-                                if previous[pos] != member.name:
+            # column headers
+            dim_names_inserted = False
+            table += tro
+            for c in range(col_dims):
+                for r in range(row_dims):
+                    if dim_names_inserted:
+                        table += f'<th scope="col" class="th-lg" style="width: 80px"></th>\n'
+                    else:
+                        dim_names = ", ".join(
+                            "→" + dimension.name for dimension in self._col_axis.dimensions)  # .definition["columns"])
+                        dim_names = dim_names + "</br>" + ", ".join(
+                            "↓" + dimension.name for dimension in self._row_axis.dimensions)  # self.definition["rows"])
+                        table += f'<td scope="col" class="td-lg" style="width: 80px">{dim_names}</td>\n'
+                        dim_names_inserted = True
+                for d in range(self._col_axis.dimensions_count):
+                    for col in range(window.left, window.right + 1):
+                        position = self._col_axis.positions[col]
+                        table += f'<th scope="col" class="text-center" style="width: 80px">' \
+                                 f'{position[d].name}' \
+                                 f'</th>\n'
+
+            table += trc
+            table += '</thead">\n'
+
+            # row headers and cells
+            previous = {}
+            table += tro
+            rows = self._row_axis
+            cols = self._col_axis
+
+
+            # for row in range(rows.positions_count):
+            for row in range(window.top, window.bottom + 1):
+                hide_this_row = self.zero_suppression_on_rows and rows.positions[row].all_zero
+                if hide_this_row:
+                    zero_rows += 1
+                else:
+                    # for col in range(cols.positions_count):
+                    for col in range(window.left, window.right + 1):
+                        cell = self._grid[row][col]
+                        # cell = self._cells[row][col]
+
+                        # row headers
+                        if col == window.left:
+                            if row > window.top:
+                                table += trc
+                                table += tro
+
+                            for pos, member in enumerate(rows.positions[row]):
+                                if pos in previous:
+                                    if previous[pos] != member.name:
+                                        indentation = rows.indentations[row][pos]
+                                        indent = "&nbsp;&nbsp;&nbsp;" * indentation  # member.level
+                                        table += f'<th class="text-nowrap" scope="row">{indent + member.name}</th>\n'
+                                    else:
+                                        table += f'<th class="text-nowrap" scope="row"></th>\n'
+                                else:
                                     indentation = rows.indentations[row][pos]
                                     indent = "&nbsp;&nbsp;&nbsp;" * indentation  # member.level
                                     table += f'<th class="text-nowrap" scope="row">{indent + member.name}</th>\n'
-                                else:
-                                    table += f'<th class="text-nowrap" scope="row"></th>\n'
-                            else:
-                                indentation = rows.indentations[row][pos]
-                                indent = "&nbsp;&nbsp;&nbsp;" * indentation  # member.level
-                                table += f'<th class="text-nowrap" scope="row">{indent + member.name}</th>\n'
-                            previous[pos] = member.name
+                                previous[pos] = member.name
 
-                    value = cell.value
-                    formatted_value = cell.formatted_value
-                    negative = False
-                    if type(value) is float:
-                        negative = (value < 0.0)
-                    if negative:
-                        color = "DarkRed"
-                    else:
-                        color = "Black"
+                        value = cell.value
+                        formatted_value = cell.formatted_value
+                        negative = False
+                        if type(value) is float:
+                            negative = (value < 0.0)
+                        if negative:
+                            color = "DarkRed"
+                        else:
+                            color = "Black"
 
-                    if cell.comments:
-                        back_color = "Cornsilk"  # "#FFF8DC"
-                        table += f'<td class="text-nowrap" style="text-align: right; ' \
-                                 f'color:{color}; background-color:{back_color};" ' \
-                                 f'data-toggle="tooltip" data-placement="top" title="{str(cell.comments)}">' \
-                                 f'{formatted_value}</td>\n'
-                    else:
-                        back_color = "White"
-                        table += f'<td class="text-nowrap" style="text-align: right; ' \
-                                 f'color:{color}; background-color;{back_color};">{formatted_value}</td>\n'
+                        if cell.comments:
+                            back_color = "Cornsilk"  # "#FFF8DC"
+                            table += f'<td class="text-nowrap" style="text-align: right; ' \
+                                     f'color:{color}; background-color:{back_color};" ' \
+                                     f'data-toggle="tooltip" data-placement="top" title="{str(cell.comments)}">' \
+                                     f'{formatted_value}</td>\n'
+                        else:
+                            back_color = "White"
+                            table += f'<td class="text-nowrap" style="text-align: right; ' \
+                                     f'color:{color}; background-color;{back_color};">{formatted_value}</td>\n'
 
-        table += trc
+            table += trc
         table += "</table></div>"
 
         # title
@@ -1096,15 +1285,21 @@ class View:
                 table += f"<h4>{self.description}</h4>\n"
 
         stat = self.statistics
+        duration = time.time() - start
         statistics = f'<div class="font-italic font-weight-light">View ' \
                      f'refreshed in {stat.refresh_duration:.5} sec, ' \
+                     f'age of view {str(datetime.now() - self.statistics.last_refresh)}, ' \
+                     f'total time {duration:.5} sec</div>' \
+                     f'<div class="font-italic font-weight-light">' \
                      f'{stat.executed_cell_requests:,} cells, ' \
                      f'{stat.executed_cell_aggregations:,} aggregations, ' \
-                     f'{stat.executed_rules:,} rules, zero-suppression ' \
-                     f'is {"ON" if self.zero_suppression_on_rows else "OFF"}' \
-                     f', {zero_rows:,} rows suppressed.</div>'
+                     f'{stat.executed_rules:,} rules, ' \
+                     f'caching is ' \
+                     f'is {"ON" if self.cube.database.caching else "OFF"}, ' \
+                     f'zero-suppression ' \
+                     f'is {"ON" if self.zero_suppression_on_rows else "OFF"}, ' \
+                     f'{zero_rows:,} rows suppressed.</div>'
 
-        duration = time.time() - start
         duration = f'<div class="font-italic font-weight-light">HTML rendered in {duration:.5} sec, ' \
                    f'total time {duration + stat.refresh_duration:.5} sec.' \
                    f'</div>'
@@ -1160,9 +1355,10 @@ class ViewList:
     def cube(self):
         return self._cube
 
-    def create(self, name: str, random_view_layout: bool = False) -> View:
+    def create(self, name: str, definition= None, random_view_layout: bool = False) -> View:
         """
         Creates a new (default) view. A view can afterwards be modified and saved.
+        :param definition: The definition that defines the layout of the view.
         :param name: Name of the view to be created.
         :param random_view_layout: (optional) flag that identifies to create random layout for the view.
             Valuable for testing or demo purposes mainly.
@@ -1170,7 +1366,7 @@ class ViewList:
         """
         if name in self._views:
             raise KeyError(f"Failed to create view. A view named '{name}' already exists.")
-        view = View(cube=self._cube, name=name, random_view=random_view_layout)
+        view = View(cube=self._cube, name=name, definition=definition, random_view=random_view_layout)
         self._views.append(view)
         return view
 

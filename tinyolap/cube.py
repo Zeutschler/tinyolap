@@ -396,7 +396,6 @@ class Cube:
                     if found:
                         cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
                         try:
-                            self._rule_request_counter += 1
                             value = func(cursor)
                             if value != Cell.CONTINUE:
                                 if self._caching:
@@ -409,9 +408,25 @@ class Cube:
 
             # *****************************************************************
             # THE FOLLOWING CODE IS HIGHLY PERFORMANCE OPTIMIZED!!!
-            # This is the section where the roll up OLAP aggregations happen.
+            # This is the section, where the OLAP aggregations happen.
             # DO NOT CHANGE THE CODE WITHOUT PERFORMANCE IMPACT ANALYSIS!!!
             # *****************************************************************
+
+            # NEW - base level rules
+            rule_found = False
+            func = None
+            trigger_idx_pattern = None
+            if not bypass_rules:
+                if self._has_rules:
+                    rule_found, func, trigger_idx_pattern, feeder_idx_pattern = \
+                        self._rules.match_with_feeder(scope=RuleScope.BASE_LEVEL, idx_address=idx_address)
+                    if rule_found and feeder_idx_pattern:
+                        # modify the requested cell index to match the feeder of the rule
+                        feeder_idx = list(idx_address)
+                        for modifier in feeder_idx_pattern:
+                            feeder_idx[modifier[0]] = modifier[1]
+                        idx_address = tuple(feeder_idx)
+
             # get records row ids for current cell idx_address
             rows = self._facts.query(idx_address, row_set)
             self._aggregation_counter += len(rows)
@@ -419,33 +434,54 @@ class Cube:
                 return None  # no records, so nothing to aggregate
 
             # Check if we have a standard or a weighted aggregation.
-            # Note: weighted aggregations are 2x up to 4x slower due to the weight lookup and multiplication
+            # Note: weighted aggregations are by factors slower due to the weight lookup and multiplication.
             weighted_aggregation, w_idx, w_lookup = self._weights.get_weighting(idx_address)
             total = 0.0
             facts = self._facts.facts # put object in local scope. this results in 16% faster code
+            addresses = self._facts.addresses  # put object in local scope. this results in 16% faster code
+
             if weighted_aggregation:
                 # weighted aggregation
                 self._weighted_aggregation_counter += len(rows)
-                addresses = self._facts.addresses  # put object in local scope. this results in 16% faster code
-                # todo: add support for ROLL_UP rules
-                value = 0.0  # LOL, this normally is an unnecessary assigment but makes the overall code 3% faster
+                value = 0.0  # LOL, this is an otherwise unnecessary assigment, but makes the overall code 3% faster
                 for row in rows:
-                    value = facts[row]
+                    if rule_found:
+                        # modify the address back from the feeder to the trigger
+                        self._rule_request_counter += 1
+                        trigger_idx = list(addresses[row])
+                        for modifier in trigger_idx_pattern:
+                            trigger_idx[modifier[0]] = modifier[1]
+                        idx_address = tuple(trigger_idx)
+                        cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
+                        # call the rule
+                        value = func(cursor)
+                    else:
+                        value = facts[row]
                     if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
-                        w = 1.0
+                        weight = 1.0
                         for idx in w_idx:  # only process dimensions with non-standard (+1.0) weighting
                             # read the weight for the roll up of the current row member to its requested
                             # Note: when both are the same element, we normally would not have to execute the
-                            # weight look up. But it turned out that an extra if statement is more expensive
-                            # just do unnecessary multiplications.
-                            w *= w_lookup[idx].get(addresses[row][idx], 1.0)
-                        total += float(value) * w
+                            # weight look up. But it turned out that an extra if statement is more expensive,
+                            # so we do an unnecessary (but cheaper) multiplications here.
+                            weight *= w_lookup[idx].get(addresses[row][idx], 1.0)
+                        total += value * weight
             else:
                 # default additive aggregation
-                # todo: add support for ROLL_UP rules
                 value = 0.0
                 for row in rows:
-                    value = facts[row]
+                    if rule_found:
+                        # modify the address back from the feeder to the trigger
+                        self._rule_request_counter += 1
+                        trigger_idx = list(addresses[row])
+                        for modifier in trigger_idx_pattern:
+                            trigger_idx[modifier[0]] = modifier[1]
+                        idx_address = tuple(trigger_idx)
+                        cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
+                        # call the rule
+                        value = func(cursor)
+                    else:
+                        value = facts[row]
                     if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
                         total += value
             if self._caching:
@@ -704,8 +740,9 @@ class Cube:
     #     return NotImplemented
 
     def register_rule(self, function, trigger: list[str] = None,
-                      scope: RuleScope = RuleScope.ALL_LEVELS,
-                      injection: RuleInjectionStrategy = RuleInjectionStrategy.NO_INJECTION,
+                      feeder: list[str] = None,
+                      scope: RuleScope = None,
+                      injection: RuleInjectionStrategy = None,
                       code: str = None):
         """
         Registers a rule function for the cube. Rules function either need to be decorated with the ``@rules(...)``
@@ -715,6 +752,7 @@ class Cube:
         :param injection: The injection strategy defined for the function.
         :param function: The rules function to be called.
         :param trigger: The cell idx_address trigger that should trigger the rule.
+        :param feeder: The cell idx_address feeder that should feed the rule.
         :param scope: The scope of the rule.
         """
 
@@ -747,6 +785,16 @@ class Cube:
                 raise TinyOlapRuleError(f"Failed to add rule function. Argument 'trigger' missing for "
                                     f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
 
+        if not feeder:
+            if hasattr(function, "feeder"):
+                feeder = function.feeder
+                if feeder:
+                    if type(feeder) is str:
+                        feeder = [feeder, ]
+                    if not type(feeder) is list:
+                        raise TinyOlapRuleError(f"Failed to add rule function. Argument 'fedder' is not of the expected "
+                                            f"type 'list(str)' but of type '{type(feeder)}'.")
+
         if not scope:
             if hasattr(function, "scope"):
                 scope = function.scope
@@ -768,8 +816,14 @@ class Cube:
         # setup and add rule
         try:
             idx_pattern = self._pattern_to_idx_pattern(trigger)
-            rule = Rule(function=function, name=function_name, cube=self.name, trigger=trigger,
-                        idx_trigger_pattern=idx_pattern,
+            if feeder:
+                idx_feeder_pattern = self._pattern_to_idx_pattern(feeder)
+            else:
+                idx_feeder_pattern = None
+
+            rule = Rule(function=function, name=function_name, cube=self.name,
+                        trigger=trigger, idx_trigger_pattern=idx_pattern,
+                        feeder=feeder, idx_feeder_pattern=idx_feeder_pattern,
                         scope=scope, injection=injection, code=code)
             self._rules.add(rule)
         except Exception as err:
@@ -823,7 +877,7 @@ class Cube:
         # create something like this: idx_pattern = [(0, 3)]
         idx_pattern = []
         for p in pattern:
-            idx_dim, idx_member, member_level = c._get_member(p)
+            idx_dim, idx_member, member_level, member_name = c._get_member(p)
             idx_pattern.append((idx_dim, idx_member))
         return idx_pattern
 

@@ -1,15 +1,17 @@
 import random
+import time
 from typing import Optional
 from pydantic import BaseModel, parse_obj_as
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
+
+from view import ViewWindow
 from ..dependencies import lock
 from ..dependencies import get_token_header
 from ..tiny.initialization import server
 from ..tiny.initialization import *
 from ..tiny.api import random_read, random_write, create_view
-
 
 view_counter = 0
 
@@ -46,6 +48,7 @@ async def resolve_random_view():
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Error. " + str(e))
 
+
 @router.get("/random/html", response_class=HTMLResponse)
 async def resolve_random_html_view():
     """Returns a random view (report) from the supplied sample database in simple static HTML format.
@@ -60,6 +63,30 @@ async def resolve_random_html_view():
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Error. " + str(e))
 
+
+@router.get("/random/html/window", response_class=HTMLResponse)
+async def resolve_random_html_window_view():
+    """Returns a random windowed view (with max 15 rows and and 15 columns)
+    from the supplied sample database in simple static HTML format."""
+    database = server["TinyCorp"]
+    global view_counter
+    try:
+        with lock[database].gen_rlock():
+            view_counter += 1
+            random_cube = random.choice(database.cubes)
+            view = create_view(database.cubes[random_cube],
+                               random_view=True,
+                               title=f"Random view #{view_counter:,} (endless loop) "
+                               )
+            window = ViewWindow(0, 0, 15, 15)
+            view.zero_suppression_on_rows = True
+            report = view.to_html(window=window, endless_loop=True)
+            return HTMLResponse(content=report, status_code=200)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal Error. " + str(e))
+
+
 @router.get("/random/html/endless", response_class=HTMLResponse)
 async def resolve_random_html_endless_view():
     """FOR TESTING PURPOSES ONLY - Returns a random view (report) from the supplied sample database
@@ -73,7 +100,8 @@ async def resolve_random_html_endless_view():
             view = create_view(database.cubes[random_cube], random_view=True,
                                title=f"Random view #{view_counter:,} (endless loop) ").refresh()
             view.zero_suppression_on_rows = True
-            return HTMLResponse(content=view.to_html(endless_loop=True), status_code=200)
+            report = view.to_html(endless_loop=True)
+            return HTMLResponse(content=report, status_code=200)
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Error. " + str(e))
 

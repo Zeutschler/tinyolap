@@ -11,6 +11,8 @@ from abc import ABC, abstractmethod
 import fnmatch
 import json
 from abc import abstractmethod
+from enum import Enum
+import enum_tools.documentation
 from typing import Any
 
 from tinyolap.config import Config
@@ -21,6 +23,24 @@ from tinyolap.utilities.utils import *
 from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.utilities.hybrid_dict import HybridDict
 
+
+enum_tools.documentation.INTERACTIVE = True
+
+
+@enum_tools.documentation.document_enum
+class DimensionType(Enum):
+    """Defines the type of dimension. Relevant for reporting purposes ."""
+    GENERIC = 0     # doc: (default) Generic dimension with unspecified content.
+    YEAR = 1        # doc: Dimension containing years, e.g., 2022, 2023, 2024...
+    PERIOD = 2      # doc: Dimension containing periods of a year, most often months, weeks or days
+    TIME = 3        # doc: Dimension contain time of a day, most often hours, minutes, seconds
+    DATATYPE = 4    # doc: Dimension containing datatypes, e.g. Actual, Plan, Forecast etc.
+    ENTITY = 5      # doc: Dimension containing entities, most often companies, legal entities
+    GEOGRAPHIC = 6  # doc: Dimension containing geographic information, most often regions, countries
+    PRODUCT = 7     # doc: Dimension containing products or services
+    CUSTOMER = 8    # doc: Dimension containing customers
+    SUPPLIER = 9    # doc: Dimension containing suppliers
+    PERSON = 10      # doc: Dimension containing persons, most often employees, users
 
 class AttributeField:
     """Represents a single attribute field of a dimension and provides access to
@@ -236,7 +256,6 @@ class AttributeField:
         """FOR INTERNAL USE! Populates the contents of the attribute field from a json string."""
         self.from_dict(json.loads(attribute_as_json_string))
         return self
-
 
 
 class Attributes(Iterable[AttributeField]):
@@ -831,7 +850,8 @@ class Dimension:
     __magic_key = object()
 
     @classmethod
-    def _create(cls, storage_provider: StorageProvider, name: str, description: str = ""):
+    def _create(cls, storage_provider: StorageProvider, name: str, description: str = "",
+                dimension_type: DimensionType = DimensionType.GENERIC):
         """
         NOT INTENDED FOR EXTERNAL USE! Creates a new dimension.
 
@@ -840,7 +860,7 @@ class Dimension:
         :param description: Description of the dimension to be added.
         :return: The new dimension.
         """
-        dimension = Dimension(Dimension.__magic_key, name, description)
+        dimension = Dimension(Dimension.__magic_key, name, description, dimension_type)
         dimension._storage_provider = storage_provider
         if storage_provider and storage_provider.connected:
             storage_provider.add_dimension(name, dimension.to_json())
@@ -862,7 +882,8 @@ class Dimension:
     MEMBERS = 3
     IDX_MEMBERS = 4
 
-    def __init__(self, dim_creation_key, name: str, description: str = ""):
+    def __init__(self, dim_creation_key, name: str, description: str = "",
+                 dimension_type: DimensionType = DimensionType.GENERIC):
         """
         NOT INTENDED FOR DIRECT USE! Cubes and dimensions always need to be managed by a Database.
         Use method 'Database.add_cube(...)' to create objects type Cube.
@@ -875,7 +896,9 @@ class Dimension:
             "Objects of type Dimension can only be created through the method 'Database.add_dimension()'."
 
         self._name: str = name.strip()
-        self.description: str = description
+        self._description: str = description
+        self._dimension_type = dimension_type
+
         self.member_defs: dict[int, dict] = {}
         self._member_idx_manager = Dimension.MemberIndexManager()
         self._member_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
@@ -946,6 +969,16 @@ class Dimension:
     def description(self, value: str):
         """Sets the description of the dimension."""
         self._description = value
+
+    @property
+    def dimension_type(self) -> DimensionType:
+        """Returns the dimension type of the dimension."""
+        return self._dimension_type
+
+    @dimension_type.setter
+    def dimension_type(self, value: DimensionType) :
+        """Sets the dimension type of the dimension."""
+        self._dimension_type = value
 
     @property
     def attributes(self) -> Attributes:
@@ -2216,3 +2249,69 @@ class Dimension:
                     base_members.append(self.__get_base_members(child_idx))
             return base_members
     # endregion
+
+
+class DimensionMembers:
+    """ Represents the full list of members of a dimension."""
+
+    def __init__(self, dimension, members):
+        self._dimension: Dimension = dimension
+        super().__init__(members, dimension)
+
+    @property
+    def dimension(self):
+        return self._dimension
+
+    def add(self, member: str, parent: str, weight: float = 1.0, description: str = None):
+        """
+        Adds a member to the dimension. The dimension must be in 'edit' mode.
+        :param member: Name of the member to be added.
+        :param parent: (optional) Name of a parent-member the member should belong to and aggregate into.
+        :param weight: (optional) The weight of the member to be used when aggregating up to the parent-member.
+            Default value is +1.0 for normal aggregation. Use -1.0 to subtract the value. Or use any other
+            value to define a certain static mathematical dependency between the member and the parent, e.g.,
+            .add('Price', 'Price (incl. 5% discount)', 0.95)
+            .add('Jan', 'Q1 average', 1.0/3.0)... ,or even better and more explicit
+            .add_many('Q1 average', ['Jan', 'Feb', 'Mar'], [1.0/3.0, 1.0/3.0, 1.0/3.0])
+        :param description: an optional description for the member.
+        :return: An 'int' representing the internal index of the member.
+        """
+        return self._dimension.add(member, parent, weight, description)
+
+    def add_many(self, member, children=None, weights=None, description=None, number_format=None) -> Dimension:
+        """Adds one or multiple member_defs and (optionally) associated child-member_defs to the dimension.
+
+        :param member: A single string or an iterable of strings containing the member_defs to be added.
+        :param children: A single string or an iterable of strings containing the child member_defs to be added.
+               If parameter 'member' is an iterable of strings, then children must be an iterable of same size,
+               either containing strings (adds a single child) or itself an iterable of string (adds multiple children).
+        :param weights: (optional) the weights to be used to aggregate the children into the parent.
+               Default value for aggregation is 1.0. If defined, the shape of the weights arguments (scalar, lists or
+               tuples) must have the same shape as the children argument.
+        :param description: A description for the member to be added. If parameter 'member' is an iterable,
+               then description will be ignored. For that case, please set descriptions for each member individually.
+        :param number_format: A format string for output formatting, e.g. for numbers or percentages.
+               Formatting follows the standard Python formatting specification at
+               <https://docs.python.org/3/library/string.html#format-specification-mini-language>.
+        :return Dimension: Returns the dimension itself.
+        """
+        return self._dimension.add_many(member, children, weights, description, number_format)
+
+
+    def edit(self) -> Dimension:
+        """
+        Sets the dimension into edit mode. Required to add, remove or rename member_defs,
+        to add remove or edit subsets or attributes and alike.
+
+        :return: The dimension itself.
+        """
+        return self._dimension.edit()
+
+    def commit(self) -> Dimension:
+        """
+        Commits all changes since 'edit_begin()' was called and ends the edit mode.
+
+        :return: The dimension itself.
+        """
+        return self._dimension.commit()
+

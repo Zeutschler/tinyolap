@@ -125,6 +125,14 @@ class Member:
             return True
         return False
 
+    def attribute(self, attribute_name, default_value=None):
+        """Returns a specific attribute value for the member."""
+        value = self._dimension.get_attribute(attribute_name, self._name)
+        if not value:
+            value = default_value
+        return value
+
+
     # endregion
 
     # region Navigation functions
@@ -558,5 +566,4 @@ class MemberList(HybridDict[Member]):
     @property
     def dimension(self):
         return self._dimension
-
 
