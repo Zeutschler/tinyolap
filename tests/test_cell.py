@@ -3,7 +3,7 @@ import unittest
 from unittest import TestCase
 
 from samples.tiny import create_tiny_database
-from tinyolap.exceptions import InvalidCellOrAreaAddressException
+from tinyolap.exceptions import TinyOlapInvalidAddressError
 
 
 class TestCell(TestCase):
@@ -14,9 +14,9 @@ class TestCell(TestCase):
 
     def test_initialization(self):
         c = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
-        with self.assertRaises(Exception) as context:
+        with self.assertRaises(BaseException) as context:
             c = self.cube.cell("2022", "Jan")
-        self.assertEqual(type(InvalidCellOrAreaAddressException()), type(context.exception))
+        self.assertEqual(type(TinyOlapInvalidAddressError()), type(context.exception))
 
     def test_cell_manipulation(self):
         a = self.cube.cell("2022", "Jan", "North", "trucks", "Sales")
@@ -39,12 +39,12 @@ class TestCell(TestCase):
         april = c.member("Apr")
         c[april] = 42
         c["2023", april] = 333.0
-        april.first()  # first() returns 'Jan', as 'Jan' is the first member in the dim.
+        jan = april.first  # first() returns 'Jan', as 'Jan' is the first member in the dim.
         c[april] = 42
         self.assertEqual("months", april.dimension.name)   # still, c will return 123.0
         self.assertEqual("Apr", str(april))   # still, c will return 123.0
         self.assertEqual("Apr", april.name)   # still, c will return 123.0
-        self.assertEqual("months:Apr", april.full_name)   # still, c will return 123.0
+        self.assertEqual("months:Apr", april.qualified_name)   # still, c will return 123.0
         self.assertEqual(42.0, c[april])
         self.assertEqual(a.value, c["Jan"])
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -37,7 +37,7 @@ class StorageProvider(ABC):
         Opens the database. If the database does not exist, a new database file will be created.
         :param kwargs:
         :return: Returns ``True``if the database has been opened successfully.
-        :raises DatabaseBackendException: Raised when the opening of / connecting to the database file failed.
+        :raises TinyOlapStorageError: Raised when the opening of / connecting to the database file failed.
         """
         pass
 

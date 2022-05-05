@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -79,9 +79,11 @@ class Query:
                 from_index = index
                 cube_name = tokens[index + 1].normalized
                 # check for cube name
-                cube = self.database.cubes.lookuptry(cube_name)
-                if not cube:
+                # cube = self.database.cubes.try_lookup(cube_name)
+                # if not cube:
+                if cube_name not in self.database.cubes:
                     raise KeyError(f"Cube '{cube_name}' does not exit in database '{self.database.name}'.")
+                cube = self.database.cubes[cube_name]
                 cube_name = cube.name
                 break
         else:
@@ -96,7 +98,7 @@ class Query:
         records = []
         if self._include_column_names:
             records.append(self.__get_column_names(query_def))
-        members_tuples = [tuple(dimension["members"]) for dimension in query_def["dims"]]
+        members_tuples = [tuple(dimension["member_defs"]) for dimension in query_def["dims"]]
         addresses = itertools.product(*members_tuples)
         if not select_slicer:
             for address in addresses:
@@ -121,7 +123,7 @@ class Query:
                     else:
                         # get an attribute for the current member of a dimension
                         member = address[field["member_index"]]
-                        attribute = field["dimension"].get_attribute(field["attribute"], member)
+                        attribute = field["dimension"].attributes.get(field["attribute"], member)
                         record.append(attribute)
 
                 if not value_already_appended:
@@ -175,7 +177,7 @@ class Query:
         db = cube._database
         query_def = {"cube": cube, "db": db, "dim_count": dim_count,
                      "dims": [{"dimension": cube.get_dimension_by_index(d),
-                               "members": [],
+                               "member_defs": [],
                                "expression": None} for d in range(cube.dimensions_count)]}
 
         # Process the WHERE statement
@@ -186,15 +188,16 @@ class Query:
                 for index, dimension in enumerate(query_def["dims"]):
                     if dimension["dimension"].name.lower() == dim.lower():
                         if dimension["dimension"].member_exists(member):
-                            dimension["members"].append(member)
+                            dimension["member_defs"].extend(member)
                             unresolved_dims.remove(index)
                         else:
-                            # check for subset name
-                            if member in dimension["dimension"].subsets:
-                                dimension["members"] = dimension["dimension"].subsets[member][3]
-                                unresolved_dims.remove(index)
                             if member == "*":
-                                dimension["members"] = dimension["dimension"].get_members()
+                                dimension["member_defs"] = dimension["dimension"].get_members()
+                                unresolved_dims.remove(index)
+
+                            # check for subset name
+                            elif member in dimension["dimension"]._subsets:
+                                dimension["member_defs"] = dimension["dimension"]._subsets[member].members
                                 unresolved_dims.remove(index)
 
                             # check for member list e.g.: (Jan, 'Feb')
@@ -208,29 +211,29 @@ class Query:
                                         invalid_members.append(member)
                                 if invalid_members:
                                     raise KeyError(f"Invalid member list for dimension {dimension['dimension'].name} "
-                                                   f" in WHERE statement found. The following members do not exist: "
+                                                   f" in WHERE statement found. The following member_defs do not exist: "
                                                    f"{', '.join(invalid_members)}")
-                                dimension["members"] = members
+                                dimension["member_defs"] = members
                                 unresolved_dims.remove(index)
 
             else:  # only a member name is defined, e.g.: '2022' > resolve the dimension
                 found_index = -1
                 for d in unresolved_dims:
                     if query_def["dims"][d]["dimension"].member_exists(member):
-                        query_def["dims"][d]["members"].append(member)
+                        query_def["dims"][d]["member_defs"].append(member)
                         found_index = d
                         break
                 if found_index > -1:
                     unresolved_dims.remove(found_index)
                 else:
-                    # If it's not a member then it might be a list of members or the name of a subset.
+                    # If it's not a member then it might be a list of member_defs or the name of a subset.
 
                     raise KeyError(f"Unresolvable member '{slice_arg}' in WHERE statement found.")
 
         # for all unresolved dimensions, get the (default) first member of the dimension.
         for d in unresolved_dims:
             member = query_def["dims"][d]["dimension"].get_first_member()
-            query_def["dims"][d]["members"].append(member)
+            query_def["dims"][d]["member_defs"].append(member)
 
         # If there is no specific SELECT statement, we're already done
         #   esp. for 'SELECT * FROM ...' statements

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -7,9 +7,39 @@ from __future__ import annotations
 import re
 import string
 import os
+from tinyolap.config import Config
+from tinyolap.exceptions import *
+
+import fnmatch
+from itertools import chain
+from typing import List, TypeVar, Generic
+from collections.abc import Sequence
+from packaging.version import parse as parse_version
+
 
 MEMBER_NAME_CHARS = set(string.ascii_letters + string.digits + '.-_/#+-*:,;|{}()"')
-DB_OBJECT_NAME_CHARS = set(string.ascii_letters + string.digits + '_')
+DB_OBJECT_NAME_CHARS = set(string.ascii_letters + string.digits + '_-')
+
+
+def is_version_compatible(version: str) -> bool:
+    """Checks if a specific TinyOlap version number is compatible with the current version of the TinyOlap library.
+    Especially relevant for file and database format upwards and downwards compatibility."""
+    minimal_version = parse_version(Config.LOWEST_COMPATIBLE_VERSION)
+    current_version = parse_version(Config.VERSION)
+    version = parse_version(version)
+    return (version >= minimal_version) and (version <= current_version)
+
+
+def check_content_type_and_version(content_type: str, version: str, expected_content_type: str):
+    """Ensures that the content type and the version for deserialization matches the requirements."""
+    if content_type != expected_content_type:
+        raise TinyOlapSerializationError(f"Unexpected content type. "
+                                         f"'{expected_content_type}' expected, but "
+                                         f"'{content_type}' was found.")
+    if not is_version_compatible(version):
+        raise TinyOlapSerializationError(f"Incompatible version '{version}' detected. "
+                                         f"Lowest compatible version is '{Config.LOWEST_COMPATIBLE_VERSION}',"
+                                         f"highest compatible version is '{Config.VERSION}' (current).")
 
 
 def is_valid_member_name(name: str):
@@ -71,3 +101,8 @@ def get_file_path(file_name: str, folder: str = "db", create_path: bool = True):
     """
     file_folder = get_path(folder, create_path)
     return os.path.join(file_folder, file_name)
+
+
+
+
+

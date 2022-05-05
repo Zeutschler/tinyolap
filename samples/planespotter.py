@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import time
@@ -34,20 +34,20 @@ def create_database(console_output: bool = False):
     dim_horz = db.add_dimension("horz").edit()
     dim_vert = db.add_dimension("vert").edit()
     for i in range(-radius - raster_size, +radius + raster_size, raster_size):
-        dim_horz.add_member("Total", f"{i:+} km")
-        dim_vert.add_member("Total", f"{i:+} km")
+        dim_horz.add_many("Total", f"{i:+} km")
+        dim_vert.add_many("Total", f"{i:+} km")
     dim_horz.commit()
     dim_vert.commit()
 
     # Create a dimension for plane names (the actual plane names will be added later)
     dim_plane = db.add_dimension("planes").edit()
-    dim_plane.add_member("some plane")
-    dim_plane.add_member("All", "some plane")
+    dim_plane.add_many("some plane")
+    dim_plane.add_many("All", "some plane")
     dim_plane.commit()
 
     # Create a dimension for plane data
     dim_data = db.add_dimension("data").edit()
-    dim_data.add_member(["count", "altitude"])
+    dim_data.add_many(["count", "altitude"])
     dim_data.commit()
     dim_data.member_set_format("altitude", "{:,.0f} ft")
 
@@ -86,15 +86,13 @@ def update_database_from_flight_data(db: Database):
     dim_planes.edit()
     new_planes = list(plane[0] for plane in data)
     countries = list(plane[1] for plane in data)
-    planes_to_remove = set(dim_planes.get_leave_members()).difference(set(new_planes))
+    planes_to_remove = set(dim_planes.get_leaves()).difference(set(new_planes))
     if planes_to_remove:
         dim_planes.remove_member(list(planes_to_remove))
     for idx, plane in enumerate(new_planes):
         if plane:  # Note: some planes have no name (e.g. military air-planes)
-            dim_planes.add_member("All", countries[idx])
-            dim_planes.add_member(countries[idx], plane)
-            # dim_planes.add_member(plane)
-            # dim_planes.add_member("All", plane)
+            dim_planes.add_many("All", countries[idx])
+            dim_planes.add_many(countries[idx], plane)
     dim_planes.commit()
 
     # clear all data from the cube and import the new data
@@ -144,7 +142,7 @@ def play_plane_spotter(console_output: bool = True):
         os.system('cls' if os.name == 'nt' else 'clear')
 
     dim_planes = database.dimensions["planes"]
-    plane_list = ["All", ] + sorted(dim_planes.get_members_by_level(1)) + sorted(dim_planes.get_leave_members())
+    plane_list = ["All", ] + sorted(dim_planes.get_members_by_level(1)) + sorted(dim_planes.get_leaves())
 
     report_definition = {"title": f"Planes {radius:,} km around Berlin...",
                          "header": [{"dimension": "planes", "member": "All"},

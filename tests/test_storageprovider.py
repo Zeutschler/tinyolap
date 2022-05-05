@@ -35,7 +35,7 @@ class TestStorageProvider(TestCase):
         for i, cube_name in enumerate(cube_names):
             provider.add_cube(cube_name, some_json(i))
 
-        # 3 members per dimension for/over all 5 dimension
+        # 3 member_defs per dimension for/over all 5 dimension
         members = [1, 2, 3]
 
         # fill and check all 5 cubes with 3^5 = 243 values each

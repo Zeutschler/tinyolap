@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -9,7 +9,7 @@ import copy
 import itertools
 from collections import Iterable
 
-from tinyolap.exceptions import InvalidCellOrAreaAddressException
+from tinyolap.exceptions import TinyOlapInvalidAddressError
 from tinyolap.member import Member
 
 
@@ -98,13 +98,18 @@ class Area:
             idx_address = facts.addresses[row]
             record = self._cube._idx_address_to_address(idx_address, include_cube_name=include_cube_name)
 
+            # if as_list:
+            #     for key in facts.facts[row]:
+            #         value = facts.facts[row][key]
+            #         record.append(value)
+            # else:
+            #     values = tuple(facts.facts[row].values())
+            #     record = [tuple(record), values]
+
             if as_list:
-                for key in facts.facts[row]:
-                    value = facts.facts[row][key]
-                    record.append(value)
+                record.append(facts.facts[row])
             else:
-                values = tuple(facts.facts[row].values())
-                record = [tuple(record), values]
+                record = [tuple(record), facts.facts[row]]
 
             yield record
 
@@ -114,13 +119,12 @@ class Area:
         Returns nested tuples in the form ((dim_member1, ... , dim_memberN), value).
         """
         # if not self._rows:
-        # refresh dat area
+        # refresh data area
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         records = []
         facts = self._cube._facts
-        0
-        0
+
         for row in self._rows:
             # idx_address = facts.addresses[row]
             record = list(facts.addresses[row])
@@ -129,7 +133,8 @@ class Area:
             #     record.append(value)
 
             # create a (idx_address, value) tuple for direct use
-            records.append((record, dict(facts.facts[row])))
+            # records.append((record, dict(facts.facts[row])))
+            records.append((record, facts.facts[row],))
         return records
 
     def addresses(self, include_cube_name: bool = False, enumerate_data_space: bool = False,
@@ -150,16 +155,16 @@ class Area:
                 if axis:
                     member_list = []
                     if type(axis) is int:
-                        member = dimension.members[axis][1]
-                        member_list.extend(dimension.member_get_leave_children(member))
+                        member = dimension.member_defs[axis][1]
+                        member_list.extend(dimension.member_get_leaves(member))
                     else:
                         for item in axis:
-                            member = dimension.members[item][1]
-                            member_list.extend(dimension.member_get_leave_children(member))
+                            member = dimension.member_defs[item][1]
+                            member_list.extend(dimension.member_get_leaves(member))
                     member_lists.append(member_list)
                 else:
-                    # get all base members from dimension
-                    member_lists.append(dimension.get_leave_members())
+                    # get all base member_defs from dimension
+                    member_lists.append(dimension.get_leaves())
 
             if include_cube_name:
                 cube = (self._cube.name,)
@@ -231,7 +236,7 @@ class Area:
         """Evaluates if two areas are compatible.
            Checks whether the dimensions are identical,
            1 member per defined dimension only
-           and if all members are base level members.
+           and if all member_defs are base level member_defs.
             :param other: The other area to be checked.
         """
         if self._cube != other._cube:
@@ -243,22 +248,22 @@ class Area:
                 # check for 1 member per dimension
                 if len(self._area_def[d]) > 1:
                     return False, f"Incompatible areas. The left area of the operation defines " \
-                                  f"{len(self._area_def[d])} members for dimension '{dimension.name}', " \
+                                  f"{len(self._area_def[d])} member_defs for dimension '{dimension.name}', " \
                                   f"but only 1 member per dimension is allowed."
                 if len(other._area_def[d]) > 1:
                     return False, f"Incompatible areas. The right area of the operation defines " \
-                                  f"{len(other._area_def[d])} members for dimension '{dimension.name}', " \
+                                  f"{len(other._area_def[d])} member_defs for dimension '{dimension.name}', " \
                                   f"but only 1 member per dimension is allowed."
 
-                # check for members are base level members
+                # check for member_defs are base level member_defs
                 if not dimension.member_is_leave(self._area_def[d][0]):
                     return False, f"Incompatible areas. The left side of operations defines the member " \
                                   f"'{self._area_def[d]}' for dimension '{dimension.name}' which is not a " \
-                                  f"leave-level member. Only leave-level members are supported."
+                                  f"leave-level member. Only leave-level member_defs are supported."
                 if not dimension.member_is_leave(other._area_def[d][0]):
                     return False, f"Incompatible areas. The right side of operations defines the member " \
                                   f"'{other._area_def[d]}' for dimension '{dimension.name}' which is not a " \
-                                  f"leave-level member. Only leave-level members are supported."
+                                  f"leave-level member. Only leave-level member_defs are supported."
 
             elif (not self._area_def[d]) and (not other._area_def[d]):
                 pass  # dimension not defined for both areas, that's ok!
@@ -283,10 +288,10 @@ class Area:
             # copy data from one area to another
             scr: Area = value
             dest: Area = self
-            # ensure if dimensions are identical and 1 member per dimension and all members are base level members
+            # ensure if dimensions are identical and 1 member per dimension and all member_defs are base level member_defs
             compatible, message = self._compatible(dest)
             if not compatible:
-                raise InvalidCellOrAreaAddressException(f"Set value failed. {message}")
+                raise TinyOlapInvalidAddressError(f"Set value failed. {message}")
 
             # clear the destination first
             dest.clear()
@@ -304,8 +309,6 @@ class Area:
                     new_value = scr._func(new_value)
                 self._cube.set(new_address, new_value)
 
-
-
         else:
 
             if enumerate_data_space:
@@ -321,17 +324,16 @@ class Area:
                 else:
                     for address in self.addresses(False, True):
                         self._cube.set(address, value)
+
             else:
                 self._rows = rows
                 facts = self._cube._facts.facts
                 if callable(value):
                     for row in rows:
-                        for k in facts[row]:
-                            facts[row][k] = value()
+                        facts[row] = value()
                 else:
                     for row in rows:
-                        for k in facts[row]:
-                            facts[row][k] = value
+                        facts[row] = value
 
     def multiply(self, factor: float):
         """
@@ -341,10 +343,14 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for k, v in facts[row].items():
+        #         if type(v) is float:
+        #             facts[row][k] = v * factor
         for row in rows:
-            for k, v in facts[row].items():
-                if type(v) is float:
-                    facts[row][k] = v * factor
+            v = facts[row]
+            if type(v) is float:
+                facts[row] = v * factor
 
     def increment(self, value: float):
         """
@@ -354,10 +360,14 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for k, v in facts[row].items():
+        #         if type(v) is float:
+        #             facts[row][k] = v + value
         for row in rows:
-            for k, v in facts[row].items():
-                if type(v) is float:
-                    facts[row][k] = v + value
+            v = facts[row]
+            if type(v) is float:
+                facts[row] = v + value
 
     def min(self):
         """
@@ -367,13 +377,20 @@ class Area:
         rows = self._cube._facts.query_area(self._idx_area_def)
         self._rows = rows
         facts = self._cube._facts.facts
+        # for row in rows:
+        #     for v in facts[row].values():
+        #         if type(v) is float:
+        #             if not minimum:
+        #                 minimum = v
+        #             if v < minimum:
+        #                 minimum = v
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    if not minimum:
-                        minimum = v
-                    if v < minimum:
-                        minimum = v
+            v = facts[row]
+            if type(v) is float:
+                if not minimum:
+                    minimum = v
+                if v < minimum:
+                    minimum = v
         return minimum
 
     def max(self):
@@ -385,12 +402,12 @@ class Area:
         self._rows = rows
         facts = self._cube._facts.facts
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    if not maximum:
-                        maximum = v
-                    if v > maximum:
-                        maximum = v
+            v = facts[row]
+            if type(v) is float:
+                if not maximum:
+                    maximum = v
+                if v > maximum:
+                    maximum = v
         return maximum
 
     def avg(self):
@@ -403,10 +420,10 @@ class Area:
         self._rows = rows
         facts = self._cube._facts.facts
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    avg += v
-                    z += 1
+            v = facts[row]
+            if type(v) is float:
+                avg += v
+                z += 1
         if z == 0:
             return None
         return avg / z
@@ -421,10 +438,10 @@ class Area:
         self._rows = rows
         facts = self._cube._facts.facts
         for row in rows:
-            for v in facts[row].values():
-                if type(v) is float:
-                    total += v
-                    z += 1
+            v = facts[row]
+            if type(v) is float:
+                total += v
+                z += 1
         if z == 0:
             return None
         return total
@@ -575,12 +592,12 @@ class Area:
             try:
                 idx_dim, members, idx_members, level_members = self._get_members(arg)
             except:
-                raise InvalidCellOrAreaAddressException(f"Invalid member definition. Argument '{str(arg)}' is not "
+                raise TinyOlapInvalidAddressError(f"Invalid member definition. Argument '{str(arg)}' is not "
                                                         f"a member of any dimension in cube '{self._cube.name}'")
 
             if not alter:
                 if idx_dim in already_used:
-                    raise TypeError(f"Duplicate member definition argument '{str(arg)}'. The dimension of these members"
+                    raise TypeError(f"Duplicate member definition argument '{str(arg)}'. The dimension of these member_defs"
                                     f"have already been defined in the area definition.")
                 already_used.add(idx_dim)
             else:
@@ -615,17 +632,16 @@ class Area:
                 level_members.append(member_level)
             else:
                 raise TypeError(f"Invalid type '{type(item)}'. Only type 'str', 'list' or 'tuple' "
-                                f"supported for members in Area definition.")
+                                f"supported for member_defs in Area definition.")
 
-        # ensure all members are from the same dimension
+        # ensure all member_defs are from the same dimension
         # todo: NO!!! Wrong behaviour! Areas shifts should support multiple dimensions.
         #       We need this to be possible: ... area(('Jan', 'Feb), '2021', 'name of subset')
         idx_dim = idx_dims[0]
         for idx in idx_dims[1:]:
             if idx != idx_dim:
-                # raise InvalidCellOrAreaAddressException(f"Invalid member definition argument '{str(item)}'. Members do not belong "
-                #                f"to one dimension only, multiple dimensions found.")
-                a = 1
+                raise TinyOlapInvalidAddressError(f"Invalid member definition argument '{str(item)}'. Members do not belong "
+                                f"to one dimension only, multiple dimensions found.")
 
         return idx_dim, members, idx_members, level_members
 
@@ -636,7 +652,7 @@ class Area:
         idx_member = -1
         pos = member_name.find(":")
         if pos != -1:
-            # lets extract the dimension name and check if it is valid, e.g., c["months:Mar"]
+            # let's extract the dimension name and check if it is valid, e.g., c["months:Mar"]
             name = member_name[:pos].strip()
 
             # special test for ordinal dim position instead of dim name, e.g., c["1:Mar"] = 333.0
@@ -658,7 +674,7 @@ class Area:
                                f"dimension '{name}' in cube '{self._cube.name}.")
             idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
 
-            member_level = dimensions[idx_dim].members[idx_member][self._cube._dimensions[0].LEVEL]
+            member_level = dimensions[idx_dim].member_defs[idx_member][self._cube._dimensions[0].LEVEL]
             return idx_dim, idx_member, member_level
 
         # No dimension identifier in member name, search all dimensions
@@ -666,7 +682,7 @@ class Area:
             if member_name in dimensions[idx_dim]._member_idx_lookup:
                 idx_member = dimensions[idx_dim]._member_idx_lookup[member_name]
                 # adjust the super_level
-                member_level = dimensions[idx_dim].members[idx_member][level]
+                member_level = dimensions[idx_dim].member_defs[idx_member][level]
                 return idx_dim, idx_member, member_level
 
         # You loose...
@@ -684,7 +700,7 @@ class Area:
 
             if not self.modifiers_of_same_scope(self._modifiers, other._modifiers):
                 raise KeyError(f"Unsupported area operations. Areas modifiers need to"
-                               f"address the same dimensions and the same number of members, "
+                               f"address the same dimensions and the same number of member_defs, "
                                f"e.g.: a['Jan'] = a['Feb'] would be valid, but "
                                f"a['Jan'] = a['2022'] would not be valid, because of different dimensions.")
 
@@ -694,20 +710,17 @@ class Area:
             if other._pinned:
                 for record in other._pinned_records:
                     idx_address = record[0]
-                    values = record[1]
 
                     for modifier in self._modifiers:
                         idx_dim = modifier[0]
                         idx_member = modifier[2][0]
                         idx_address[idx_dim] = idx_member
 
-                    for key in values:
-                        value = values[key]
-                        if other._func:
-                            value = other._func(value)
-                        bolt = (0, tuple(idx_address), key)
-                        self._cube._set(bolt, value)
-                        # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+                    value = record[1]
+                    if other._func:
+                        value = other._func(value)
+                    bolt = (0, tuple(idx_address))
+                    self._cube._set(bolt, value)
 
             else:
                 if not other._rows:
@@ -722,13 +735,12 @@ class Area:
                         idx_member = modifier[2][0]
                         idx_address[idx_dim] = idx_member
 
-                    for key in facts.facts[row]:
-                        value = facts.facts[row][key]
-                        if other._func:
-                            value = other._func(value)
-                        bolt = (0, tuple(idx_address), key)
-                        self._cube._set(bolt, value)
-                        # print(f"{idx_address} >>> {self._cube._idx_address_to_address(idx_address)}:= {value} is {self._cube._get(bolt)}")
+                    value = facts.facts[row]
+                    if other._func:
+                        value = other._func(value)
+                    bolt = (0, tuple(idx_address))
+                    self._cube._set(bolt, value)
+
 
     def identical_modifiers(self, modifiers_a, modifiers_b) -> bool:
         if len(modifiers_a) != len(modifiers_b):

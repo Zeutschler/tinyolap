@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -94,7 +94,7 @@ class SqliteStorage(StorageProvider):
         Opens the database. If the database does not exist, a new database file will be created.
         :param kwargs:
         :return: Returns ``True``if the database has been opened successfully.
-        :raises DatabaseBackendException: Raised when the opening of / connecting to the database file failed.
+        :raises TinyOlapStorageError: Raised when the opening of / connecting to the database file failed.
         """
         if kwargs:
             file_name = kwargs["file_name"]
@@ -119,12 +119,12 @@ class SqliteStorage(StorageProvider):
             msg = f"{self.LOG_PREFIX}Failed to open database '{self.file_path}'. SQLite exception: {str(err)}"
             if self.logging:
                 self.logger.error(msg)
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
         except Exception as err:
             msg = f"{self.LOG_PREFIX}Failed to open database '{self.file_path}'. {str(err)}"
             if self.logging:
                 self.logger.error(msg)
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
         return True
 
     def close(self) -> bool:
@@ -146,13 +146,13 @@ class SqliteStorage(StorageProvider):
                     if self.logging:
                         self.logger.error(msg)
                         # self.logger.handlers[0].flush()
-                    raise DatabaseBackendException(msg)
+                    raise TinyOlapStorageError(msg)
                 except Exception as err:
                     msg = f"{self.LOG_PREFIX}Failed to close database '{self.file_path}'. {str(err)}"
                     if self.logging:
                         self.logger.error(msg)
                         # self.logger.handlers[0].flush()
-                    raise DatabaseBackendException(msg)
+                    raise TinyOlapStorageError(msg)
 
         self.is_open = False
         return True
@@ -604,7 +604,7 @@ class SqliteStorage(StorageProvider):
         Commits all accumulated changes to the database. Optionally, the database can be optimized (compacted).
         :param optimize: if set to ``True``, the database will be optimized and compacted.
         :return: ``True`` if the commit and the optimization was successful.
-        :raises DatabaseBackendException: Raised when the commit or (optional) optimization of the database failed.
+        :raises TinyOlapStorageError: Raised when the commit or (optional) optimization of the database failed.
         """
         if optimize:
             try:
@@ -618,13 +618,13 @@ class SqliteStorage(StorageProvider):
                 if self.logging:
                     self.logger.error(msg)
                     # self.logger.handlers[0].flush()
-                raise DatabaseBackendException(msg)
+                raise TinyOlapStorageError(msg)
             except Exception as err:
                 msg = f"{self.LOG_PREFIX}Failed to optimize database. {str(err)}"
                 if self.logging:
                     self.logger.error(msg)
                     # self.logger.handlers[0].flush()
-                raise DatabaseBackendException(msg)
+                raise TinyOlapStorageError(msg)
 
         try:
             if self.conn and self.is_open:
@@ -635,20 +635,20 @@ class SqliteStorage(StorageProvider):
             if self.logging:
                 self.logger.error(msg)
                 # self.logger.handlers[0].flush()
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
         except Exception as err:
             msg = f"{self.LOG_PREFIX}Failed to commit database. {str(err)}"
             if self.logging:
                 self.logger.error(msg)
                 # self.logger.handlers[0].flush()
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
 
     def _prepare_database(self) -> bool:
         """
         Validates and prepares a database to be used as a TinyOlap storage_provider
         by adding some meta tables.
         :return: ``True`` if the database was successfully prepared, ``False`` otherwise.
-        :raises DatabaseBackendException: Raised when the preparation of the database failed.
+        :raises TinyOlapStorageError: Raised when the preparation of the database failed.
         """
 
         # Check if meta tables already exist - then it's (most likely) a valid TinyOlap database.
@@ -673,7 +673,7 @@ class SqliteStorage(StorageProvider):
                     if not self._table_exists(meta):  # ensure the table has been created.
                         if self.logging:
                             self.logger.info(f"{self.LOG_PREFIX}Failed to prepare database for use with TinyOlap.")
-                        raise DatabaseBackendException("Failed to add meta tables to database.")
+                        raise TinyOlapStorageError("Failed to add meta tables to database.")
 
                 # add and prepare history table
                 if not self._table_exists(self.HISTORY_TABLE):
@@ -688,19 +688,19 @@ class SqliteStorage(StorageProvider):
                 if self.logging:
                     self.logger.error(msg)
                     # self.logger.handlers[0].flush()
-                raise DatabaseBackendException(msg)
+                raise TinyOlapStorageError(msg)
             except Exception as err:
                 msg = f"{self.LOG_PREFIX}Failed to prepare database for use with TinyOlap. {str(err)}"
                 if self.logging:
                     self.logger.error(msg)
                     # self.logger.handlers[0].flush()
-                raise DatabaseBackendException(msg)
+                raise TinyOlapStorageError(msg)
 
         else:
             # check if data can be decrypted properly.
             provider = self.get_meta("provider")  # this should return 'tinyolap'
             if provider != "tinyolap":
-                raise EncryptionException(f"Failed to open database. Invalid username or password.")
+                raise TinyOlapEncryptionError(f"Failed to open database. Invalid username or password.")
 
         return True
 
@@ -729,7 +729,7 @@ class SqliteStorage(StorageProvider):
         Evaluates if a table exists in the database.
         :param table_name: Name of the table to be evaluated.
         :return: ``True`` if the table exists, ``False`` otherwise.
-        :raises DatabaseBackendException: Raised when the execution of the existence check failed.
+        :raises TinyOlapStorageError: Raised when the execution of the existence check failed.
         """
         if not self.cursor:
             self.cursor = self.conn.cursor()
@@ -740,7 +740,7 @@ class SqliteStorage(StorageProvider):
             msg = f"{self.LOG_PREFIX}Failed to check existence of table {table_name} in database. {str(err)}"
             if self.logging:
                 self.logger.error(msg)
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
 
     def _get_tables(self):
         """
@@ -778,7 +778,7 @@ class SqliteStorage(StorageProvider):
             if self.logging:
                 self.logger.error(msg)
                 # self.logger.handlers[0].flush()
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
 
         if self.logging and self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
@@ -812,7 +812,7 @@ class SqliteStorage(StorageProvider):
                 self.logger.error(msg)
                 # self.logger.handlers[0].flush()
             self.cursor.execute("rollback")
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
 
         if self.logging and self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
@@ -838,7 +838,7 @@ class SqliteStorage(StorageProvider):
             if self.logging:
                 self.logger.error(msg)
                 # self.logger.handlers[0].flush()
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
 
         if self.logging and self.LOG_LEVEL == logging.DEBUG:
             duration = timer() - duration
@@ -887,7 +887,7 @@ class SqliteStorage(StorageProvider):
             if self.logging:
                 self.logger.error(msg)
                 # self.logger.handlers[0].flush()
-            raise DatabaseBackendException(msg)
+            raise TinyOlapStorageError(msg)
 
         # Assemble database file name
         file_path = os.path.join(folder, file_name)

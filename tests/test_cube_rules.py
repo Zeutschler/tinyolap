@@ -13,32 +13,32 @@ def create_database():
 
     dim_years = db.add_dimension("years")
     dim_years.edit()
-    dim_years.add_member(["2020", "2021", "2022", "2023"])
+    dim_years.add_many(["2020", "2021", "2022", "2023"])
     dim_years.commit()
 
     dim_currency = db.add_dimension("currency")
     dim_currency.edit()
-    dim_currency.add_member(["EUR", "USD"])
+    dim_currency.add_many(["EUR", "USD"])
     dim_currency.commit()
 
     dim_months = db.add_dimension("months")
     dim_months.edit()
-    dim_months.add_member(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+    dim_months.add_many(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-    dim_months.add_member(["Q1", "Q2", "Q3", "Q4"],
-                          [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
+    dim_months.add_many(["Q1", "Q2", "Q3", "Q4"],
+                        [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
                            ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
-    dim_months.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
+    dim_months.add_many("Year", ("Q1", "Q2", "Q3", "Q4"))
     dim_months.commit()
 
     dim_products = db.add_dimension("products")
     dim_products.edit()
-    dim_products.add_member("Total", ["A", "B", "C"])
+    dim_products.add_many("Total", ["A", "B", "C"])
     dim_products.commit()
 
     dim_measures = db.add_dimension("measures")
     dim_measures.edit()
-    dim_measures.add_member(["Quantity", "Price", "Sales", "Cost", "Profit", "Profit%"])
+    dim_measures.add_many(["Quantity", "Price", "Sales", "Cost", "Profit", "Profit%"])
     dim_measures.commit()
 
     # ***********************************
@@ -46,25 +46,25 @@ def create_database():
     cube_sales = db.add_cube("sales", [dim_currency, dim_years, dim_months, dim_products, dim_measures])
     # set quantities
     addresses = itertools.product(["EUR"],
-                                  cube_sales.get_dimension_by_index(1).get_leave_members(),
-                                  cube_sales.get_dimension_by_index(2).get_leave_members(),
-                                  cube_sales.get_dimension_by_index(3).get_leave_members(),
+                                  cube_sales.get_dimension_by_index(1).get_leaves(),
+                                  cube_sales.get_dimension_by_index(2).get_leaves(),
+                                  cube_sales.get_dimension_by_index(3).get_leaves(),
                                   ["Quantity"])
     for address in addresses:
         cube_sales.set(address, round(uniform(10.0, 1000.0), 0))
     # set prices
     addresses = itertools.product(["EUR"],
-                                  cube_sales.get_dimension_by_index(1).get_leave_members(),
-                                  cube_sales.get_dimension_by_index(2).get_leave_members(),
-                                  cube_sales.get_dimension_by_index(3).get_leave_members(),
+                                  cube_sales.get_dimension_by_index(1).get_leaves(),
+                                  cube_sales.get_dimension_by_index(2).get_leaves(),
+                                  cube_sales.get_dimension_by_index(3).get_leaves(),
                                   ["Quantity"])
     for address in addresses:
         cube_sales.set(address, round(uniform(4.0, 10.0), 2))
     # set cost
     addresses = itertools.product(["EUR"],
-                                  cube_sales.get_dimension_by_index(1).get_leave_members(),
-                                  cube_sales.get_dimension_by_index(2).get_leave_members(),
-                                  cube_sales.get_dimension_by_index(3).get_leave_members(),
+                                  cube_sales.get_dimension_by_index(1).get_leaves(),
+                                  cube_sales.get_dimension_by_index(2).get_leaves(),
+                                  cube_sales.get_dimension_by_index(3).get_leaves(),
                                   ["Cost"])
     for address in addresses:
         cube_sales.set(address, round(uniform(100.0, 1000.0), 2))
@@ -73,12 +73,12 @@ def create_database():
     # Exchange Rates Cube, filled with random data
     dim_exrate = db.add_dimension("exrate")
     dim_exrate.edit()
-    dim_exrate.add_member("exrate")
+    dim_exrate.add_many("exrate")
     dim_exrate.commit()
     cube_exrates = db.add_cube("exrates", [dim_years, dim_months, dim_exrate])
-    addresses = itertools.product(cube_exrates.get_dimension_by_index(0).get_leave_members(),
-                                  cube_exrates.get_dimension_by_index(1).get_leave_members(),
-                                  cube_exrates.get_dimension_by_index(2).get_leave_members())
+    addresses = itertools.product(cube_exrates.get_dimension_by_index(0).get_leaves(),
+                                  cube_exrates.get_dimension_by_index(1).get_leaves(),
+                                  cube_exrates.get_dimension_by_index(2).get_leaves())
     for address in addresses:
         cube_exrates.set(address, round(uniform(0.8, 1.2), 4))
 
@@ -128,7 +128,7 @@ class TestCubeRules(TestCase):
     def rule_profit(self, db: Database, c: Cell):
         return c["Sales"] - c["Cost"]
 
-    @rule("sales", ["Sales"], RuleScope.ROLL_UP)
+    @rule("sales", ["Sales"], RuleScope.BASE_LEVEL)
     def rule_sales_from_quantity_mul_price(self, db: Database, c: Cell):
         return c["Quantity"] * c["Price"]
 

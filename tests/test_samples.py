@@ -8,7 +8,7 @@ from samples.tutor import play_tutor
 from samples.planespotter import play_plane_spotter
 from samples.tesla import play_tesla
 
-class Test(TestCase):
+class TestSamples(TestCase):
     """Tests all available samples, except the web_demo (for errors / fatal failure only)."""
     def setUp(self) -> None:
         self.console_output = False  # set to False for unattended testing

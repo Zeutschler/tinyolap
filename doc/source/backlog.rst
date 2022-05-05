@@ -90,6 +90,9 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 
 - **Samples Databases** - Samples to showcase how to build real world TinyOlap databases.
 
+  - **Tesla Database** - A very simple and small (tiny) database, entirely build from Python code.
+    The database mimics Elon Musk's annual business planning for Tesla.
+
   - **Tiny Database** - A very small (tiny) database, entirely build from Python code.
     The database showcases TinyOlap's basic features and usage and should be the starting
     point to get used to TinyOlap.
@@ -140,48 +143,15 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 ----------
 
 - **Web Frontend** - A beautiful, minimalistic but innovative web frontend on top of the Web API.
-  Providing capabilities to navigate (slice and dice), analyse and enter data. Mobile first.
+  Providing capabilities to navigate (slice and dice), analyse and enter data.
+
+
+- **Local Client** - A beautiful, minimalistic but innovative web local client built with Electron.
+  Providing the same capabilities as the web client.
 
   .. attention::
     This is undoubtedly the most important component for the overall **success of TinyOlap**.
-
-  - **TextEditor** - For natural language processing through spacy. Some links
-
-    - Monaco is th editor of choice:
-      - Microsoft's Monaco Editor (VS-Code) https://microsoft.github.io/monaco-editor/
-      - Custom IntelliSense with Monaco Editor: https://mono.software/2017/04/11/custom-intellisense-with-monaco-editor/
-      - https://css-tricks.com/creating-an-editable-textarea-that-supports-syntax-highlighted-code/
-      - https://prismjs.com
-      - https://ace.c9.io
-      - https://code.visualstudio.com/api/language-extensions/language-server-extension-guide
-      - https://froala.com
-      - https://froala.com/blog/editor/how-to-add-a-spelling-and-grammar-api-into-your-html-editor/
-
-  - **Grid** - A minimalistic, visually reduced grid with alternatively fixed (browser-style)
-    or unfixed (report style) row and column axis.
-
-    Available alternatives:
-
-    - overview: https://github.com/FancyGrid/awesome-grid
-    - overview https://jspreadsheets.com
-    - high quality commercial component: https://handsontable.com
-    - free and sufficient? http://w2ui.com/web/home
-
-  - **Cursor** - A cell cursor, as in Excel, either by finger/mouse or keyboard, supporting
-    instant editing (start typing to edit).
-
-  - **Cell Swiping** - The selected cell should have a small *gripper* attached (left or right).
-    By taking and swiping or dragging the gripper up, down, left and right individual menus should
-    appear that contain *drag targets* to invoke certain functionality. e.g.
-
-    - **delete** the cell value(s)
-
-    - **fix** the value to prohibit changes on splashing etc.
-
-    - **analyze** the cell, e.g. like PowerSearch in DeltaMiner
-
-  - **Dimension Editing** - Renaming, adding and removing members.
-
+    I'll try to make this a free for everyone as well.
 
 -----------------
 
@@ -357,8 +327,6 @@ TinyOlap is work in progress. This is a **high-level** overview of the core feat
 - **Port to JavaScript** - It should be possible to port TinyOlap to Javascript to run a database
   TinyOlap database directly from within the browser as a client side application. Performance
   should be comparable to the current Python implementation.
-
-  As an alternative TinyOlap could be wrapped in **WASM** to run in a browser.
 
 - **Public Data Model Repository** - A community driven directory of data models for various purposes.
   Either to provide data models to others or data. Either as code and files (preferrable) or as

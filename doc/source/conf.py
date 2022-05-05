@@ -51,8 +51,9 @@ autosectionlabel_prefix_document = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-html_logo = "_logos/cube128.png"
+html_logo = "_logos/cube128.png"  # "_logos/logo_black_256.png"
 html_title = "TinyOlap"
+
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

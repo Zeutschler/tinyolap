@@ -26,19 +26,17 @@ If you want to use the TinyOlap package only, without the samples, then you can 
 Let's try to build a data model to support the quarterly business planning process of a well-known owner 
 of electric car manufacturing company. So, here's how Elon Musk is doing his business planning - allegedly!
 
+    import random
     from tinyolap.cell import Cell
     from tinyolap.decorators import rule
     from tinyolap.database import Database
     from tinyolap.slice import Slice
+    from tinyolap.view import View
     
-    @rule("sales", ["Deviation"])
-    def deviation(c: Cell):
-        return c["Actual"] - c["Plan"]
-    
-    @rule("sales", ["Deviation %"])
-    def deviation_percent(c: Cell):
-        if c["Plan"]:  # prevent potential division by zero
-            return c["Deviation"] / c["Plan"]
+    @rule("sales", ["Delta %"])
+    def delta_percent(c: Cell):
+        if c.Plan:  # prevent potential division by zero
+            return c.Delta / c.Plan
         return None
     
     def elons_random_numbers(low: float = 1000.0, high: float = 2000.0):
@@ -49,25 +47,29 @@ of electric car manufacturing company. So, here's how Elon Musk is doing his bus
         # 1st - define an appropriate 5-dimensional cube (the data space)
         db = Database("tesla")
         cube = db.add_cube("sales", [
-            db.add_dimension("datatypes").edit().add_member(
-                ["Actual", "Plan", "Deviation", "Deviation %"]).commit(),
-            db.add_dimension("years").edit().add_member(
+            db.add_dimension("datatypes").edit()
+                           .add_many(["Actual", "Plan"])
+                           .add_many("Delta", ["Actual", "Plan"], [1.0, -1.0])
+                           .add_many("Delta %")
+                           .commit(),
+            db.add_dimension("years").edit().add_many(
                 ["2021", "2022", "2023"]).commit(),
-            db.add_dimension("periods").edit().add_member(
+            db.add_dimension("periods").edit().add_many(
                 "Year", ["Q1", "Q2", "Q3", "Q4"]).commit(),
-            db.add_dimension("regions").edit().add_member(
+            db.add_dimension("regions").edit().add_many(
                 "Total", ["North", "South", "West", "East"]).commit(),
-            db.add_dimension("products").edit().add_member(
+            db.add_dimension("products").edit().add_many(
                 "Total", ["Model S", "Model 3", "Model X", "Model Y"]).commit()
         ])
         # 2nd - (if required) add custom business logic, so called 'rules'.
-        #       Register the 2 rules that have been implemented above. Take a look.
-        cube.register_rule(deviation)
-        cube.register_rule(deviation_percent)
-
+        #       Register the rule that has been implemented above. Take a look.
+        cube.register_rule(delta_percent)
+    
         # 3rd - (optional) some beautifying, set number formats
-        db.dimensions["datatypes"].member_set_format("Deviation", "{:+,.0f}")
-        db.dimensions["datatypes"].member_set_format("Deviation %", "{:+.2%}")
+        db.dimensions["datatypes"].member_set_format("Delta", "{:+,.0f}")
+        db.dimensions["datatypes"].member_set_format("Delta %", "{:+.2%}")
+    
+
 
 Now that our 5-dimensional database is setup, we can start to write and read data from the cube.
 TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant cell access. 
@@ -85,12 +87,7 @@ TinyOlap uses slicing syntax ``[dim1, dim2, ..., dimN]`` for simple but elegant 
         cube["Actual"].set_value(elons_random_numbers, True) # 3 x 4 x 4 x 4 = set 192 values
     
         # 6th - some minimal reporting
-        print(Slice(cube, {"title": "Tesla - Sales 2023 by region and products",
-                           "header": [{"dimension": "years", "member": "2023"},
-                                      {"dimension": "periods", "member": "Year"}],
-                           "columns": [{"dimension": "datatypes"}],
-                           "rows": [{"dimension": "products"}]
-                           }))
+        print(View(cube).refresh().as_console_output())
 
 Here's a screenshot of the Tesla database in action. To try this on your own, simply run 
 the [/samples/tesla_web_demo.py](https://github.com/Zeutschler/tinyolap/blob/main/samples/tesla_web_demo.py) script.

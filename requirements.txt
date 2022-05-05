@@ -1,16 +1,24 @@
 # used by the core TinyOlap database engine
-cryptography
+cryptography==36.0.2
 sqlparse
-enum_tools
+enum_tools==0.9.0.post1
 
-# used for samples and testing
+# used for the TinyOlap API
 uvicorn
 fastapi
-Sphinx
+pydantic
+readerwriterlock
+
+# used for testing, sample data model generation
+Sphinx==4.5.0
 furo
-Faker
+Faker==13.3.4
 faker-commerce
+halo
 sphinx-toolbox
-psutil
-art
+psutil==5.9.0
+art==5.5
 pandas
+
+# used for stress testing
+locust

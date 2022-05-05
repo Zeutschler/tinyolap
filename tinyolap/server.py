@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 import os
 
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.database import Database
 
 
@@ -41,17 +41,18 @@ class Server:
 
     # region database access via indexing/slicing
     def __getitem__(self, args):
-        if type(args) is str:
-            dbs = [db.name for db in self._databases.values()]
-            if args in self._databases:
-                return self._databases[args]
-            raise KeyError(f"A database named '{args}' is not registered on the server.")
-        raise KeyError(f"Invalid database name '{str(args)}'.")
+        if args in self._databases:
+            return self._databases[args]
+        raise KeyError(f"A database named '{args}' is not registered on the server.")
 
     def __delitem__(self, args):
         self.deletes_database(args[0])
-
     # endregion
+
+    @property
+    def databases(self):
+        """Provides access to the collection of available databases."""
+        return self._databases
 
     def open_database(self, database_file: str):
         """

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -52,7 +52,6 @@ def load_tutor(console_output: bool = False):
     # to import data
     db_name = "tutor"
     cube_name = "verkauf"
-    measures = ("value", "count")
     dimension_names = ["jahre", "datenart", "regionen", "produkte", "monate", "wertart"]
     dim_count = len(dimension_names)
     root_path = os.path.dirname(os.path.abspath(__file__))
@@ -67,11 +66,11 @@ def load_tutor(console_output: bool = False):
         file_name = os.path.join(root_path, FILES_FOLDER, name.upper() + ".TXT")
         # add a new dimension to the database
         dim = db.add_dimension(name)
-        # open the dimension for editing (adding or removing members)
+        # open the dimension for editing (adding or removing member_defs)
         dim.edit()
 
         # Now let's read from the dimension the awkward abd old
-        # txt files and add the members. As the structure of these
+        # txt files and add the member_defs. As the structure of these
         # files does not match to what tinyolap natively supports
         # for importing dimensions,the code looks quite complex
         # and ugly.
@@ -89,28 +88,35 @@ def load_tutor(console_output: bool = False):
                 member = line[1]
                 if len(line) > 2:
                     weight = float(line[2])
+                    if weight != 1.0:
+                        weight = weight * 1.0
+
                 else:
                     weight = 1.0
 
                 if level.upper() == "C":
-                    dim.add_member(member)
+                    dim.add_many(member)
                     parent = member
                 elif level.upper() == "N":
-                    dim.add_member(member)
+                    dim.add_many(member)
                 else:
-                    dim.add_member(parent, member)
+                    dim.add_many(parent, member, weight)
 
         # when we're done, we need to commit the changes we did on the dimension.
         dim.commit()
         dimensions.append(dim)
 
     # 3. create cube
-    cube = db.add_cube(cube_name, dimensions, measures)
+    cube = db.add_cube(cube_name, dimensions)
 
     # 4. Add rules
-    cube.register_rule(rule_delta)
-    cube.register_rule(rule_profit_contribution)
+    # cube.register_rule(rule_delta)  # not needed any more due to weighted aggregations
+    # cube.register_rule(rule_profit_contribution)
     cube.register_rule(rule_price)
+
+    # set some nuber formats
+    db.dimensions["datenart"].member_set_format("Abweichung", "{:+,.0f}")
+    db.dimensions["wertart"].member_set_format("Preis", "{:,.2f}")
 
     # 4. Now it's time to import the data from a CSV file into the cube
     file_name = os.path.join(root_path, FILES_FOLDER, cube_name.upper() + ".TXT")
@@ -134,7 +140,6 @@ def load_tutor(console_output: bool = False):
                 if console_output and r % 10_000 == 0:
                     print(f" {r / 135_443:.0%} ", end="")
 
-
     # Some statistics...
     duration = time.time() - start
     if console_output:
@@ -153,14 +158,15 @@ def load_tutor(console_output: bool = False):
     return db
 
 
-@rule("verkauf", ["Abweichung"])
-def rule_delta(c: Cell):
-    return c["Ist"] - c["Plan"]
-
-
-@rule("verkauf", ["DB1"], scope=RuleScope.ALL_LEVELS, volatile=False)
-def rule_profit_contribution(c: Cell):
-    return c["Umsatz"] - c["variable Kosten"]
+# @rule("verkauf", ["Abweichung"])
+# def rule_delta(c: Cell):
+#     return c.Ist - c.Plan  # pydantic style
+#     return c["Ist"] - c["Plan"]
+#
+#
+# @rule("verkauf", ["DB1"], scope=RuleScope.ALL_LEVELS, volatile=False)
+# def rule_profit_contribution(c: Cell):
+#     return c["Umsatz"] - c["variable Kosten"]
 
 
 @rule("verkauf", ["Preis"], scope=RuleScope.AGGREGATION_LEVEL)
@@ -210,6 +216,7 @@ def play_tutor(console_output: bool = True):
     # of the cubes dimension and your done.
     # The first cell request is a 'base level cell', it returns a
     # single value that is actually stored in the database.
+    value = cube["1993", "Abweichung", "USA", "ProView VGA 12", "Januar", "Umsatz"]
     value = cube["1993", "Ist", "USA", "ProView VGA 12", "Januar", "Umsatz"]
     if console_output:
         print(f"verkauf:[('1993, 'Ist', 'USA', 'ProView VGA 12', 'Januar', 'Umsatz')] := {value}")
@@ -227,6 +234,7 @@ def play_tutor(console_output: bool = True):
     # Please be aware that you - by default - can only write to
     # base level cells, as aggregated cells are not stored in
     # the database and will be calculated on-the-fly.
+    value = cube["1993", "Ist", "USA", "ProView VGA 12", "Januar", "Umsatz"]
     cube["1993", "Ist", "USA", "ProView VGA 12", "Januar", "Umsatz"] = value + 1.0
 
     # 4. Finally, let's create and print some simple reports
@@ -234,7 +242,7 @@ def play_tutor(console_output: bool = True):
     # Slices are plain Python dictionaries and describe the row
     # and columns layout of a slice through a cube. In addition
     # you can define filters that needs to be put in the header.
-    # ``member`` can be single member or a list of members.
+    # ``member`` can be single member or a list of member_defs.
     # If you skip the ``member`` definition, then the default member
     # of the dimension will be selected and used.
     report_definition = {"title": "Report with rules calculations",
@@ -249,7 +257,7 @@ def play_tutor(console_output: bool = True):
         print(report)
 
     report_definition = {"title": "Report - Sales by years and months",
-                         "header": [{"dimension": "datenart", "member": "Ist"},
+                         "header": [{"dimension": "datenart", "member": "Abweichung"},
                                     {"dimension": "regionen", "member": "Welt Gesamt"},
                                     {"dimension": "produkte", "member": "Produkte gesamt"},
                                     {"dimension": "wertart", "member": "Umsatz"}],
@@ -269,7 +277,8 @@ def play_tutor(console_output: bool = True):
               f"\n\t{cube.counter_cell_requests:,} individual cell requests, "
               f"thereof {cube.counter_cell_requests - cells:,} by rules."
               f"\n\t{cube.counter_rule_requests:,} rules executed"
-              f"\n\t{cube._aggregation_counter:,} cell aggregations calculated")
+              f"\n\t{cube.counter_aggregations:,} cell aggregations "
+              f"(thereof {cube.counter_weighted_aggregations:,} weighted)")
 
 
 def main():

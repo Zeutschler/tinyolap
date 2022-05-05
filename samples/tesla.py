@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -7,16 +7,13 @@ import random
 from tinyolap.cell import Cell
 from tinyolap.decorators import rule
 from tinyolap.database import Database
-from tinyolap.slice import Slice
+from tinyolap.view import View
 
-@rule("sales", ["Deviation"])
-def deviation(c: Cell):
-    return c["Actual"] - c["Plan"]
 
-@rule("sales", ["Deviation %"])
-def deviation_percent(c: Cell):
-    if c["Plan"]:  # prevent potential division by zero
-        return c["Deviation"] / c["Plan"]
+@rule("sales", ["Delta %"])
+def delta_percent(c: Cell):
+    if c.Plan:  # prevent potential division by zero
+        return c.Delta / c.Plan
     return None
 
 def elons_random_numbers(low: float = 1000.0, high: float = 2000.0):
@@ -27,25 +24,27 @@ def play_tesla(console_output: bool = True):
     # 1st - define an appropriate 5-dimensional cube (the data space)
     db = Database("tesla")
     cube = db.add_cube("sales", [
-        db.add_dimension("datatypes").edit().add_member(
-            ["Actual", "Plan", "Deviation", "Deviation %"]).commit(),
-        db.add_dimension("years").edit().add_member(
+        db.add_dimension("datatypes").edit()
+                       .add_many(["Actual", "Plan"])
+                       .add_many("Delta", ["Actual", "Plan"], [1.0, -1.0])
+                       .add_many("Delta %")
+                       .commit(),
+        db.add_dimension("years").edit().add_many(
             ["2021", "2022", "2023"]).commit(),
-        db.add_dimension("periods").edit().add_member(
+        db.add_dimension("periods").edit().add_many(
             "Year", ["Q1", "Q2", "Q3", "Q4"]).commit(),
-        db.add_dimension("regions").edit().add_member(
+        db.add_dimension("regions").edit().add_many(
             "Total", ["North", "South", "West", "East"]).commit(),
-        db.add_dimension("products").edit().add_member(
+        db.add_dimension("products").edit().add_many(
             "Total", ["Model S", "Model 3", "Model X", "Model Y"]).commit()
     ])
     # 2nd - (if required) add custom business logic, so called 'rules'.
-    #       Register the 2 rules that have been implemented above. Take a look.
-    cube.register_rule(deviation)
-    cube.register_rule(deviation_percent)
+    #       Register the rule that has been implemented above. Take a look.
+    cube.register_rule(delta_percent)
 
     # 3rd - (optional) some beautifying, set number formats
-    db.dimensions["datatypes"].member_set_format("Deviation", "{:+,.0f}")
-    db.dimensions["datatypes"].member_set_format("Deviation %", "{:+.2%}")
+    db.dimensions["datatypes"].member_set_format("Delta", "{:+,.0f}")
+    db.dimensions["datatypes"].member_set_format("Delta %", "{:+.2%}")
 
     # 4th - to write data to the cubes, just define and address and assign a value
     cube["Plan", "2021", "Q1", "North", "Model S"] = 400.0  # write a single value
@@ -75,15 +74,12 @@ def play_tesla(console_output: bool = True):
 
     # 6th - reading data and simple reporting
     if console_output:
-        # let's create a minimal report and dump it to the console
-        print(Slice(cube, {"title": "Tesla - Sales 2023 by region and products",
-                           "header": [{"dimension": "years", "member": "2023"},
-                                      {"dimension": "periods", "member": "Year"}],
-                           "columns": [{"dimension": "datatypes"}],
-                           "rows": [{"dimension": "products"}]
-                           }))
-        dev_percent = cube["Deviation %", "2023", "Year", "Total", "Total"]
-        print(f"\nTesla's 2023 performance is {dev_percent:+.2%} above 'Plan'. "
+        # let's create a minimal default report and dump it to the console
+        print(View(cube).refresh().to_console_output())
+
+        # finally, let's congratulate Elon
+        dev_percent = cube["Delta %", "2023", "Year", "Total", "Total"]
+        print(f"\nTesla's is {dev_percent:+.2%} above 'Plan' for 2023. "
               f"Congratulations, Elon!")
 
     return db

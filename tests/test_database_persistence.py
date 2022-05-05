@@ -27,11 +27,11 @@ class TestDatabasePersistence(TestCase):
         db = self.db  # Database(self.db_name)
         if not db.dimension_exists(name1):
             dim1 = db.add_dimension(name1).edit()
-            dim1.add_member(members1)
+            dim1.add_many(members1)
             dim1.commit()
         if not db.dimension_exists(name2):
             dim2 = db.add_dimension(name2).edit()
-            dim2.add_member(members2)
+            dim2.add_many(members2)
             dim2.commit()
         # close database
         file_path = db.file_path
@@ -47,12 +47,12 @@ class TestDatabasePersistence(TestCase):
         self.assertEqual(True, db.dimensions[name1].member_exists(members1[0]),
                          f"Dimension '{name1}' contains member '{members1[0]}'.")
 
-        # remove members
+        # remove member_defs
         dim = db.dimensions[name1]
         dim.edit()
         dim.remove_member(remove_member_name)
         dim.commit()
-        self.assertEqual(len(members1) - 1, len(dim.members),
+        self.assertEqual(len(members1) - 1, len(dim.member_defs),
                          f"Dimension '{name1}' contains {len(members1) - 1} members.")
         self.assertEqual(True, db.dimensions[name1].member_exists(members1[0]),
                          f"Dimension '{name1}' contains member '{members1[0]}'.")

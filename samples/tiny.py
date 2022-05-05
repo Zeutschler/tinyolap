@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
 import itertools
 import math
+import random
 import time
 from art import *
 
@@ -38,35 +39,35 @@ def create_tiny_database(console_output: bool = False) -> Database:
     # ************************
     # 2. create dimensions
     # Please note, that dimension need to be set into *edit mode* by calling
-    # the ``edit()`` method in order to add, remove or change dimension members.
+    # the ``edit()`` method in order to add, remove or change dimension member_defs.
     # The edit mode must be closed with a call to the ``commit()`` method.
     dim_years = db.add_dimension("years")
     dim_years.edit()
-    dim_years.add_member("2021")
-    dim_years.add_member("2022")
-    dim_years.add_member("2023")
+    dim_years.add_many("2021")
+    dim_years.add_many("2022")
+    dim_years.add_many("2023")
     # To add an aggregated member just add it, followed by a list that
     # contains the children that the member should aggregate.
     # The following command would even the only one you would have needed
     # to create the 'years' dimension, as children that do not exist
     # will be automatically added. So, beware of typos.
-    dim_years.add_member("All years", ["2021", "2022", "2023"])
+    dim_years.add_many("All years", ["2021", "2022", "2023"])
     dim_years.commit()
 
-    # You can also add multiples members by using a list or tuple of
-    # members. Even further, you can also create parent child
-    # relations for a list of members (as shown for Q1 to Q4) by
+    # You can also add multiples member_defs by using a list or tuple of
+    # member_defs. Even further, you can also create parent child
+    # relations for a list of member_defs (as shown for Q1 to Q4) by
     # providing a list of lists or tuples for the children.
     dim_months = db.add_dimension("months")
     dim_months.edit()
-    dim_months.add_member(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+    dim_months.add_many(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-    dim_months.add_member(["Q1", "Q2", "Q3", "Q4"],
-                          [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
+    dim_months.add_many(["Q1", "Q2", "Q3", "Q4"],
+                        [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
                            ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
-    dim_months.add_member("Year", ("Q1", "Q2", "Q3", "Q4"))
+    dim_months.add_many("Year", ("Q1", "Q2", "Q3", "Q4"))
     dim_months.commit()
-    # Subsets are a collection of some members. This useful for
+    # Subsets are a collection of some member_defs. This useful for
     # reporting purposes as well as the definition of advanced
     # business logic. Please note that subsets can be added and
     # removed without setting the dimension into the edit mode.
@@ -74,34 +75,35 @@ def create_tiny_database(console_output: bool = False) -> Database:
 
     dim_regions = db.add_dimension("regions")
     dim_regions.edit()
-    dim_regions.add_member("Total", ("North", "South", "West", "East"))
-    # Attributes are properties dimension members. They are very
+    dim_regions.add_many("Total", ("North", "South", "West", "East"))
+    # Attributes are properties dimension member_defs. They are very
     # useful to store aliases, master-data or whatever you want to.
     # Please note that attributes can take any Python data type.
     dim_regions.add_attribute("manager", str)
     dim_regions.commit()
-    for a in zip(dim_regions.members.values(), ("Peter Parker", "Ingmar Ice", "Carlo Carulli",
+    for a in zip(dim_regions.member_defs.values(), ("Peter Parker", "Ingmar Ice", "Carlo Carulli",
                                            "Heinz Erhardt", "Pyotr Tchaikovsky")):
-        dim_regions.set_attribute("manager", a[0][1], a[1])
+        dim_regions.attributes.set("manager", a[0][1], a[1])
 
     # You can also create unbalanced hierarchies as show below,
     # where cars are subdivided into car types but trucks and motorcycles
     # are not subdivided.
-    # In addition, you can assign members to multiple parents as show
+    # In addition, you can assign member_defs to multiple parents as show
     # below with 'core business' which adds up sports cars and motorcycles.
     # Circular references are not supported and will raise an error.
     dim_products = db.add_dimension("products")
     dim_products.edit()
-    dim_products.add_member("Total", ["cars", "trucks", "motorcycles"])
-    dim_products.add_member("cars", ["coupe", "sedan", "sports", "van"])
-    dim_products.add_member("best sellers", ["sports", "motorcycles"])
+    dim_products.add_many("Total", ["cars", "trucks", "motorcycles"])
+    dim_products.add_many("cars", ["coupe", "sedan", "sports", "van"])
+    dim_products.add_many("best sellers", ["sports", "motorcycles"])
     dim_products.commit()
 
     # Finally lets add a measures-dimension for our business logic,
     # here a super simple 'profit & loss' schema.
     dim_measures = db.add_dimension("measures")
     dim_measures.edit()
-    dim_measures.add_member(["Sales", "Cost", "Profit", "Profit in %"])
+    dim_measures.add_many(["Sales", "Cost", "Profit", "Profit in %"])
+    dim_measures.add_many("Profit", ["Sales", "Cost"], [1.0, -1.0])
     dim_measures.commit()
 
     # You can also define some nice number formatting to dimension measures
@@ -125,17 +127,11 @@ def create_tiny_database(console_output: bool = False) -> Database:
     # member combination (e.g. [..., 'Jan', 'Profit']) the rule should actually calculate.
     # For further detailed on how to define and write rules, please refer the TinyOlap documentation.
     # Rules are a big and complex topic!!! Once you've understood the concept, it gets very easy.
-    cube.register_rule(rule_profit)
+    # cube.register_rule(rule_profit)
     cube.register_rule(rule_profit_in_percent)
 
     # That's it! Your first TinyOlap database is ready to use...
     return db
-
-
-@rule("sales", ["Profit"])
-def rule_profit(c: tinyolap.cell.Cell):
-    """Rule to calculate the Profit."""
-    return c["Sales"] - c["Cost"]
 
 
 @rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS, volatile=False)
@@ -211,7 +207,7 @@ def play_tiny(console_output: bool = True):
     # Slices are plain Python dictionaries (json if you like) and describe
     # the row and column layout of a slice through a cube. In addition,
     # you can define filters that need to be put in the header.
-    # ``member`` can be single member or a list of members.
+    # ``member`` can be single member or a list of member_defs.
     # If you skip the ``member`` definition, then the default member
     # of the dimension will be selected and used.
     report_definition = {"title": "There are just 2 values (123.0 and 456.0) in the cube.",
@@ -235,14 +231,14 @@ def play_tiny(console_output: bool = True):
     # 4. Creating sample data
     # Let's fill the entire cube with random numbers.
     # WARNING !!! The next statement can create wast amounts of data
-    # when applied to larger data models and/or dimensions with many members.
+    # when applied to larger data models and/or dimensions with many member_defs.
     # For this very tiny database it creates already 3 * 12 * 4 * 6 * 2 = 3,456 cells.
     addresses = itertools.product(("2021", "2022", "2023"),
                                   ("Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
                                   ("North", "South", "West", "East"),
                                   ("trucks", "motorcycles", "coupe", "sedan", "sports", "van"),
-                                  ("Sales", "Cost", "Profit", "Profit in %")
+                                  ("Sales", "Cost")
                                   )
     for address in addresses:
         cube.set(address, float(randrange(5, 100)))
@@ -437,7 +433,7 @@ def play_advanced_calculations_and_data_manipulation(database: Database = create
     # You can also set all values in the area to a specific value.
     area.set_value(1.0)  # set ALL values (REALLY ALL VALUES) in the area to 1.0
     # So, the above ``set_value()``statement should be handled with care on larger data models,
-    # as it enumerates the entire data space. 100 x 100 x 100 x 100 members over 4 dimensions
+    # as it enumerates the entire data space. 100 x 100 x 100 x 100 member_defs over 4 dimensions
     # already end up incl 100.000.000 that will be written - much too much for TinyOlap.
 
     # And finally you have the same modifiers as with Cell objects.

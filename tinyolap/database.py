@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -11,16 +11,18 @@ from collections.abc import Iterable
 from copy import deepcopy
 from typing import Tuple
 
-import tinyolap.utils
+import utilities.utils
+from tinyolap.snapshot import SnapshotManager
 from tinyolap.storage.sqlite import SqliteStorage
 from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.encryption import EncryptionMethodEnum, Encryptor, NotAnEncryptor, ObfuscationEncryptor, FernetEncryptor
-from tinyolap.case_insensitive_dict import CaseInsensitiveDict
+from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.codemanager import CodeManager
 from tinyolap.cube import Cube
 from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *
 from tinyolap.history import History
+from utilities.hybrid_dict import HybridDict
 
 
 class Database:
@@ -34,7 +36,7 @@ class Database:
     # Note: 32 dimensions is already huge for a model-driven OLAP database.
     MAX_MEASURES_PER_CUBE = 1024  # Value can be changed: max. measures = (2000 - MAX_DIMS_PER_CUBE)
 
-    def __init__(self, name: str = None, in_memory: bool = True,
+    def __init__(self, name: str = None, in_memory: bool = True, description: str = "",
                  encryption: EncryptionMethodEnum = EncryptionMethodEnum.NoEnryption,
                  password: str = None):
         """
@@ -48,6 +50,8 @@ class Database:
 
         :param name: Name of the database. Only alphanumeric characters and underscore are supported for database names
         (no whitespaces or special characters).
+
+        :param description: (Optional) description of the database.
 
         :param in_memory: Identifies if the database should run in memory only (no persistence) or should persist
         all changes to disk. If `ìn-memory``wil be set to ``True`, then a potentially existing database file for the
@@ -68,18 +72,21 @@ class Database:
         ``encryption = EncryptionMethodEnum.NoEnryption``. Please ensure to remember the password.
         """
         self._file_name = None
-        if name != tinyolap.utils.to_valid_key(name):
+        if name != utilities.utils.to_valid_key(name):
             if os.path.exists(name):
                 self._file_name = name
             else:
-                raise InvalidKeyException(f"'{name}' is not a valid database name or path. "
+                raise TinyOlapInvalidKeyError(f"'{name}' is not a valid database name or path. "
                                           f"For database names alphanumeric characters and underscore supported only, "
                                           f"no whitespaces, no special characters.")
-        self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
-        self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
+        # self.dimensions: CaseInsensitiveDict[str, Dimension] = CaseInsensitiveDict()
+        self.dimensions: HybridDict[Dimension] = HybridDict()
+        # self.cubes: CaseInsensitiveDict[str, Cube] = CaseInsensitiveDict()
+        self.cubes: HybridDict[Cube] = HybridDict()
         self._code_manager: CodeManager = CodeManager()
         self._history: History = History(self)
         self._name: str = name
+        self._description: str = description
         self._file_name: str = name
 
         self._in_memory = in_memory
@@ -106,10 +113,19 @@ class Database:
             self._storage_provider: StorageProvider = SqliteStorage(name=self._name, encryptor=self._encryptor)
             self._storage_provider.open(file_name=self._file_name)
         self._load()
+
+        self._snapshots = SnapshotManager(self)
+
         self._caching = True
 
     def __del__(self):
         self.close()
+
+    def __repr__(self):
+        return self._name
+
+    def __str__(self):
+        return self.name
 
     # region Properties
     @property
@@ -128,6 +144,11 @@ class Database:
         return self._history
 
     @property
+    def snapshots(self) -> SnapshotManager:
+        """Returns the snapshot manager of the database. Useful for database backup and version management."""
+        return self._snapshots
+
+    @property
     def code_manager(self) -> CodeManager:
         """Returns the code manager of the database."""
         return self._code_manager
@@ -136,6 +157,16 @@ class Database:
     def name(self) -> str:
         """Returns the name of the database."""
         return self._name
+
+    @property
+    def description(self) -> str:
+        """Returns the description of the database."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str):
+        """Sets the description of the database."""
+        self._description = value
 
     @property
     def uri(self) -> str:
@@ -202,7 +233,7 @@ class Database:
         :param value: Set value to ``True`` to activate caching, ``False`` to deactivate caching.
         """
         self._caching = value
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             cube.caching = value
 
     # endregion
@@ -213,7 +244,7 @@ class Database:
         :param new_name: New name for the database.
         :raise KeyError: Raised if the key is invalid.
         """
-        if new_name != tinyolap.utils.to_valid_key(new_name):
+        if new_name != utilities.utils.to_valid_key(new_name):
             raise KeyError(f"'{new_name}' is not a valid database name. "
                            f"alphanumeric characters and underscore supported only, "
                            f"no whitespaces, no special characters.")
@@ -256,7 +287,7 @@ class Database:
         if self._storage_provider:
             self._storage_provider.add_meta("db", self._to_json())
             self._storage_provider.add_meta("code", self._code_manager.to_json())
-            for cube in self.cubes.values():
+            for cube in self.cubes:
                 self._storage_provider.add_cube(cube.name, cube.to_json())
 
     def close(self):
@@ -291,7 +322,7 @@ class Database:
         """
         Exports the database to a new database file. This method is useful e.g.
         for creating backups and especially to persist databases that run in
-        in-memory mode.
+        in-memory mode. This method is also used by the snapshot manager of the database.
 
         .. note::
             When **TinyOlap** is used for data processing purposes, rather than
@@ -311,7 +342,7 @@ class Database:
            an FileExistsError will be raised.
 
         :param encryption: Encryption method for database contents when ``ìn-memory = True``.
-          By default no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
+           By default, no encryption is used, ``encryption = EncryptionMethodEnum.NoEnryption``.
 
         .. note::
             If encryption is required, using ``encryption = EncryptionMethodEnum.Obfuscation`` should
@@ -326,8 +357,8 @@ class Database:
         :return:
         """
         if name.lower() == self.name.lower():
-            raise DatabaseBackendException(f"Failed to export database '{self.name}'. "
-                                           f"You cannot export a database under it's current name.")
+            raise TinyOlapStorageError(f"Failed to export database '{self.name}'. "
+                                       f"You cannot export a database under it's current name.")
 
         exporter: StorageProvider = SqliteStorage(name)
         if exporter.exists():
@@ -341,9 +372,9 @@ class Database:
         exporter.open()
         exporter.add_meta("db", self._to_json())
         exporter.add_meta("code", self._code_manager.to_json())
-        for dimension in self.dimensions.values():
+        for dimension in self.dimensions:
             exporter.add_dimension(dimension.name, dimension.to_json())
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             exporter.add_cube(cube.name, cube.to_json())
             exporter.set_records(cube.name, cube._get_records())
         exporter.close()
@@ -399,12 +430,12 @@ class Database:
         :raises InvalidDimensionNameException: If the dimension name is invalid.
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
-        if not tinyolap.utils.is_valid_db_object_name(name):
-            raise InvalidKeyException(f"'{name}' is not a valid dimension name. "
+        if not utilities.utils.is_valid_db_object_name(name):
+            raise TinyOlapInvalidKeyError(f"'{name}' is not a valid dimension name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
         if name in self.dimensions:
-            raise DuplicateKeyException(f"Failed to add dimension. A dimension named '{name}' already exists.")
+            raise TinyOlapDuplicateKeyError(f"Failed to add dimension. A dimension named '{name}' already exists.")
         dimension = Dimension._create(self._storage_provider, name, description=description)
         dimension.database = self
         self.dimensions[name] = dimension
@@ -414,18 +445,18 @@ class Database:
         """Removes a :ref:´dimension <dimensions>´ from the database.
 
         :param dimension: Name of the dimension, or the :ref:`dimension <dimensions>` object to be removed.
-        :raises KeyNotFoundError: If the dimension not exists.
+        :raises TinyOlapKeyNotFoundError: If the dimension not exists.
         """
         if type(dimension) is str:
             name = dimension
         else:
             name = dimension._name
         if name not in self.dimensions:
-            raise KeyNotFoundError(f"A dimension named '{name}' does not exist.")
+            raise TinyOlapKeyNotFoundError(f"A dimension named '{name}' does not exist.")
 
-        uses = [cube.name for cube in self.cubes.values() if len([name in [dim.name for dim in cube._dimensions]])]
+        uses = [cube.name for cube in self.cubes if len([name in [dim.name for dim in cube._dimensions]])]
         if uses:
-            raise DimensionInUseException(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
+            raise TinyOlapDimensionInUseError(f"Dimension '{name}' is in use by cubes ({', '.join(uses)}) "
                                           f"and therefore can not be removed. Remove cubes first.")
 
         if self._storage_provider and self._storage_provider.connected:
@@ -443,12 +474,14 @@ class Database:
     def get_dimension(self, name: str):
         if name in self.dimensions:
             return self.dimensions[name]
-        raise InvalidKeyException(f"A dimension named '{name}' does not exist in databse '{self._name}'.")
+        raise TinyOlapInvalidKeyError(f"A dimension named '{name}' does not exist in databse '{self._name}'.")
 
     # endregion
 
     # region Cube related methods
-    def add_cube(self, name: str, dimensions: list, measures=None, description: str = None):
+    # def add_cube(self, name: str, dimensions: list, measures=None, description: str = None):
+    def add_cube(self, name: str, dimensions: list, description: str = None):
+
         """
         Creates a new :ref:`cube<cubes>` and adds it to the database.
 
@@ -459,7 +492,7 @@ class Database:
            If argument 'measures' is not defined, that a default measure named 'value' will be created.
         :param description: (optional) description for the cube.
         :return: The added cube object.
-        :raises CubeCreationException: Raised if the creation of the cubed failed due to one
+        :raises TinyOlapCubeCreationError: Raised if the creation of the cubed failed due to one
            of the following reasons:
 
         * The cube name is not invalid. Cube have to consist of lower case alphanumeric characters
@@ -474,55 +507,57 @@ class Database:
              adjusted at any time by changing the value for ``MAX_DIMS_PER_CUBE`` in the source file
              'database.py'.
 
-        :raises DuplicateKeyException: Raised if the cube already exists.")
+        :raises TinyOlapDuplicateKeyError: Raised if the cube already exists.")
         """
 
         # validate cube name
-        if not tinyolap.utils.is_valid_db_object_name(name):
-            raise CubeCreationException(f"Invalid cube name '{name}'. Cube names must contain "
+        if not utilities.utils.is_valid_db_object_name(name):
+            raise TinyOlapCubeCreationError(f"Invalid cube name '{name}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
-            raise DuplicateKeyException(f"A cube named '{name}' already exists.")
+            raise TinyOlapDuplicateKeyError(f"A cube named '{name}' already exists.")
 
         # validate dimensions
         if not dimensions:
-            raise CubeCreationException("List of dimensions to create cube is empty or undefined.")
+            raise TinyOlapCubeCreationError("List of dimensions to create cube is empty or undefined.")
         if len(dimensions) > self.MAX_DIMS_PER_CUBE:
-            raise CubeCreationException(f"Too many dimensions ({len(dimensions)}). "
+            raise TinyOlapCubeCreationError(f"Too many dimensions ({len(dimensions)}). "
                                         f"Maximum number dimensions per cube is {self.MAX_DIMS_PER_CUBE}.")
         dims = []
         for dimension in dimensions:
             if type(dimension) is str:
                 if dimension not in self.dimensions:
-                    raise CubeCreationException(f"A dimension named '{str(dimension)}' is not defined in "
+                    raise TinyOlapCubeCreationError(f"A dimension named '{str(dimension)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dims.append(self.dimensions[dimension])
             elif type(dimension) is Dimension:
                 if dimension.name not in self.dimensions:
-                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not defined in "
+                    raise TinyOlapCubeCreationError(f"Dimension '{str(dimension.name)}' is not defined in "
                                                 f"database '{self.name}'.")
                 dim = self.dimensions[dimension.name]
                 if dim is not dimension:
-                    raise CubeCreationException(f"Dimension '{str(dimension.name)}' is not the same dimension "
+                    raise TinyOlapCubeCreationError(f"Dimension '{str(dimension.name)}' is not the same dimension "
                                                 f"as the one defined in database '{self.name}'. You can only use "
                                                 f"dimensions from within a database to add cubes.")
 
                 dims.append(dimension)
             else:
-                raise CubeCreationException(f"Unsupported dimension type '{str(dimension)}'.")
+                raise TinyOlapCubeCreationError(f"Unsupported dimension type '{str(dimension)}'.")
         # validate measures
-        if measures:
-            if type(measures) is str:
-                if not tinyolap.utils.is_valid_member_name(measures):
-                    raise CubeCreationException(f"Measure name '{str(measures)}' is not a valid measure name. "
-                                                f"Please refer the documentation for further details.")
-            elif isinstance(measures, Iterable):
-                for m in measures:
-                    if not tinyolap.utils.is_valid_member_name(m):
-                        raise CubeCreationException(f"Measure name '{str(m)}' is not a valid measure name. "
-                                                    f"Please refer the documentation for further details.")
+        # if measures:
+        #     if type(measures) is str:
+        #         if not utilities.utils.is_valid_member_name(measures):
+        #             raise TinyOlapCubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
+        #                                         f"Please refer the documentation for further details.")
+        #     elif isinstance(measures, Iterable):
+        #         for m in measures:
+        #             if not utilities.utils.is_valid_member_name(m):
+        #                 raise TinyOlapCubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
+        #                                             f"Please refer the documentation for further details.")
+
         # create and return the cube
-        cube = Cube.create(self._storage_provider, name, dims, measures, description)
+        # cube = Cube.create(self._storage_provider, name, dims, measures, description)
+        cube = Cube.create(self._storage_provider, name, dims, description)
         cube.caching = self.caching
         cube._database = self
         self.cubes[name] = cube
@@ -588,7 +623,7 @@ class Database:
             data = provider.get_cubes()
             for cube_tuple in data:
                 cube_name, cube_json = cube_tuple
-                cube = Cube.create(provider, cube_name, None, None, None)
+                cube = Cube.create(provider, cube_name, None, None)
                 cube._database = self
                 cube.from_json(cube_json)
                 self.cubes[cube_name] = cube
@@ -597,16 +632,26 @@ class Database:
             # todo: implementation missing
 
     def _remove_members(self, dimension, members):
-        """Remove data for obsolete (deleted) members over all cubes.
+        """Remove data for obsolete (deleted) member_defs over all cubes.
         Formulas containing that member will get invalidated."""
 
         # broadcast to all cubes...
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             cube._remove_members(dimension, members)
 
     def _flush_cache(self):
         """Flushes all caches of all cubes"""
-        for cube in self.cubes.values():
+        for cube in self.cubes:
             cube._cache = {}
+
+    def _update_weighting(self, dimension:Dimension):
+        """Update all dimension member weighting information for all affected cubes."""
+        if dimension:
+            for cube in self.cubes:
+                if dimension in cube.dimensions:
+                    return cube._weights.refresh()
+        else:
+            for cube in self.cubes:
+                return cube._weights.refresh()
 
     # endregion

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -15,9 +15,9 @@ enum_tools.documentation.INTERACTIVE = True
 class RuleError(Enum):
     """Defines error values raised by rules, useing an Excel-alike error format."""
     DIV0 = "#DIV/0!"  # doc: Devision by zero.
-    VALUE = "#VALUE!"  # doc: Invalid argument type, e.g. a number was used instead of an expected string.
+    VAL = "#VALUE!"  # doc: Invalid argument type, e.g. a number was used instead of an expected string.
     REF = "#REF!"  # doc: Invalid reference to a member, dimension, attribute or cube name.
-    ERROR = "#ERR!"  # doc: An unknown or unhandable error occurred.
+    ERR = "#ERR!"  # doc: An unknown or unhandable error occurred.
 
 
 @enum_tools.documentation.document_enum
@@ -27,10 +27,9 @@ class RuleScope(IntEnum):
     """
     ALL_LEVELS = 1  # doc: (default) Indicates that the rule should be executed for base level and aggregated level cells.
     AGGREGATION_LEVEL = 2  # doc: Indicates that the rule should be executed for aggregated level cells only.
-    BASE_LEVEL = 3  # doc: Indicates that the rule should be executed for base level cells only.
-    ROLL_UP = 4  # doc: Indicates that the rule should replace the base level cell value from the database by the results of the rule. This can dramatically slow down aggregation speed. Requires a special trigger to be set.
-    ON_ENTRY = 5  # doc: Indicates that these rules should be executed when cell values are set or changed. This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
-    COMMAND = 6  # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
+    BASE_LEVEL = 3  # doc: Indicates that the rule should be executed for base level cells only. For aggregated values, all of base level cells that make up the aggregation, will be calculated through the rule and only then get aggregated.
+    ON_ENTRY = 4  # doc: Indicates that these rules should be executed when cell values are set or changed. This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
+    COMMAND = 5  # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
 
     def __eq__(self, other):
         return self.value == int(other)
@@ -93,13 +92,17 @@ class Rule:
     Represents a rule, defining custom calculations or business logic to be assigned to a cube.
     """
 
-    def __init__(self, function, name: str, cube: str, trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
+    def __init__(self, function, name: str, cube: str,
+                 trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
+                 feeder: list[str], idx_feeder_pattern: list[tuple[int, int]],
                  scope: RuleScope, injection: RuleInjectionStrategy, code: str = None):
         self.function = function
         self.cube: str = cube
         self.name: str = name
         self.trigger: list[str] = trigger
+        self.feeder: list[str] = feeder
         self.idx_trigger_pattern = idx_trigger_pattern
+        self.idx_feeder_pattern = idx_feeder_pattern
         self.scope: RuleScope = scope
         self.injection: RuleInjectionStrategy = injection
         self.code: str = code
@@ -156,6 +159,7 @@ class Rules:
         # new implementation
         self.rules: dict[RuleScope, list[Rule]] = {}
         self.patterns: dict[RuleScope, list[list[tuple[int, int]]]] = {}
+        self._rules_count: int = 0
 
         # old implementation
         self.any: bool = False
@@ -197,6 +201,9 @@ class Rules:
             self.rules[scope] = [rule]
             self.patterns[scope] = [rule.idx_trigger_pattern]
 
+        # update number of rules
+        self._rules_count = sum([len(rules) for rules in self.rules.values()])
+
     def match(self, scope: RuleScope, idx_address: list[tuple[int, int]]) -> (bool, object):
         """
         Returns the first trigger match, if any, for a given cell address.
@@ -215,16 +222,41 @@ class Rules:
                     if idx_address[dim_pattern[0]] != dim_pattern[1]:
                         break
                 else:
-                    return True, self.rules[scope][idx].function  # this statement will be executed only,
-                    # if the inner loop did NOT break
+                    return True, self.rules[scope][idx].function
 
         return False, None
+
+    def match_with_feeder(self, scope: RuleScope, idx_address: list[tuple[int, int]]) -> (bool, object, object, object):
+        """
+        Returns the first trigger match, if any, for a given cell address.
+
+        :param scope: The rule scope for which a matching rule is requested.
+        :param idx_address: The cell address (in index int format) to be evaluated.
+        :return: Returns a tuple (True, *function*) if at least one trigger matches,
+            *function* is the actual rules function to call, or (False, None) if none
+            of the patterns matches the given cell idx_address.
+
+        """
+        patterns = self.patterns.get(scope)
+        if patterns:
+            for idx, function_pattern in enumerate(patterns):  # e.g. [(0,3),(3,2)] >> dim0 = member3, dim3 = member2
+                for dim_pattern in function_pattern:  # e.g. (0,3) >> dim0 = member3
+                    if idx_address[dim_pattern[0]] != dim_pattern[1]:
+                        break
+                else:
+                    return True, self.rules[scope][idx].function,\
+                           self.rules[scope][idx].idx_trigger_pattern, \
+                           self.rules[scope][idx].idx_feeder_pattern
+
+        return False, None, None, None
+
 
     def __bool__(self):
         return self.functions is True
 
     def __len__(self):
-        return len(self.functions)
+        return self._rules_count
+        # return len(self.functions)
 
     def register(self, function, cube: str, function_name: str,
                  pattern: list[str], idx_pattern: list[tuple[int, int]],

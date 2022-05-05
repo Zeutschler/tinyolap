@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TinyOlap, copyright (c) 2021 Thomas Zeutschler
+# TinyOlap, copyright (c) 2022 Thomas Zeutschler
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -12,7 +12,7 @@ import string
 import tokenize
 import types
 
-from tinyolap.exceptions import RuleException
+from tinyolap.exceptions import TinyOlapRuleError
 from tinyolap.rules import RuleScope, RuleInjectionStrategy
 
 
@@ -331,7 +331,7 @@ class CodeManager:
                 break
 
         if not lambda_token or not end_of_signature_token or not terminal_token:
-            raise RuleException("Unable to extract rule from 'lambda' expression.")
+            raise TinyOlapRuleError("Unable to extract rule from 'lambda' expression.")
 
         arguments = source[lambda_token.end[1] + 1: end_of_signature_token.start[1]].strip()
         lambda_source = source[end_of_signature_token.end[1] + 1: terminal_token.start[1]].strip()
@@ -389,7 +389,7 @@ class CodeManager:
             name = module_code.name
             source = module_code.code
             self.modules[module_code.name].module = self._code_to_module(name, source)
-        # get reference of 'functions' from newly instatiated modules and assign them to the function code objects.
+        # get reference of 'functions' from newly instantiated modules and assign them to the function code objects.
         for key, function in [(key, value) for key, value in self.functions.items()
                               if value.injection >= RuleInjectionStrategy.MODULE_INJECTION]:
             module = self.modules[function.module].module

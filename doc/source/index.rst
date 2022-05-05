@@ -320,6 +320,7 @@ Table of Contents
    cubes
    dimensions
    members
+   attributes
    rules
    cells
    areas
