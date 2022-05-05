@@ -91,6 +91,8 @@ class Rule:
     """
     Represents a rule, defining custom calculations or business logic to be assigned to a cube.
     """
+    __slots__ = 'function', 'cube', 'name', 'trigger', 'feeder', 'idx_trigger_pattern',\
+                'idx_feeder_pattern', 'scope', 'injection', 'code', 'signature'
 
     def __init__(self, function, name: str, cube: str,
                  trigger: list[str], idx_trigger_pattern: list[tuple[int, int]],
@@ -154,6 +156,10 @@ class Rules:
                     return "n.a."  # the developer decided to return some text, what is totally fine.
                 return c.CONTINUE
     """
+    __slots__ = 'rules', 'patterns', '_rules_count', 'any', 'cube', 'functions',\
+                'function_names', 'function_scopes', 'function_injections', 'source',\
+                'signature', 'pattern', 'pattern_idx'
+
 
     def __init__(self, cube: str):
         # new implementation

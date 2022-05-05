@@ -6,7 +6,7 @@ from samples.huge import play_huge
 from samples.tiny42 import play_tiny42
 from samples.tutor import play_tutor
 from samples.planespotter import play_plane_spotter
-from samples.tesla import play_tesla
+from samples.tesla import tesla_business_planning
 
 class TestSamples(TestCase):
     """Tests all available samples, except the web_demo (for errors / fatal failure only)."""
@@ -18,7 +18,7 @@ class TestSamples(TestCase):
         play_tiny(console_output=self.console_output)
 
     def test_sample_database_tesla(self):
-        play_tesla(console_output=self.console_output)
+        tesla_business_planning(console_output=self.console_output)
 
     # the following test would take 10+ seconds to execute and eats a lot of RAM.
     def test_sample_database_huge(self):

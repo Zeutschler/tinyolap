@@ -437,8 +437,7 @@ class Database:
                                       f"no whitespaces, no special characters.")
         if name in self.dimensions:
             raise TinyOlapDuplicateKeyError(f"Failed to add dimension. A dimension named '{name}' already exists.")
-        dimension = Dimension._create(self._storage_provider, name, description=description)
-        dimension.database = self
+        dimension = Dimension._create(self, self._storage_provider, name, description=description)
         self.dimensions[name] = dimension
         return dimension
 

@@ -64,6 +64,12 @@ class CubeWeightManager:
 
 class Cube:
     """Represents a multi-dimensional table."""
+    __slots__ = '_name', '_description', '_dim_count', \
+                '_dimensions', '_names', '_dim_lookup', '_facts', '_rules', '_database', \
+                '_storage_provider', '_views', '_comments', '_has_rules', \
+                '_cache_hit_counter', '_cell_request_counter', '_rule_request_counter', '_aggregation_counter', \
+                '_weighted_aggregation_counter', '_caching', '_cache', '_weights'
+
     __magic_key = object()
 
     @classmethod

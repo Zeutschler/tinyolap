@@ -12,14 +12,17 @@ from setuptools import setup
 VERSION = '0.8.27'
 DESCRIPTION = "TinyOlap: A multi-dimensional in-memory OLAP database in plain Python 3."
 LONG_DESCRIPTION = """
-TinyOlap is a light-weight, in-process, multi-dimensional, model-first OLAP 
-engine for planning, budgeting, reporting, analysis and many other numerical purposes.
- 
-Although this sounds very complicated, TinyOlap is actually very easy to use and should 
-be suitable for all levels of Python and database skills.
+TinyOlap is an open-source, model-driven OLAP engine to build lightweight solution 
+for extended planning & analysis (xP&A) with Python.
 
-TinyOlap is also quite handy as a smart alternative to Pandas DataFrames when your data
-is multidimensional, requires hierarchical aggregations or complex calculations.          
+As a generic, light-weight, in-process, multi-dimensional, model-first OLAP 
+engine it also supports many other business and numerical use cases. Although 
+this sounds very complicated, TinyOlap is actually very easy to use and should 
+be suitable for all levels of Python skills.
+
+TinyOlap is also quite handy as a smart alternative to Pandas DataFrames when 
+your data is multidimensional, requires hierarchical aggregations or complex 
+calculations.          
 """
 
 setup(

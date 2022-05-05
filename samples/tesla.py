@@ -9,8 +9,7 @@ from tinyolap.decorators import rule
 from tinyolap.database import Database
 from tinyolap.view import View
 
-
-@rule("sales", ["Delta %"])
+@rule(cube="sales", trigger=["Delta %"])
 def delta_percent(c: Cell):
     if c.Plan:  # prevent potential division by zero
         return c.Delta / c.Plan
@@ -20,7 +19,7 @@ def elons_random_numbers(low: float = 1000.0, high: float = 2000.0):
     return random.uniform(low, high)
 
 # Purpose: Support Elon Musk on his business planning & reporting for Tesla
-def play_tesla(console_output: bool = True):
+def tesla_business_planning(console_output: bool = True):
     # 1st - define an appropriate 5-dimensional cube (the data space)
     db = Database("tesla")
     cube = db.add_cube("sales", [
@@ -43,8 +42,8 @@ def play_tesla(console_output: bool = True):
     cube.register_rule(delta_percent)
 
     # 3rd - (optional) some beautifying, set number formats
-    db.dimensions["datatypes"].member_set_format("Delta", "{:+,.0f}")
-    db.dimensions["datatypes"].member_set_format("Delta %", "{:+.2%}")
+    db.dimensions["datatypes"].members["Delta"].format = "{:+,.0f}"
+    db.dimensions["datatypes"].members["Delta %"].format = "{:+.2%}"
 
     # 4th - to write data to the cubes, just define and address and assign a value
     cube["Plan", "2021", "Q1", "North", "Model S"] = 400.0  # write a single value
@@ -85,4 +84,4 @@ def play_tesla(console_output: bool = True):
     return db
 
 if __name__ == "__main__":
-    play_tesla()
+    tesla_business_planning()

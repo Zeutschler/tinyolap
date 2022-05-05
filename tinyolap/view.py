@@ -968,7 +968,7 @@ class View:
         definition = {
             "contentType": Config.ContentTypes.VIEW_DEFINITION,
             "version": Config.VERSION,
-            "database": str(self.cube.database.name),
+            "database": str(self.cube._database.name),
             "cube": self._cube.name,
             "name": self._name,
             "title": self.title,
@@ -1036,7 +1036,7 @@ class View:
         previous = {}
         for r in range(window.top, window.bottom + 1):
             for c in range(window.left, window.right + 1):
-                value = grid[r][c].value
+                value = grid[r][c].formatted_value
                 if type(value) is float:
                     if hide_zeros and value == 0.0:
                         value = f"-".rjust(cell_width)
@@ -1080,7 +1080,7 @@ class View:
                      f'{stat.executed_cell_aggregations:,} aggregations, ' \
                      f'{stat.executed_rules:,} rules, ' \
                      f'caching is ' \
-                     f'is {"ON" if self.cube.database.caching else "OFF"}, ' \
+                     f'is {"ON" if self.cube._database.caching else "OFF"}, ' \
                      f'zero-suppression ' \
                      f'is {"ON" if self.zero_suppression_on_rows else "OFF"}'
 
@@ -1132,7 +1132,7 @@ class View:
         return {"contentType": Config.ContentTypes.VIEW,
                 "version": Config.VERSION,
                 "uid": self.uid,
-                "database": str(self.cube.database.name),
+                "database": str(self.cube._database.name),
                 "cube": self._cube.name,
                 "name": self._name,
                 "title": self.title,
@@ -1282,7 +1282,7 @@ class View:
         # title
         title = ""
         if self.title:
-            title = f"<h2>{self.title} on cube '{self.cube.database.name}:{self.cube.name}'</h2>\n"
+            title = f"<h2>{self.title} on cube '{self.cube._database.name}:{self.cube.name}'</h2>\n"
             if self.description:
                 table += f"<h4>{self.description}</h4>\n"
 
@@ -1297,7 +1297,7 @@ class View:
                      f'{stat.executed_cell_aggregations:,} aggregations, ' \
                      f'{stat.executed_rules:,} rules, ' \
                      f'caching is ' \
-                     f'is {"ON" if self.cube.database.caching else "OFF"}, ' \
+                     f'is {"ON" if self.cube._database.caching else "OFF"}, ' \
                      f'zero-suppression ' \
                      f'is {"ON" if self.zero_suppression_on_rows else "OFF"}, ' \
                      f'{zero_rows:,} rows suppressed.</div>'

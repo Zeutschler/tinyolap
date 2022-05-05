@@ -8,7 +8,7 @@
       <excludeFolder url="file://$MODULE_DIR$/research" />
       <excludeFolder url="file://$MODULE_DIR$/website" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.9 (tinyolap)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10 (tinyolap)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
