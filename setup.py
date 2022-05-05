@@ -2,17 +2,19 @@
 from setuptools import setup
 
 # ...to run the build and deploy process to PyPi.org:
-# python3 setup.py sdist bdist_wheel   # note: Wheel need to be installed: pip install wheel
-# twine upload dist/*                  # note: Twine need to be installed pip install twine
+# 1. delete folder 'build'
+# 2. python3 setup.py sdist bdist_wheel   # note: Wheel need to be installed: pip install wheel
+# 3. twine upload dist/*                  # note: Twine need to be installed: pip install twine
 
 # ... via Github actions
 # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
 
-VERSION = '0.8.19'
+VERSION = '0.8.26'
 DESCRIPTION = "TinyOlap: A multi-dimensional in-memory OLAP database in plain Python 3."
 LONG_DESCRIPTION = """
 TinyOlap is a light-weight, in-process, multi-dimensional, model-first OLAP 
-engine for planning, budgeting, reporting, analysis and many other numerical purposes. 
+engine for planning, budgeting, reporting, analysis and many other numerical purposes.
+ 
 Although this sounds very complicated, TinyOlap is actually very easy to use and should 
 be suitable for all levels of Python and database skills.
 
@@ -38,7 +40,7 @@ setup(
     author="Thomas Zeutschler",
     keywords=['database', 'olap', 'molap', 'planning', 'simulation', 'forecasting',
               'multidimensional', 'cube', 'business rules', 'calculation'],
-    author_email="margins.roadmap_0t@icloud.com",
+    author_email="info@tinyolap.com",
     url="http://github.com/zeutschler/tinyolap/",
     license="MIT License",
     platforms=['any'],
@@ -47,10 +49,12 @@ setup(
     install_requires=[
         'cryptography',
         'sqlparse',
-        'enum_tools'
+        'enum_tools',
+        'packaging',
+        'faker'
     ],
     test_suite="tinyolap.tests",
-    packages=['tinyolap', 'tinyolap.storage'],
+    packages=['tinyolap', 'tinyolap.storage', 'tinyolap.utilities'],
     project_urls={
         'Homepage': 'https://tinyolap.com',
         'Documentation': 'https://tinyolap.com/docs',

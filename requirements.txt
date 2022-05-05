@@ -2,6 +2,9 @@
 cryptography==36.0.2
 sqlparse
 enum_tools==0.9.0.post1
+packaging==21.3
+faker==13.7.0
+
 
 # used for the TinyOlap API
 uvicorn
@@ -12,7 +15,6 @@ readerwriterlock
 # used for testing, sample data model generation
 Sphinx==4.5.0
 furo
-Faker==13.3.4
 faker-commerce
 halo
 sphinx-toolbox

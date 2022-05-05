@@ -7,23 +7,24 @@ from __future__ import annotations
 import json
 import os.path
 import sys
-from collections.abc import Iterable
+
 from copy import deepcopy
 from typing import Tuple
 
-import utilities.utils
+import tinyolap.utilities.utils
+from tinyolap.utilities.hybrid_dict import HybridDict
+
+
 from tinyolap.snapshot import SnapshotManager
 from tinyolap.storage.sqlite import SqliteStorage
 from tinyolap.storage.storageprovider import StorageProvider
 from tinyolap.encryption import EncryptionMethodEnum, Encryptor, NotAnEncryptor, ObfuscationEncryptor, FernetEncryptor
-from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
+
 from tinyolap.codemanager import CodeManager
 from tinyolap.cube import Cube
 from tinyolap.dimension import Dimension
 from tinyolap.exceptions import *
 from tinyolap.history import History
-from utilities.hybrid_dict import HybridDict
-
 
 class Database:
     """
@@ -72,7 +73,7 @@ class Database:
         ``encryption = EncryptionMethodEnum.NoEnryption``. Please ensure to remember the password.
         """
         self._file_name = None
-        if name != utilities.utils.to_valid_key(name):
+        if name != tinyolap.utilities.utils.to_valid_key(name):
             if os.path.exists(name):
                 self._file_name = name
             else:
@@ -244,7 +245,7 @@ class Database:
         :param new_name: New name for the database.
         :raise KeyError: Raised if the key is invalid.
         """
-        if new_name != utilities.utils.to_valid_key(new_name):
+        if new_name != tinyolap.utilities.utils.to_valid_key(new_name):
             raise KeyError(f"'{new_name}' is not a valid database name. "
                            f"alphanumeric characters and underscore supported only, "
                            f"no whitespaces, no special characters.")
@@ -430,7 +431,7 @@ class Database:
         :raises InvalidDimensionNameException: If the dimension name is invalid.
         :raises DuplicateDimensionException: If a dimension with the same name already exists.
         """
-        if not utilities.utils.is_valid_db_object_name(name):
+        if not tinyolap.utilities.utils.is_valid_db_object_name(name):
             raise TinyOlapInvalidKeyError(f"'{name}' is not a valid dimension name. "
                                       f"Lower case alphanumeric characters and underscore supported only, "
                                       f"no whitespaces, no special characters.")
@@ -511,7 +512,7 @@ class Database:
         """
 
         # validate cube name
-        if not utilities.utils.is_valid_db_object_name(name):
+        if not tinyolap.utilities.utils.is_valid_db_object_name(name):
             raise TinyOlapCubeCreationError(f"Invalid cube name '{name}'. Cube names must contain "
                                         f"lower case alphanumeric characters only, no blanks or special characters.")
         if name in self.cubes:
@@ -546,12 +547,12 @@ class Database:
         # validate measures
         # if measures:
         #     if type(measures) is str:
-        #         if not utilities.utils.is_valid_member_name(measures):
+        #         if not tinyolap.utilities.utils.is_valid_member_name(measures):
         #             raise TinyOlapCubeCreationError(f"Measure name '{str(measures)}' is not a valid measure name. "
         #                                         f"Please refer the documentation for further details.")
         #     elif isinstance(measures, Iterable):
         #         for m in measures:
-        #             if not utilities.utils.is_valid_member_name(m):
+        #             if not tinyolap.utilities.utils.is_valid_member_name(m):
         #                 raise TinyOlapCubeCreationError(f"Measure name '{str(m)}' is not a valid measure name. "
         #                                             f"Please refer the documentation for further details.")
 
