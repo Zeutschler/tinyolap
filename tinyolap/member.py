@@ -4,11 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-
-from collections.abc import Sequence
-import fnmatch
-import re
-from tinyolap.utilities.case_insensitive_dict import CaseInsensitiveDict
 from tinyolap.utilities.hybrid_dict import HybridDict
 
 
