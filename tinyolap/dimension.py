@@ -46,6 +46,7 @@ class DimensionType(Enum):
 class AttributeField:
     """Represents a single attribute field of a dimension and provides access to
     the attribute values and the members associated wuith certain attribute values."""
+    __slots__ = '_dimension', '_name', '_value_type', '_cache'
 
     def __init__(self, dimension: Dimension, name: str, value_type: type = None):
         self._dimension = dimension
@@ -261,6 +262,8 @@ class AttributeField:
 
 class Attributes(Iterable[AttributeField]):
     """Represents the list of member attributes available in a dimension."""
+    __slots__ = '_dimension', '_fields'
+
     def __init__(self, dimension: Dimension):
         self._dimension: Dimension = dimension
         self._fields: HybridDict[AttributeField] = HybridDict[AttributeField](source=dimension)
@@ -372,6 +375,7 @@ class Subset(Iterable[Member]):
     """Subsets are static or dynamic lists of members from a dimension. They are useful for
     slicing and dicing cube and reporting purposes as well as to implement additional
     static or dynamic aggregations."""
+    __slots__ = '_dimension', '_name', '_volatile', '_attributes', '_callable_function', '_members'
 
     def __init__(self, dimension: Dimension, name: str, volatile: bool, *args):
         """
@@ -580,6 +584,8 @@ class Subset(Iterable[Member]):
 
 class Subsets(Sequence[Subset]):
     """Represents the list of members subsets available in a dimension."""
+    __slots__ = '_dimension', '_subsets'
+
     def __init__(self, dimension: Dimension):
         self._dimension: Dimension = dimension
         self._subsets: HybridDict[Subset] = HybridDict[Subset](source=dimension)
@@ -781,6 +787,8 @@ class Subsets(Sequence[Subset]):
 
 class DimensionWeightManager:
     """Manages weight information for aggregations of base level members."""
+    __slots__ = 'is_weighted_dimension', 'dimension', 'weight_lookup'
+
     def __init__(self, dimension: Dimension, refresh: bool = False):
         self.is_weighted_dimension = False
         self.dimension = dimension
@@ -852,11 +860,17 @@ class Dimension:
 
     Within a single database, dimensions need to be unique by there name.
     """
+    __slots__ = '_name', '_description','_dimension_type', 'member_defs','_member_idx_manager',\
+                '_member_idx_lookup','_member_idx_list', 'member_counter','highest_idx', '_members',\
+                '_is_weighted', '_weights','_default_member', 'database','_storage_provider', \
+                'edit_mode','_recovery_json', '_recovery_idx','alias_idx_lookup',\
+                '_attributes', '_subsets'
 
     class MemberIndexManager:
         """
         Manages the available member index numbers.
         """
+        __slots__ = 'free', 'next_new'
 
         def __init__(self, current: list[int] = None, first_free: int = 1):
             self.free: set[int] = set()
@@ -955,21 +969,10 @@ class Dimension:
         self.edit_mode: bool = False
         self._recovery_json = ""
         self._recovery_idx = set()
-
         self.alias_idx_lookup: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
 
-        # New Attributes
         self._attributes: Attributes = Attributes(self)
-        # OLD Attributes
-        # self._attributes_dict: CaseInsensitiveDict[str, int] = CaseInsensitiveDict()
-        # self.attribute_query_caching: bool = True
-        # self.attribute_cache: CaseInsensitiveDict[str, list[str]] = CaseInsensitiveDict()
-
-        # New Subsets
         self._subsets: Subsets = Subsets(self)
-        # OLD Subsets
-        # self._dict_subsets: CaseInsensitiveDict[str, dict] = CaseInsensitiveDict()
-        # self._subset_idx_manager = Dimension.MemberIndexManager()
 
     def __str__(self):
         """Returns the string representation of the dimension."""
@@ -2077,8 +2080,6 @@ class Dimension:
                 f'"count": {self.member_counter}, ',
                 f'"member_defs": {json.dumps(self.member_defs)}, ',
                 f'"lookup": {json.dumps(self._member_idx_lookup)}, ',
-                # f'"oldsubsets": {json.dumps(self._dict_subsets)}, ',
-                # f'"oldattributes": {json.dumps(self._attributes_dict)}, ',
                 f'"subsets": {self._subsets.to_json()}, ',
                 f'"attributes": {self._attributes.to_json()}',
                 '}',
@@ -2125,8 +2126,6 @@ class Dimension:
             self.member_counter = new_count
             self.member_defs = new_members
             self._member_idx_lookup = CaseInsensitiveDict().populate(new_member_idx_lookup)
-            self._attributes_dict = new_attributes
-            self._dict_subsets = new_subsets
             self._attributes = Attributes(self).from_dict(new_attributes)
             self._subsets = Subsets(self).from_dict(new_subsets)
 

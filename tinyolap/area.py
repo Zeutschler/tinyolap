@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import copy
 import itertools
-from collections import Iterable
+from collections.abc import Iterable
 
 from tinyolap.exceptions import TinyOlapInvalidAddressError
 from tinyolap.member import Member

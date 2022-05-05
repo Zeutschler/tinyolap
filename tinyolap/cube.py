@@ -543,10 +543,10 @@ class Cube:
         """Updates all fact table index for all aggregations over all dimensions. FOR INTERNAL USE ONLY!"""
         for d, idx_member in enumerate(address):
             for idx_parent in self._dimensions[d].member_defs[address[d]][self._dimensions[d].ALL_PARENTS]:
-                if idx_parent in fact_table_index._index[d]:
-                    fact_table_index._index[d][idx_parent].add(row)
+                if idx_parent in fact_table_index.index[d]:
+                    fact_table_index.index[d][idx_parent].add(row)
                 else:
-                    fact_table_index._index[d][idx_parent] = {row}
+                    fact_table_index.index[d][idx_parent] = {row}
 
     # def _validate_address(self, address: tuple, measure):
     def _validate_address(self, address: tuple):

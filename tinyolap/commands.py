@@ -6,7 +6,7 @@
 from __future__ import annotations
 import datetime
 from abc import ABC, abstractmethod
-from collections import Iterable
+from collections.abc import Iterable
 
 
 class Command(ABC):

@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-from collections import Iterable
+from collections.abc import Iterable
 from typing import SupportsFloat
 
 from tinyolap.exceptions import *

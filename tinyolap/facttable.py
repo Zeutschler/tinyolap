@@ -12,6 +12,9 @@ class FactTable:
     Stores all records in simple row store and maintains an index
     over all member_defs for faster aggregations and queries.
     """
+    __slots__ = 'row_lookup', 'facts', 'addresses', 'index',\
+                'dims', 'cube', 'cached_set', 'cached_idx',\
+                'cache_matches', 'cached_seq', 'cached_seq_matching'
 
     class FactTableRowSet:
         """
@@ -22,6 +25,8 @@ class FactTable:
         of the view and then reused for all cell queries of the view. This can drastically speed
         the performance of views.
         """
+        __slots__ = 'pattern', 'idx_pattern', 'idx_residual', 'rows'
+
         def __init__(self, address: tuple[int], rows:set):
             self.pattern = deepcopy(address)
             self.idx_pattern: tuple = tuple([dim_idx for dim_idx, member in enumerate(address) if member > 0])
@@ -49,31 +54,32 @@ class FactTable:
         For each member of each dimension a set is maintained containing
         the indexes of all records related to each specific member.
         """
+        __slots__ = 'dims', 'index'
 
         def __init__(self, dimensions: int):
             self.dims = dimensions
-            self._index = []
+            self.index = []
             for i in range(0, self.dims):
-                self._index.append({})
+                self.index.append({})
 
         def set(self, address, row):
             for i in range(0, self.dims):
-                if address[i] in self._index[i]:
-                    self._index[i][address[i]].add(row)
+                if address[i] in self.index[i]:
+                    self.index[i][address[i]].add(row)
                 else:
-                    self._index[i][address[i]] = {row}
+                    self.index[i][address[i]] = {row}
 
         def exists(self, dimension: int, key):
-            return key in self._index[dimension]
+            return key in self.index[dimension]
 
         def clear(self):
             for i in range(0, self.dims):
-                for member_idx, row_list in self._index[i].items():
-                    self._index[i][member_idx] = set()
+                for member_idx, row_list in self.index[i].items():
+                    self.index[i][member_idx] = set()
 
         def get_rows(self, dimension: int, key):
-            if key in self._index[dimension]:
-                return self._index[dimension][key]
+            if key in self.index[dimension]:
+                return self.index[dimension][key]
             return set()
 
         def remove_members(self, dim_idx, members, deletes, delete_set, shifts):
@@ -81,12 +87,12 @@ class FactTable:
 
             # remove the member_defs from the index
             for member in members:
-                if member in self._index[dim_idx]:
-                    del self._index[dim_idx][member]
+                if member in self.index[dim_idx]:
+                    del self.index[dim_idx][member]
 
             # delete all row references of rows to be deleted
             for i in range(0, self.dims):
-                for member_idx, row_list in self._index[i].items():
+                for member_idx, row_list in self.index[i].items():
                     new_row_set = row_list.difference(delete_set)
 
                     # execute all shifts
@@ -96,13 +102,13 @@ class FactTable:
                             new_row_set.remove(shifter)
                             new_row_set.add(shifts[shifter])
 
-                    self._index[i][member_idx] = new_row_set
+                    self.index[i][member_idx] = new_row_set
 
         def remove_rows(self, deletes, delete_set, shifts):
             shift_set = set(shifts.keys())
             # delete all row references of rows to be deleted
             for i in range(0, self.dims):
-                for member_idx, row_list in self._index[i].items():
+                for member_idx, row_list in self.index[i].items():
                     new_row_set = row_list.difference(delete_set)
 
                     # execute all shifts
@@ -112,12 +118,12 @@ class FactTable:
                             new_row_set.remove(shifter)
                             new_row_set.add(shifts[shifter])
 
-                    self._index[i][member_idx] = new_row_set
+                    self.index[i][member_idx] = new_row_set
 
         def get_size(self) -> int:
             size = 0
             for i in range(0, self.dims):
-                for m in self._index[i].values():
+                for m in self.index[i].values():
                     if m:
                         size += len(m)
             return size
@@ -125,7 +131,7 @@ class FactTable:
         def get_count(self) -> int:
             count = 0
             for i in range(0, self.dims):
-                count += len(self._index[i].keys())
+                count += len(self.index[i].keys())
             return count
 
     def __init__(self, dimensions: int, cube):
