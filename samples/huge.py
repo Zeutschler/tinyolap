@@ -118,6 +118,7 @@ def benchmark_load_database(console_output: bool = True):
     start = time.time()
 
     database, cube, dimensions, member_lists = load_huge(console_output)
+    # database.export("test")
 
     duration = time.time() - start
     actual_memory_consumption = round(psutil.Process().memory_info().rss / (1024 * 1024) - initially_used_memory, 0)

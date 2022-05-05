@@ -128,7 +128,7 @@ class TestCubeRules(TestCase):
     def rule_profit(self, db: Database, c: Cell):
         return c["Sales"] - c["Cost"]
 
-    @rule("sales", ["Sales"], RuleScope.ROLL_UP)
+    @rule("sales", ["Sales"], RuleScope.BASE_LEVEL)
     def rule_sales_from_quantity_mul_price(self, db: Database, c: Cell):
         return c["Quantity"] * c["Price"]
 

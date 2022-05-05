@@ -410,6 +410,7 @@ class Cube:
             # THE FOLLOWING CODE IS HIGHLY PERFORMANCE OPTIMIZED!!!
             # This is the section, where the OLAP aggregations happen.
             # DO NOT CHANGE THE CODE WITHOUT PERFORMANCE IMPACT ANALYSIS!!!
+            # e.g. do not put redundant code into separate functions.
             # *****************************************************************
 
             # NEW - base level rules
@@ -421,7 +422,10 @@ class Cube:
                     rule_found, func, trigger_idx_pattern, feeder_idx_pattern = \
                         self._rules.match_with_feeder(scope=RuleScope.BASE_LEVEL, idx_address=idx_address)
                     if rule_found and feeder_idx_pattern:
-                        # modify the requested cell index to match the feeder of the rule
+                        # modify the requested cell address to match the feeder of the rule
+                        # e.g. trigger = ['Sales'], feeder = ['Quantity']
+                        #      requested cell = ['Total', '2023', 'Jan', 'Sales']
+                        #      modified cell  = ['Total', '2023', 'Jan', 'Quantity']
                         feeder_idx = list(idx_address)
                         for modifier in feeder_idx_pattern:
                             feeder_idx[modifier[0]] = modifier[1]
@@ -446,8 +450,12 @@ class Cube:
                 value = 0.0  # LOL, this is an otherwise unnecessary assigment, but makes the overall code 3% faster
                 for row in rows:
                     if rule_found:
-                        # modify the address back from the feeder to the trigger
                         self._rule_request_counter += 1
+                        # modify the cell address back from the feeder to the trigger,
+                        # this address will then be handed over to the rule
+                        # e.g. trigger = ['Sales'], feeder = ['Quantity']
+                        #      current address   = ['Italy', '2023', 'Jan', 'Quantity']
+                        #      address for rule  = ['Italy', '2023', 'Jan', 'Sales']
                         trigger_idx = list(addresses[row])
                         for modifier in trigger_idx_pattern:
                             trigger_idx[modifier[0]] = modifier[1]
@@ -471,8 +479,8 @@ class Cube:
                 value = 0.0
                 for row in rows:
                     if rule_found:
-                        # modify the address back from the feeder to the trigger
                         self._rule_request_counter += 1
+                        # modify the address back from the feeder to the trigger
                         trigger_idx = list(addresses[row])
                         for modifier in trigger_idx_pattern:
                             trigger_idx[modifier[0]] = modifier[1]
@@ -524,7 +532,7 @@ class Cube:
                         cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
                         try:
                             self._rule_request_counter += 1
-                            func(cursor)
+                            func(cursor, value)
                         except Exception as err:
                             pass
 
@@ -739,8 +747,8 @@ class Cube:
     #     """
     #     return NotImplemented
 
-    def register_rule(self, function, trigger: list[str] = None,
-                      feeder: list[str] = None,
+    def register_rule(self, function, trigger: str | list[str] = None,
+                      feeder: str | list[str] = None,
                       scope: RuleScope = None,
                       injection: RuleInjectionStrategy = None,
                       code: str = None):
@@ -792,18 +800,19 @@ class Cube:
                     if type(feeder) is str:
                         feeder = [feeder, ]
                     if not type(feeder) is list:
-                        raise TinyOlapRuleError(f"Failed to add rule function. Argument 'fedder' is not of the expected "
+                        raise TinyOlapRuleError(f"Failed to add rule function. Argument 'feeder' is not of the expected "
                                             f"type 'list(str)' but of type '{type(feeder)}'.")
 
         if not scope:
             if hasattr(function, "scope"):
                 scope = function.scope
-                if not (str(type(scope)) == str(type(RuleScope.ROLL_UP))):
+                if not (str(type(scope)) == str(type(RuleScope.BASE_LEVEL))):
                     raise TinyOlapRuleError(f"Failed to add rule function. Argument 'scope' is not of the expected "
                                         f"type ''{type(RuleScope.ALL_LEVELS)}' but of type '{type(scope)}'.")
             else:
-                raise TinyOlapRuleError(f"Failed to add rule function. Argument 'scope' missing for "
-                                    f"function {function_name}'. Use the '@rule(...) decorator from tinyolap.decorators.")
+                # set default rule scope (the most general scope)
+                scope = RuleScope.ALL_LEVELS
+
         if not injection:
             if hasattr(function, "injection"):
                 injection = function.injection

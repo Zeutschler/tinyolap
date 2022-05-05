@@ -489,20 +489,20 @@ class View:
         for i in range(axis._dim_count):
             idx_address[axis._dim_idx[i]] = axis.positions[0][i].index
             super_level += axis.positions[0][i].level
-            if axis.positions[0][i].number_format:
-                number_format = axis.positions[0][i].number_format
+            if axis.positions[0][i].format:
+                number_format = axis.positions[0][i].format
         axis = self._row_axis
         for i in range(axis._dim_count):
             idx_address[axis._dim_idx[i]] = axis.positions[row][i].index
             super_level += axis.positions[row][i].level
-            if axis.positions[0][i].number_format:
-                number_format = axis.positions[0][i].number_format
+            if axis.positions[0][i].format:
+                number_format = axis.positions[0][i].format
         axis = self._col_axis
         for i in range(axis._dim_count):
             idx_address[axis._dim_idx[i]] = axis.positions[col][i].index
             super_level += axis.positions[col][i].level
-            if axis.positions[0][i].number_format:
-                number_format = axis.positions[0][i].number_format
+            if axis.positions[0][i].format:
+                number_format = axis.positions[0][i].format
 
         value = self.cube._get((super_level, tuple(idx_address),))
         if number_format:
@@ -702,8 +702,10 @@ class View:
 
                         if "members" in dim:
                             member_names = dim["members"]
-                            if not isinstance(member_names, Iterable):
+                            if isinstance(member_names, str):
                                 member_names = (member_names,)
+                            elif not isinstance(member_names, Iterable):
+                                member_names = (str(member_names),)
 
                             # FOR FUTURE USE - use of ordinal in axis
                             if "ordinal" in dim:
@@ -800,8 +802,8 @@ class View:
                     member = member[0]
                 idx_address[axis._dim_idx[d]] = member.index
                 filter_level += member.level
-                if member.number_format:
-                    number_format = member.number_format
+                if member.format:
+                    number_format = member.format
             if axis._dim_count:
                 # This can be a very expensive operations (even seconds for very large databases!!!)
                 row_set = self._cube._facts.create_row_set(idx_address)
@@ -836,8 +838,8 @@ class View:
                 # else:
                 #     indent[row].append(member.level)
 
-                if member.number_format:
-                    number_format = member.number_format
+                if member.format:
+                    number_format = member.format
 
             all_zero = True
             # for col in range(cols.positions_count):
@@ -846,8 +848,8 @@ class View:
                     member = cols.positions[col][d]
                     idx_address[cols._dim_idx[d]] = member.index
                     super_level += member.level
-                    if member.number_format:
-                        number_format = member.number_format
+                    if member.format:
+                        number_format = member.format
 
                 value = self._cube._get((super_level, tuple(idx_address),), row_set=row_set)
 

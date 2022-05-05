@@ -31,6 +31,20 @@ class HybridDict(Iterable[Generic[T]]):
         """Returns the (optional) source object of the HybridDict[T]."""
         return self._source
 
+    def pop(self,item):
+        """Removes the item at the given index from the list and returns the removed item."""
+        if type(item) is int:
+            # member by index
+            value = self._list.pop(item)
+            del(self._dict[str(item).lower()])
+            return value
+        else:
+            # member by key, ...or even pattern search
+            value = self._dict.pop(str(item).lower())
+            while value in self._list:
+                self._list.remove(item)
+            return value
+
     def __getitem__(self, item) -> T:
         if type(item) is int:
             # member by index
@@ -56,7 +70,7 @@ class HybridDict(Iterable[Generic[T]]):
         if type(item) is T:
             while item in self._list:
                 self._list.remove(item)
-            del self._dict[str(item)]
+            del self._dict[str(item).lower()]
         elif type(item) is int:
             value = self._list[item]
             self._list.remove(value)
@@ -64,10 +78,10 @@ class HybridDict(Iterable[Generic[T]]):
                 if v == value:
                     del self._dict[k]
         else:
-            the_item = self._dict[str(item)]
+            the_item = self._dict[str(item).lower()]
             while the_item in self._list:
                 self._list.remove(the_item)
-            del self._dict[str(item)]
+            del self._dict[str(item).lower()]
 
     def __iter__(self) -> T:
         for item in self._list:
@@ -289,7 +303,7 @@ class HybridDict(Iterable[Generic[T]]):
     @property
     def names(self) -> tuple[str]:
         """Returns the keys of the HybridDict[T]."""
-        return tuple(self._dict.keys())
+        return tuple([str(value) for value in self._dict.values()])
 
     @property
     def items(self) -> tuple[T]:

@@ -83,7 +83,7 @@ def create_tiny_database(console_output: bool = False) -> Database:
     dim_regions.commit()
     for a in zip(dim_regions.member_defs.values(), ("Peter Parker", "Ingmar Ice", "Carlo Carulli",
                                            "Heinz Erhardt", "Pyotr Tchaikovsky")):
-        dim_regions.set_attribute("manager", a[0][1], a[1])
+        dim_regions.attributes.set("manager", a[0][1], a[1])
 
     # You can also create unbalanced hierarchies as show below,
     # where cars are subdivided into car types but trucks and motorcycles

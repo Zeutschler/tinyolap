@@ -19,7 +19,7 @@ class TestView(TestCase):
         # delete database if exists
         self.database = create_database(num_legal_entities=10, num_products=10, num_employees=50, console_output=False)
 
-    def test_create_view(self, console_output: bool = True):
+    def test_create_view(self, console_output: bool = False):
         db = self.database
         db.caching = False
         cube = db.cubes[0]

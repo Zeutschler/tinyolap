@@ -123,7 +123,7 @@ class Query:
                     else:
                         # get an attribute for the current member of a dimension
                         member = address[field["member_index"]]
-                        attribute = field["dimension"].get_attribute(field["attribute"], member)
+                        attribute = field["dimension"].attributes.get(field["attribute"], member)
                         record.append(attribute)
 
                 if not value_already_appended:
@@ -191,12 +191,13 @@ class Query:
                             dimension["member_defs"].extend(member)
                             unresolved_dims.remove(index)
                         else:
-                            # check for subset name
-                            if member in dimension["dimension"]._dict_subsets:
-                                dimension["member_defs"] = dimension["dimension"]._dict_subsets[member][3]
-                                unresolved_dims.remove(index)
                             if member == "*":
                                 dimension["member_defs"] = dimension["dimension"].get_members()
+                                unresolved_dims.remove(index)
+
+                            # check for subset name
+                            elif member in dimension["dimension"]._subsets:
+                                dimension["member_defs"] = dimension["dimension"]._subsets[member].members
                                 unresolved_dims.remove(index)
 
                             # check for member list e.g.: (Jan, 'Feb')

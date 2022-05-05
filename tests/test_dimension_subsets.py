@@ -19,17 +19,17 @@ class TestDimensionSubsets(TestCase):
     def test_subset_creation(self):
         dim = self.dim
 
-        dim.add_subset("subset", ("A", "B"))
-        self.assertTrue(dim.has_subset("subset"))
-        self.assertTrue(dim.has_subset("SuBsEt"))
-        self.assertFalse(dim.has_subset("  subset  "))
-        self.assertFalse(dim.has_subset("non_existing_subset"))
+        dim.subsets.add("subset", ("A", "B"))
+        self.assertTrue("subset" in dim.subsets)
+        self.assertTrue("SuBsEt" in dim.subsets)
+        self.assertFalse("  subset  " in dim.subsets)
+        self.assertFalse("non_existing_subset" in dim.subsets)
 
-        self.assertTrue(dim.subset_contains("subset", "A"))
-        self.assertTrue(dim.subset_contains("subset", "B"))
-        self.assertFalse(dim.subset_contains("subset", "C"))
+        self.assertTrue("A" in dim.subsets["subset"])
+        self.assertTrue("B" in dim.subsets["subset"])
+        self.assertFalse("C" in dim.subsets["subset"])
 
-        self.assertEqual(("A", "B"), tuple(dim.get_subset("subset")))
+        self.assertEqual(("A", "B"), tuple(dim.subsets["subset"].members.names))
 
         self.assertEqual(1, dim.subsets_count())
 
@@ -40,17 +40,17 @@ class TestDimensionSubsets(TestCase):
         with self.assertRaises(TypeError):
             dim.add_subset("invalid_name_but_wrong_type_of_members", "A")
 
-        dim.remove_subset("subset")
+        dim.subsets.remove("subset")
         self.assertEqual(0, dim.subsets_count())
         self.assertFalse(dim.has_subset("subset"))
 
         # add again
-        dim.add_subset("subset", ("A", "B"))
+        dim.subsets.add("subset", ("A", "B"))
         self.assertTrue(dim.has_subset("subset"))
         self.assertEqual(("A", "B"), tuple(dim.get_subset("subset")))
         self.assertEqual(1, dim.subsets_count())
         # clean up
-        dim.remove_subset("subset")
+        dim.subsets.remove("subset")
 
 
     def test_subset_change_by_member_removal(self):

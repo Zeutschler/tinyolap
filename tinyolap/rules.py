@@ -27,10 +27,9 @@ class RuleScope(IntEnum):
     """
     ALL_LEVELS = 1  # doc: (default) Indicates that the rule should be executed for base level and aggregated level cells.
     AGGREGATION_LEVEL = 2  # doc: Indicates that the rule should be executed for aggregated level cells only.
-    BASE_LEVEL = 3  # doc: Indicates that the rule should be executed for base level cells only.
-    ROLL_UP = 4  # doc: Indicates that the rule should replace the base level cell value from the database by the results of the rule. This can dramatically slow down aggregation speed. Requires a special trigger to be set.
-    ON_ENTRY = 5  # doc: Indicates that these rules should be executed when cell values are set or changed. This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
-    COMMAND = 6  # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
+    BASE_LEVEL = 3  # doc: Indicates that the rule should be executed for base level cells only. For aggregated values, all of base level cells that make up the aggregation, will be calculated through the rule and only then get aggregated.
+    ON_ENTRY = 4  # doc: Indicates that these rules should be executed when cell values are set or changed. This is useful for time consuming calculations which may be *too expensive* to run at idx_address time.
+    COMMAND = 5  # doc: Indicates that these rules need to be invoked by a command. Requires the decorator parameter 'command to be specified.
 
     def __eq__(self, other):
         return self.value == int(other)
@@ -250,7 +249,6 @@ class Rules:
                            self.rules[scope][idx].idx_feeder_pattern
 
         return False, None, None, None
-
 
 
     def __bool__(self):

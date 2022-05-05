@@ -50,7 +50,7 @@ class TestBaseFunction(TestCase):
     def test_formula(self):
 
         # Order of rules matter
-        self.cube.register_rule(lambda x: "hallo B", ["products:B"], RuleScope.ALL_LEVELS)
+        self.cube.register_rule(function=lambda x: "hallo B", trigger=["products:B"], feeder=None, scope=RuleScope.ALL_LEVELS)
         self.cube.register_rule(self.calc_var, ["datatype:var"])
         self.cube.register_rule(self.calc_var_percent, ["datatype:var%"])
 
@@ -73,11 +73,11 @@ class TestBaseFunction(TestCase):
         report = Slice(self.cube, s)
         # print(report)
 
-    @rule("sales", ["var"], RuleScope.ALL_LEVELS)
+    @rule(cube="sales", trigger=["var"], scope=RuleScope.ALL_LEVELS)
     def calc_var(self, c: Cell):
         return c["actual"] - c["plan"]
 
-    @rule("sales", ["var%"], RuleScope.ALL_LEVELS)
+    @rule(cube="sales", trigger=["var%"], scope=RuleScope.ALL_LEVELS)
     def calc_var_percent(self, c):
         plan = c["plan"]
         if plan != 0:

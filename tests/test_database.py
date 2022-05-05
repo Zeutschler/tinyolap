@@ -8,7 +8,7 @@ from tinyolap.database import Database
 from tinyolap.cell import Cell
 
 
-@rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS,
+@rule("sales", ["Profit in %"], scope=RuleScope.ALL_LEVELS, feeder=None,
       injection=RuleInjectionStrategy.FUNCTION_INJECTION, volatile=False)
 def rule_profit_in_percent(c: Cell):
     sales = c["Sales"]
@@ -105,14 +105,14 @@ class TestDatabase(TestCase):
 
         # change rule for 'profit' by multipling 'cost' by 0.5
         cube.register_rule(lambda x: x["Sales"] - x["Cost"] * 0.5, "Profit",
-                           RuleScope.ALL_LEVELS, RuleInjectionStrategy.FUNCTION_INJECTION)
+                           None, RuleScope.ALL_LEVELS, RuleInjectionStrategy.FUNCTION_INJECTION)
         # check result.
         profit = cube.get(["2020", "Jan", "North", "A", "Profit"])  # = 3.0 - 2.0 * 0.5 (via rule) = 2.0
         self.assertEqual(2.0, profit)
 
         # close and clean up
         db.close()
-        db.delete()
+        # db.delete()
 
     def create_database(self) -> Database:
         db = Database(self.db_name, in_memory=False)
@@ -152,9 +152,9 @@ class TestDatabase(TestCase):
 
         cube = db.add_cube("sales", [dim_years, dim_months, dim_regions, dim_products, dim_measures])
         cube.register_rule(rule_profit_in_percent)
-        cube.register_rule(lambda x: x["Sales"] - x["Cost"], "Profit",
+        cube.register_rule(lambda x: x["Sales"] - x["Cost"], "Profit", None,
                            RuleScope.ALL_LEVELS, RuleInjectionStrategy.FUNCTION_INJECTION)
-        cube.register_rule(lambda x: x["jan"] - x["FEB"], "q1",
+        cube.register_rule(lambda x: x["jan"] - x["FEB"], "q1",None,
                            RuleScope.ALL_LEVELS, RuleInjectionStrategy.FUNCTION_INJECTION)
 
         # disable caching

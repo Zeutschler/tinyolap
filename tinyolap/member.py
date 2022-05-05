@@ -90,13 +90,23 @@ class Member:
         return self._ordinal
 
     @property
-    def number_format(self) -> str:
-        """Returns the number format of the member, if defined. Otherwise and empty string will be returned."""
-        format = self._dimension.member_defs[self._idx_member][self._dimension.FORMAT]
-        if format:
-            return format  # self._dimension.member_defs[self._idx_member][self._dimension.FORMAT]
+    def format(self) -> str:
+        """Returns the format string of a member, if defined. Used for number formatting in views.
+        If no format is defined, then an empty string will be returned."""
+        format_string = self._dimension.member_defs[self._idx_member][self._dimension.FORMAT]
+        if format_string:
+            return format_string  # self._dimension.member_defs[self._idx_member][self._dimension.FORMAT]
         return ""
-        # return self._number_format
+
+
+    @format.setter
+    def format(self, value):
+        """
+        Sets the format string of a member. Used for number formatting in views.
+        :param value: The format string in Python syntax. e.g.: "{:.2%}" for a percentage with 2 digits.
+        """
+        self._dimension.member_defs[self._idx_member][self._dimension.FORMAT] = value
+
 
     @property
     def qualified_name(self) -> str:

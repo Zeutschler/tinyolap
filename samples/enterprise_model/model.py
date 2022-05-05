@@ -108,7 +108,8 @@ def populate_cube_pnl(db: Database, cube: Cube, spinner):
                 factor = (1 + trend_factor) * baseline_factor * monthly_factor
                 for position in positions:
                     factor = factor + random.gauss(0, factor * 0.05)  # add some noise on the P&L figures
-                    sample = dim_positions.get_attribute("sample", position)
+                    sample = dim_positions.attributes["sample"][position]
+                    # sample = dim_positions.get_attribute("sample", position)
                     actual = round(sample * factor, ndigits=0)
                     plan = round(random.gauss(actual * 1.05, actual * 0.05),
                                  ndigits=int(-(math.log10(abs(actual)) - 1.0)))
@@ -159,7 +160,7 @@ def populate_cube_sales(db: Database, cube: Cube, spinner):
                         starting_month = False
                     quantity = abs(int(random.gammavariate(2, 2)*4))
                     if quantity > 0:
-                        price = product_dim.get_attribute("list_price", product)
+                        price = product_dim.attributes["list_price"][product]
                         price = round(price * yearly_price_increase, -1) - 1
                         cube[year, month, company, product, "Quantity"] = quantity
                         cube[year, month, company, product, "Sales"] = quantity * price
@@ -217,16 +218,16 @@ def add_dimension_periods(db: Database, name: str = "periods") -> Dimension:
     dim.commit()
 
     # Attributes
-    dim.add_attribute("longname", str)
+    dim.attributes.add("longname", str)
     # first copy the member name as the default long name.
     for member in dim.get_members():
-        dim.set_attribute("longname", member, member)
+        dim.attributes["longname"][member] = member
     # set proper long names for months
-    for pair in (("Jan", "January"), ("Feb", "February"), ("Mar", "March"),
+    for member, value in (("Jan", "January"), ("Feb", "February"), ("Mar", "March"),
                  ("Apr", "April"), ("Mai", "Mai"), ("Jun", "June"),
                  ("Jul", "July"), ("Aug", "August"), ("Sep", "September"),
                  ("Oct", "October"), ("Nov", "November"), ("Dec", "December")):
-        dim.set_attribute("longname", pair[0], pair[1])
+        dim.attributes["longname"][member] = value
 
     return dim
 
@@ -332,7 +333,7 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
     # Attributes
     # we add an attribute that contains somehow realistic sample values
     # for our P&L figures. These will be used later to generate randomized data.
-    dim.add_attribute("sample", float)
+    dim.attributes.add("sample", float)
     for pair in (("Gross Sales", 78000.0),
                  ("Sales Returns", 3200.0),
                  ("Discounts and Allowances", 1000.0),
@@ -353,10 +354,10 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
                  ("Interest Income", 1700.0),
                  ("Other Income", 1250.0),
                  ("Tax Expense", 10000.0)):
-        dim.set_attribute("sample", pair[0], pair[1])
+        dim.attributes.set("sample", pair[0], pair[1])
 
     # Subsets
-    dim.add_subset("Expenses",
+    dim.subsets.add("Expenses",
                    ["Advertising",
                     "Delivery/Freight",
                     "Depriciation",
@@ -369,7 +370,7 @@ def add_dimension_pnl_statement(db: Database, name: str = "pnl") -> Dimension:
                     "Utilities",
                     "Other Expenses"])
 
-    dim.add_subset("Overview",
+    dim.subsets.add("Overview",
                    ["Gross Sales",
                     "Net Sales",
                     "Gross Profit",
@@ -502,9 +503,9 @@ def add_dimension_company(db: Database, name: str = "companies", group_name: str
     dim.commit()
 
     # Attributes
-    dim.add_attribute("manager", str)
+    dim.attributes.add("manager", str)
     for member in dim.get_members():
-        dim.set_attribute("manager", member, fake.name())
+        dim.attributes["manager"][member] = fake.name()
 
     return dim
 
@@ -586,13 +587,13 @@ def add_dimension_products(db: Database, name: str = "products", products_count:
     dim.commit()
 
     # Attributes
-    dim.add_attribute("color", str)
-    dim.add_attribute("id", str)
-    dim.add_attribute("list_price", float)
+    dim.attributes.add("color", str)
+    dim.attributes.add("id", str)
+    dim.attributes.add("list_price", float)
     for member in products:
-        dim.set_attribute("color", member, fake.color())
-        dim.set_attribute("id", member, fake.unique.bothify(text='Product Number: ????-########'))
-        dim.set_attribute("list_price", member, float(50 + int(random.random() * 20.0) * 50 - 1))
+        dim.attributes.set("color", member, fake.color())
+        dim.attributes.set("id", member, fake.unique.bothify(text='Product Number: ????-########'))
+        dim.attributes.set("list_price", member, float(50 + int(random.random() * 20.0) * 50 - 1))
 
     return dim
 
