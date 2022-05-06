@@ -14,7 +14,7 @@ from tinyolap.view import View
 
 # adjust to your liking... and the abilities of your PC ;-)
 numbers_of_records = 1_000_000
-numbers_of_dimensions = 8
+numbers_of_dimensions = 6
 members_per_dimension = 100
 
 

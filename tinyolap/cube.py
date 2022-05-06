@@ -437,7 +437,7 @@ class Cube:
                             feeder_idx[modifier[0]] = modifier[1]
                         idx_address = tuple(feeder_idx)
 
-            # get records row ids for current cell idx_address
+            # get records row ids for the current (or modified) cell idx_address
             rows = self._facts.query(idx_address, row_set)
             self._aggregation_counter += len(rows)
             if not rows:
@@ -449,14 +449,14 @@ class Cube:
             total = 0.0
             facts = self._facts.facts # put object in local scope. this results in 16% faster code
             addresses = self._facts.addresses  # put object in local scope. this results in 16% faster code
-
+            rows_count = len(rows)
             if weighted_aggregation:
                 # weighted aggregation
-                self._weighted_aggregation_counter += len(rows)
+                self._weighted_aggregation_counter += rows_count
                 value = 0.0  # LOL, this is an otherwise unnecessary assigment, but makes the overall code 3% faster
-                for row in rows:
-                    if rule_found:
-                        self._rule_request_counter += 1
+                if rule_found:
+                    self._rule_request_counter += rows_count
+                    for row in rows:
                         # modify the cell address back from the feeder to the trigger,
                         # this address will then be handed over to the rule
                         # e.g. trigger = ['Sales'], feeder = ['Quantity']
@@ -469,23 +469,33 @@ class Cube:
                         cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
                         # call the rule
                         value = func(cursor)
-                    else:
+                        if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
+                            weight = 1.0
+                            for idx in w_idx:  # only process dimensions with non-standard (+1.0) weighting
+                                # read the weight for the roll up of the current row member to its requested
+                                # Note: when both are the same element, we normally would not have to execute the
+                                # weight look up. But it turned out that an extra if statement is more expensive,
+                                # so we do an unnecessary (but cheaper) multiplications here.
+                                weight *= w_lookup[idx].get(addresses[row][idx], 1.0)
+                            total += value * weight
+                else:
+                    for row in rows:
                         value = facts[row]
-                    if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
-                        weight = 1.0
-                        for idx in w_idx:  # only process dimensions with non-standard (+1.0) weighting
-                            # read the weight for the roll up of the current row member to its requested
-                            # Note: when both are the same element, we normally would not have to execute the
-                            # weight look up. But it turned out that an extra if statement is more expensive,
-                            # so we do an unnecessary (but cheaper) multiplications here.
-                            weight *= w_lookup[idx].get(addresses[row][idx], 1.0)
-                        total += value * weight
+                        if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
+                            weight = 1.0
+                            for idx in w_idx:  # only process dimensions with non-standard (+1.0) weighting
+                                # read the weight for the roll up of the current row member to its requested
+                                # Note: when both are the same element, we normally would not have to execute the
+                                # weight look up. But it turned out that an extra if statement is more expensive,
+                                # so we do an unnecessary (but cheaper) multiplications here.
+                                weight *= w_lookup[idx].get(addresses[row][idx], 1.0)
+                            total += value * weight
             else:
                 # default additive aggregation
                 value = 0.0
-                for row in rows:
-                    if rule_found:
-                        self._rule_request_counter += 1
+                if rule_found:
+                    self._rule_request_counter += rows_count
+                    for row in rows:
                         # modify the address back from the feeder to the trigger
                         trigger_idx = list(addresses[row])
                         for modifier in trigger_idx_pattern:
@@ -494,10 +504,13 @@ class Cube:
                         cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
                         # call the rule
                         value = func(cursor)
-                    else:
+                        if isinstance(value,float):  # makes the overall code 5% faster than 'if type(value) is float'
+                            total += value
+                else:
+                    for row in rows:
                         value = facts[row]
-                    if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
-                        total += value
+                        if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
+                            total += value
             if self._caching:
                 self._cache[bolt] = total  # save value to cache
             return total

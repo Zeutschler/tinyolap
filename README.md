@@ -2,16 +2,17 @@
 
 # TinyOlap 
 
-TinyOlap is an open-source, multi-dimensional, in-memory, **model-first OLAP engine** written in plain Python. 
-As an in-process Python library, it empowers developers to build lightweight solutions for planning, 
-forecasting, simulation, analytics and many other numerical problems.
+TinyOlap is an open-source, multi-dimensional, in-memory, model-first OLAP engine written in plain Python. 
+As an in-process Python library, it empowers developers to build lightweight solutions for extended 
+planning & analysis (xP&A) and many other numerical use cases.
 
 TinyOlap is also quite handy as a smart alternative to Pandas DataFrames when your data is multi-dimensional, 
 requires hierarchical aggregations or complex calculations.
 
-TinyOlap aims to honour and mimic commercial products like IBM TM/1, Jedox PALO or Infor d/EPM. If their 
-scalability and performance is not required, or their technical complexity or cost is not reasonable for 
-your purpose, then TinyOlap might be for you.
+TinyOlap aims to honour and mimic great commercial products like IBM TM/1, Jedox PALO, Infor d/EPM or SAP SAC. 
+If their scalability and performance is not required, or their technical complexity or cost is not reasonable 
+for your purpose, then TinyOlap might be for you. TinyOlap's database capabilities are on par with commercial 
+products, almost!
 
 ## Getting started
 To get started, please download the [TinyOlap cheat sheet (pdf)](https://tinyolap.com/tinyolap_cheatsheet.pdf)
