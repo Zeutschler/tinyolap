@@ -963,6 +963,8 @@ class View:
                                                  [MemberList(dimension=dimensions[ordinal[idx]],
                                                              members=dimensions[ordinal[idx]].members[0])
                                                   for idx in range(remaining)]))
+        else:
+            self._filter_axis = ViewAxis(self, idx=tuple(), dimensions=tuple(), member_lists=tuple())
 
         # create report definition
         definition = {

@@ -25,7 +25,7 @@ from halo import Halo
 
 def create_database(name: str = "enterprise", database_directory: str = None,
                     num_legal_entities: int = 50, num_products: int = 100,
-                    num_employees: int = 500, console_output: bool = True):
+                    num_employees: int = 500, console_output: bool = True, caching=False):
     """
     Creates a new Enterprise sample database instance.
     :param name: The name of the database.
@@ -81,6 +81,7 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     if console_output:
         spinner.stop()
 
+    db.caching = caching
     return db
 
 

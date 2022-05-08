@@ -481,13 +481,9 @@ class Cube:
                 else:
                     for row in rows:
                         value = facts[row]
-                        if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
+                        if isinstance(value, float):
                             weight = 1.0
-                            for idx in w_idx:  # only process dimensions with non-standard (+1.0) weighting
-                                # read the weight for the roll up of the current row member to its requested
-                                # Note: when both are the same element, we normally would not have to execute the
-                                # weight look up. But it turned out that an extra if statement is more expensive,
-                                # so we do an unnecessary (but cheaper) multiplications here.
+                            for idx in w_idx:
                                 weight *= w_lookup[idx].get(addresses[row][idx], 1.0)
                             total += value * weight
             else:
@@ -504,12 +500,12 @@ class Cube:
                         cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
                         # call the rule
                         value = func(cursor)
-                        if isinstance(value,float):  # makes the overall code 5% faster than 'if type(value) is float'
+                        if isinstance(value,float):
                             total += value
                 else:
                     for row in rows:
                         value = facts[row]
-                        if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
+                        if isinstance(value, float):
                             total += value
             if self._caching:
                 self._cache[bolt] = total  # save value to cache

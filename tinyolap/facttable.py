@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 from copy import deepcopy
-
+import time
 
 class FactTable:
     """
@@ -14,7 +14,8 @@ class FactTable:
     """
     __slots__ = 'row_lookup', 'facts', 'addresses', 'index',\
                 'dims', 'cube', 'cached_set', 'cached_idx',\
-                'cache_matches', 'cached_seq', 'cached_seq_matching'
+                'cache_matches', 'cached_seq', 'cached_seq_matching',\
+                'duration'
 
     class FactTableRowSet:
         """
@@ -143,11 +144,14 @@ class FactTable:
         # we need access to the parent cube. This is a garbage collection safe approach
         self.cube = cube
 
+        self.duration: float = 0.0
+
         self.cached_set = None
         self.cached_idx = []
         self.cached_seq = []
         self.cache_matches: int = 0
         self.cached_seq_matching = None
+
 
     def set(self, address: tuple, value):
         row = self.row_lookup.get(address, None)
@@ -228,12 +232,15 @@ class FactTable:
         # This improves the performance of intersections quite nicely, -10% worst, +200% on average and +600% best.
         seq = sorted(((len(s), d) for d, s in enumerate(sets)))
         # Execute intersection of sets
+        # start = time.time()
         result = sets[seq[0][1]]
         for i in range(1, len(seq)):  # do not change to something like <for i,d in seq:>, it's slower.
             result = result.intersection(sets[seq[i][1]])
             if not result:
                 # if the set is empty, then there are no records matching the requested address
                 break
+        # self.duration += time.time() - start
+        # print(f"set operations in {self.duration:,.8}")
         return result
 
     def create_row_set(self, address) -> FactTableRowSet:

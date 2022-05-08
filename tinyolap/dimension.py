@@ -1342,7 +1342,7 @@ class Dimension:
         :return: A json string representing the dimension.
         """
         data = ['{',
-                f'"content": "dimension", ',
+                f'"contentType": "{Config.ContentTypes.DIMENSION}", ',
                 f'"name": "{self._name}", ',
                 f'"description": "{self.description}", ',
                 f'"count": {self.member_counter}, ',

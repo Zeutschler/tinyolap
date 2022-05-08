@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import random
+
 from tinyolap.cell import Cell
 from tinyolap.decorators import rule
 from tinyolap.database import Database
@@ -72,9 +73,10 @@ def tesla_business_planning(console_output: bool = True):
     # Where already done! Our first TinyOlap database is ready to use.
 
     # 6th - reading data and simple reporting
+    view = View(cube).refresh()
     if console_output:
         # let's create a minimal default report and dump it to the console
-        print(View(cube).refresh().to_console_output())
+        print(view.to_console_output())
 
         # finally, let's congratulate Elon
         dev_percent = cube["Delta %", "2023", "Year", "Total", "Total"]
@@ -82,6 +84,7 @@ def tesla_business_planning(console_output: bool = True):
               f"Congratulations, Elon!")
 
     return db
+
 
 if __name__ == "__main__":
     tesla_business_planning()

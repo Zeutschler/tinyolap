@@ -15,12 +15,12 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from tinyolap.slice import Slice
 from tinyolap.server import Server
 
-from samples.tesla import play_tesla
+from samples.tesla import tesla_business_planning
 
 
 # Configure the database and cube to show here...
 caching = False  # Switch True / False to enable / disable caching in cubes
-db = play_tesla()
+db = tesla_business_planning()
 cube = db.cubes["sales"]
 # ... the following code does not need to be touched. Just run and enjoy...
 

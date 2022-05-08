@@ -38,6 +38,6 @@ def setup(small_medium_large: str = "small"):
                             num_legal_entities=num_legal_entities,
                             num_products=num_products,
                             num_employees=num_employees,
-                            console_output=True)
+                            console_output=True, caching=False)
         )
         server_is_initialized = True

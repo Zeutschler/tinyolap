@@ -16,6 +16,7 @@ from tinyolap.decorators import rule
 from tinyolap.dimension import Dimension
 from tinyolap.rules import RuleScope
 from tinyolap.slice import Slice
+from tinyolap.view import View
 
 number_of_machines = 42  # Change to see what happens...
 num_cores = 8  # adjust to the number of cores you have or want to use
@@ -172,11 +173,13 @@ def play_tiny42(console_output: bool = True):
                processed_dbs[random.randrange(number_of_machines)],
                consolidated_db]:
         cube = db.cubes["sensors"]
-        report_definition = {"title": f"Sensor data from '{db.name}'", "columns": [{"dimension": "time"}],
-                             "rows": [{"dimension": "sensors"}, {"dimension": "values"}, ]}
-        report = Slice(cube, report_definition)
+        view = View(cube,definition={
+                "title": f"Sensor data from '{db.name}'",
+                "rows": {"dimensions": ["sensors", "values"]},
+                "columns": {"dimensions": ["time"]}
+                }).refresh()
         if console_output:
-            print(report)
+            print(view.to_console_output())
 
     if console_output:
         print(f"{number_of_machines}x machines generated, called, processed"
