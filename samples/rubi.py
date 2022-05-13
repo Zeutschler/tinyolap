@@ -23,7 +23,24 @@ def elons_random_numbers(low: float = 1000.0, high: float = 2000.0):
 # Purpose: Support Elon Musk on his business planning & reporting for Tesla
 def tesla_business_planning(console_output: bool = True):
     # 1st - define an appropriate 5-dimensional cube (the data space)
-    db = Database("tesla")
+    db = Database("rubi")
+
+    dim_months = db.add_dimension("months")
+    dim_months.edit()
+    dim_months.add_many(["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    dim_months.add_many(["Q1", "Q2", "Q3", "Q4"],
+                        [("Jan", "Feb", "Mar"), ("Apr", "Mai", "Jun"),
+                         ("Jul", "Aug", "Sep"), ("Oct", "Nov", "Dec")])
+    dim_months.add_many("Year", ("Q1", "Q2", "Q3", "Q4"))
+    dim_months.commit()
+
+    datatypes = db.add_dimension("datatypes").edit()\
+        .add_many(["Actual", "Plan"])\
+        .add_many("Delta", ["Actual", "Plan"], [1.0, -1.0])\
+        .add_many("Delta %").commit()
+
+
     cube = db.add_cube("sales", [
         db.add_dimension("datatypes").edit()
                        .add_many(["Actual", "Plan"])

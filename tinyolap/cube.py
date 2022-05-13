@@ -500,13 +500,14 @@ class Cube:
                         cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
                         # call the rule
                         value = func(cursor)
-                        if isinstance(value,float):
+                        if isinstance(value, float):
                             total += value
                 else:
                     for row in rows:
                         value = facts[row]
                         if isinstance(value, float):
                             total += value
+
             if self._caching:
                 self._cache[bolt] = total  # save value to cache
             return total

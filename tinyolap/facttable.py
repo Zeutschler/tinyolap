@@ -83,6 +83,12 @@ class FactTable:
                 return self.index[dimension][key]
             return set()
 
+        def get_set(self, dimension: int, key):
+            if key in self.index[dimension]:
+                return self.index[dimension][key]
+            return None
+
+
         def remove_members(self, dim_idx, members, deletes, delete_set, shifts):
             shift_set = set(shifts.keys())
 
@@ -203,6 +209,11 @@ class FactTable:
         :param address: The cell address to be evaluated.
         :param row_set: (optional) a previously evaluated row set.
         """
+        contains_all_record_sets = False
+        all_record_set = None
+        get_set = self.index.get_set
+        len_facts = len(self.facts)
+
         if row_set:
             if row_set.is_empty:
                 return set()
@@ -212,21 +223,54 @@ class FactTable:
             sets = [row_set.rows, ]  # first the already prepared row set
             for i in row_set.idx_residual:  # all residual dimensions, not yet contained in the row set
                 if address[i] != 0:
-                    if self.index.exists(i, address[i]):
-                        sets.append(get_rows(i, address[i]))
+                    row_set = get_set(i, address[i])
+                    if row_set:
+                        # Note: If a set contains all records, then it does not
+                        #       need to be included in the intersection process.
+                        if len(row_set) < len_facts:
+                            sets.append(row_set)
+                        else:
+                            if not contains_all_record_sets:
+                                all_record_set = row_set
+                            contains_all_record_sets = True
                     else:
-                        return set()  # an empty set
+                        return set()  # no rows available
+                    # if self.index.exists(i, address[i]):
+                    #     sets.append(get_rows(i, address[i]))
+                    # else:
+                    #     return set()  # an empty set
 
         else:
-            get_rows = self.index.get_rows
             # get the row sets to be intersected
             sets = []
             for i in range(0, len(address)):
                 if address[i] != 0:
-                    if self.index.exists(i, address[i]):
-                        sets.append(get_rows(i, address[i]))
+                    row_set = get_set(i, address[i])
+                    if row_set:
+                        # Note: If a set contains all records, then it does not
+                        #       need to be included in the intersection process.
+                        if len(row_set) < len_facts:
+                            sets.append(row_set)
+                        else:
+                            if not contains_all_record_sets:
+                                all_record_set = row_set
+                            contains_all_record_sets = True
                     else:
-                        return set()  # an empty set
+                        return set()  # no rows available
+            # get_rows = self.index.get_rows
+            # # get the row sets to be intersected
+            # sets = []
+            # for i in range(0, len(address)):
+            #     if address[i] != 0:
+            #         if self.index.exists(i, address[i]):
+            #             sets.append(get_rows(i, address[i]))
+            #         else:
+            #             return set()  # no rows available
+
+        if contains_all_record_sets and (not sets):
+            # edge case: request the cell that aggregates an entire cube
+            #            e.g. the cell ['all', 'all', 'all', ... , 'all']
+            return all_record_set
 
         # Order matters most!!! So we order the sets ascending by their length, to intersect smaller sets first.
         # This improves the performance of intersections quite nicely, -10% worst, +200% on average and +600% best.
