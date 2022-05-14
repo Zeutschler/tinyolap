@@ -214,78 +214,55 @@ class FactTable:
         get_set = self.index.get_set
         len_facts = len(self.facts)
 
+        # get the row sets to be intersected
+        sets = []
         if row_set:
+            # 1. if available, add a pre-populated row set (probably derived from the header dimensions of a view)
             if row_set.is_empty:
-                return set()
-
-            get_rows = self.index.get_rows
-            # get the row sets to be intersected
-            sets = [row_set.rows, ]  # first the already prepared row set
-            for i in row_set.idx_residual:  # all residual dimensions, not yet contained in the row set
-                if address[i] != 0:
-                    row_set = get_set(i, address[i])
-                    if row_set:
-                        # Note: If a set contains all records, then it does not
-                        #       need to be included in the intersection process.
-                        if len(row_set) < len_facts:
-                            sets.append(row_set)
-                        else:
-                            if not contains_all_record_sets:
-                                all_record_set = row_set
-                            contains_all_record_sets = True
-                    else:
-                        return set()  # no rows available
-                    # if self.index.exists(i, address[i]):
-                    #     sets.append(get_rows(i, address[i]))
-                    # else:
-                    #     return set()  # an empty set
-
+                return set()  # no rows available in cube
+            residual_dimensions = row_set.idx_residual
+            if len(row_set.rows) < len_facts:
+                sets.append(row_set.rows)
+            else:
+                # If a row set contains all records of the cube,
+                # then it does not need to be processed at all.
+                all_record_set = row_set.rows
+                contains_all_record_sets = True
         else:
-            # get the row sets to be intersected
-            sets = []
-            for i in range(0, len(address)):
-                if address[i] != 0:
-                    row_set = get_set(i, address[i])
-                    if row_set:
-                        # Note: If a set contains all records, then it does not
-                        #       need to be included in the intersection process.
-                        if len(row_set) < len_facts:
-                            sets.append(row_set)
-                        else:
-                            if not contains_all_record_sets:
-                                all_record_set = row_set
-                            contains_all_record_sets = True
-                    else:
-                        return set()  # no rows available
-            # get_rows = self.index.get_rows
-            # # get the row sets to be intersected
-            # sets = []
-            # for i in range(0, len(address)):
-            #     if address[i] != 0:
-            #         if self.index.exists(i, address[i]):
-            #             sets.append(get_rows(i, address[i]))
-            #         else:
-            #             return set()  # no rows available
+            residual_dimensions = list(range(0, len(address)))  # we need to process all dimensions
 
+        # 2. process all residual dimensions, not yet contained in the row set
+        for i in residual_dimensions:
+            if address[i] != 0:
+                row_set = get_set(i, address[i])
+                if row_set:
+                    # Note: If a set contains all records, then it does not
+                    #       need to be included in the intersection process.
+                    if len(row_set) < len_facts:
+                        sets.append(row_set)
+                    elif not contains_all_record_sets:
+                        # If a row set contains all records of the cube,
+                        # then it does not need to be processed at all.
+                        all_record_set = row_set
+                        contains_all_record_sets = True
+                else:
+                    return set()  # no rows available in cube
+
+        # 3. check for an edge case: a cell that aggregates all rows of the cube
         if contains_all_record_sets and (not sets):
-            # edge case: request the cell that aggregates an entire cube
-            #            e.g. the cell ['all', 'all', 'all', ... , 'all']
             return all_record_set
 
-        # Order matters most!!! So we order the sets ascending by their length, to intersect smaller sets first.
-        # This improves the performance of intersections quite nicely, -10% worst, +200% on average and +600% best.
+        # The size of sets very much matters for fast intersection!!! Intersect smaller sets first.
+        # This improves the performance of intersections quite nicely: -10% worst, +200% on average and +600% best.
         seq = sorted(((len(s), d) for d, s in enumerate(sets)))
         # Execute intersection of sets
-        # start = time.time()
-        result = sets[seq[0][1]]
+        row_set = sets[seq[0][1]]
         for i in range(1, len(seq)):  # do not change to something like <for i,d in seq:>, it's slower.
-            result = result.intersection(sets[seq[i][1]])
-            if not result:
+            row_set = row_set.intersection(sets[seq[i][1]])
+            if not row_set:
                 # if the set is empty, then there are no records matching the requested address
                 break
-        # self.duration += time.time() - start
-        # print(f"set operations in {self.duration:,.8}")
-        return result
+        return row_set
 
     def create_row_set(self, address) -> FactTableRowSet:
         """

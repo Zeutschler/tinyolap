@@ -38,6 +38,7 @@ def load_huge(console_output: bool = False):
     # 2. create dimensions
     dimensions = []
     member_lists = []
+    idx_member_lists = []
     for d in range(numbers_of_dimensions):
         name = f"dim{d + 1}"
         dim = db.add_dimension(name).edit()
@@ -50,6 +51,7 @@ def load_huge(console_output: bool = False):
         dim.add_many("All", members)
         dimensions.append(dim.commit())
         member_lists.append(members)
+        idx_member_lists.append(list(range(1, members_per_dimension + 1)))
 
     # 3. Create a cube
     cube = db.add_cube("huge", dimensions)
@@ -59,18 +61,26 @@ def load_huge(console_output: bool = False):
         print(f"Importing {numbers_of_records:,} records into the 'huge' "
               f"data model (10,000 records per dot). Please wait...")
 
+    idx_address = [tuple(idx_members[randrange(members_per_dimension)] for i, idx_members in enumerate(idx_member_lists)) for r in range(numbers_of_records)]
+
+    start = time.time()
     for r in range(numbers_of_records):
         if r > 0 and console_output and r % 10_000 == 0:
             print(".", end="")
             if console_output and r % 100_000 == 0:
                 print(f" {r/numbers_of_records:.0%} ", end="")
-        # create a random cell idx_address
-        idx = [randrange(members_per_dimension) for d in range(numbers_of_dimensions)]
-        address = tuple(members[idx[i]] for i, members in enumerate(member_lists))
+        # we set all values to 1.0 to easily see, how many rows have been aggregated for a specific cube value.
+        # idx = [randrange(members_per_dimension) for d in range(numbers_of_dimensions)]
+        # address = tuple(members[idx[i]] for i, members in enumerate(member_lists))
+        # cube.set(address, 1.0)
 
-        # set a value
-        # we'll use 1.0 to see, how many rows have been aggregated for a specific cube value.
-        cube.set(address, 1.0)
+        cube._set((0, idx_address[r]), 1.0)
+
+    if console_output:
+        print()
+        duration = time.time() - start
+        print(f"\t...writing {numbers_of_records:,} records to table "
+              f"in {duration:.6} sec, {round(numbers_of_records/duration, 0):,} ops/sec, ")
 
     # That's it...
     return db, cube, dimensions, member_lists

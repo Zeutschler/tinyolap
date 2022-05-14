@@ -47,6 +47,7 @@ def create_database(name: str = "enterprise", database_directory: str = None,
         db = Database(name=name, in_memory=True)
     else:
         db = Database(name=os.path.join(database_directory, name, ".db"))
+    db.description = f"Planning & reporting of {name}"
 
     datatype = add_dimension_datatype(db)
     years = add_dimension_years(db)
@@ -61,6 +62,7 @@ def create_database(name: str = "enterprise", database_directory: str = None,
 
     # cube 'PnL'
     pnl_cube = db.add_cube("pnl", [datatype, years, periods, company, pnl])
+    pnl_cube.description = f"Profit & loss statements of {name}"
     for func in [rule_datatype_actvspl_percent, rule_datatype_actvsfc_percent,
                        rule_datatype_fcvspl_percent,
                        rule_datatype_fcvsactpy, rule_datatype_fcvsactpy_percent,
@@ -70,12 +72,14 @@ def create_database(name: str = "enterprise", database_directory: str = None,
 
     # setup cubes: Sales
     sales_cube = db.add_cube("sales", [years, periods, company, products, salesfig])
+    sales_cube.description = f"Product sales of {name}"
     for func in [rule_sales_price]:
         sales_cube.register_rule(func)
     populate_cube_sales(db, sales_cube, spinner)
 
     # setup cube: HR
     hr_cube = db.add_cube("hr", [years, employees, hrfig])
+    hr_cube.description = f"Salary data per employee of {name}"
     populate_cube_hr(db, hr_cube, spinner)
 
     if console_output:

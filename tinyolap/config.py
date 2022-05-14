@@ -3,8 +3,8 @@ from typing import Final
 
 class Config:
     """Provides access to configuration and metadata of the TinyOlap engine."""
-    VERSION: Final = "0.8.16"
-    LOWEST_COMPATIBLE_VERSION: Final = "0.8.9"
+    VERSION: Final = "0.8.27"
+    LOWEST_COMPATIBLE_VERSION: Final = "0.8.21"
     BUILTIN_VALUE_TYPES: Final = {'str': str, 'int': int, "float": float, 'bool': bool, 'complex': complex,
                                'list': list, 'tuple': tuple, 'range': range, 'dict': dict, 'set': set,
                                'bytes': bytes, 'bytearray': bytearray,}

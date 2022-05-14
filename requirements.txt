@@ -12,6 +12,9 @@ fastapi
 pydantic
 readerwriterlock
 
+# used for the TinyOlap Terminal App
+
+
 # used for testing, sample data model generation
 Sphinx==4.5.0
 furo

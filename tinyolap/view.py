@@ -46,6 +46,7 @@ class ViewStatistics:
     executed_rules: int = 0
     executed_cell_requests: int = 0
     executed_cell_aggregations: int = 0
+    executed_weighted_cell_aggregations: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -58,7 +59,8 @@ class ViewStatistics:
             'columnDimensionsCount': self.column_dimensions,
             'executedRules': self.executed_rules,
             'executedCellRequests': self.executed_cell_requests,
-            'executedCellAggregations': self.executed_cell_aggregations
+            'executedCellAggregations': self.executed_cell_aggregations,
+            'executedWeightedCellAggregations': self.executed_weighted_cell_aggregations
         }
 
 
@@ -70,7 +72,6 @@ class ViewWindow:
         self.bottom = bottom
         self.right = right
 
-
     def __len__(self):
         return (self.bottom - self.top + 1) * (self.right - self.left + 1)
 
@@ -81,6 +82,37 @@ class ViewWindow:
     @property
     def rows(self) -> int:
         return self.bottom - self.top + 1
+
+    def shift_down(self, offset: int = 1):
+        """Shifts the window down."""
+        self.top += offset
+        self.bottom += offset
+
+    def shift_up(self, offset: int = 1):
+        """Shifts the window down."""
+        diff = self.top - offset
+        if diff < 0:
+            offset -= diff
+        self.top -= offset
+        self.bottom -= offset
+
+    def shift_right(self, offset: int = 1):
+        """Shifts the window down."""
+        self.left += offset
+        self.right += offset
+
+    def shift_left(self, offset: int = 1):
+        """Shifts the window down."""
+        diff = self.left - offset
+        if diff < 0:
+            offset -= diff
+        self.left -= offset
+        self.right -= offset
+
+    def expand(self, rows: int = 0, columns: int = 0):
+        """Expands the window to a specific size."""
+        self.right = self.left + columns
+        self.bottom = self.top + rows
 
     def contain(self, row, column) -> bool:
         """Check if a specific (row, column) coordinate falls into the view window."""
@@ -505,10 +537,15 @@ class View:
                 number_format = axis.positions[0][i].format
 
         value = self.cube._get((super_level, tuple(idx_address),))
-        if number_format:
-            return ViewCell(value, number_format.format(value), number_format)
+        if isinstance(value, float):
+            if number_format:
+                return ViewCell(value, number_format.format(value), number_format)
+            else:
+                return ViewCell(value, self._default_number_format.format(value), number_format)
+        elif value is None:
+            return ViewCell(0.0, "", number_format)
         else:
-            return ViewCell(value, self._default_number_format.format(value), number_format)
+            return ViewCell(0.0, str(value), number_format)
 
     def __setitem__(self, coordinates, value):
         """
@@ -774,6 +811,7 @@ class View:
         stat.refresh_duration = time.time()
         stat.executed_cell_requests = self._cube.counter_cell_requests
         stat.executed_cell_aggregations = self._cube.counter_aggregations
+        stat.executed_weighted_cell_aggregations = self._cube.counter_weighted_cell_requests
         stat.executed_rules = self._cube.counter_rule_requests
 
         rows = self._row_axis
@@ -896,9 +934,10 @@ class View:
 
         # update statistics
         stat.last_refresh = datetime.now()
-        stat.refresh_duration = round(time.time() - stat.refresh_duration, 6)
+        stat.refresh_duration = time.time() - stat.refresh_duration
         stat.executed_cell_requests = self._cube.counter_cell_requests - stat.executed_cell_requests
         stat.executed_cell_aggregations = self._cube.counter_aggregations - stat.executed_cell_aggregations
+        stat.executed_weighted_cell_aggregations = self._cube.counter_weighted_cell_requests - stat.executed_weighted_cell_aggregations
         stat.executed_rules = self._cube.counter_rule_requests - stat.executed_rules
         stat.rows = rows.positions_count
         stat.columns = cols.positions_count
@@ -1296,12 +1335,13 @@ class View:
                      f'total time {duration:.5} sec</div>' \
                      f'<div class="font-italic font-weight-light">' \
                      f'{stat.executed_cell_requests:,} cells, ' \
-                     f'{stat.executed_cell_aggregations:,} aggregations, ' \
+                     f'{stat.executed_cell_aggregations:,} aggregations ' \
+                     f'(thereof {(stat.executed_weighted_cell_aggregations / stat.executed_cell_aggregations) if stat.executed_cell_aggregations > 0 else 0:.0%} weighted), ' \
                      f'{stat.executed_rules:,} rules, ' \
                      f'caching is ' \
-                     f'is {"ON" if self.cube._database.caching else "OFF"}, ' \
-                     f'zero-suppression ' \
-                     f'is {"ON" if self.zero_suppression_on_rows else "OFF"}, ' \
+                     f'{"ON" if self.cube._database.caching else "OFF"}, ' \
+                     f'zero-suppression is ' \
+                     f'{"ON" if self.zero_suppression_on_rows else "OFF"}, ' \
                      f'{zero_rows:,} rows suppressed.</div>'
 
         duration = f'<div class="font-italic font-weight-light">HTML rendered in {duration:.5} sec, ' \

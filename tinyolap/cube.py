@@ -201,6 +201,11 @@ class Cube:
         return self._aggregation_counter
 
     @property
+    def counter_weighted_cell_requests(self) -> int:
+        """Returns the number of weighted aggregations that have been executed."""
+        return self._weighted_aggregation_counter
+
+    @property
     def counter_weighted_aggregations(self) -> int:
         """Returns the number weighted aggregations that have been executed."""
         return self._weighted_aggregation_counter
@@ -425,6 +430,7 @@ class Cube:
             trigger_idx_pattern = None
             if not bypass_rules:
                 if self._has_rules:
+                    # get base-level rule to be executed.
                     rule_found, func, trigger_idx_pattern, feeder_idx_pattern = \
                         self._rules.match_with_feeder(scope=RuleScope.BASE_LEVEL, idx_address=idx_address)
                     if rule_found and feeder_idx_pattern:
@@ -437,19 +443,20 @@ class Cube:
                             feeder_idx[modifier[0]] = modifier[1]
                         idx_address = tuple(feeder_idx)
 
-            # get records row ids for the current (or modified) cell idx_address
+            # get records row ids for the current (or modified) cell address
             rows = self._facts.query(idx_address, row_set)
-            self._aggregation_counter += len(rows)
             if not rows:
                 return None  # no records, so nothing to aggregate
+            rows_count = len(rows)
+            self._aggregation_counter += rows_count
 
             # Check if we have a standard or a weighted aggregation.
             # Note: weighted aggregations are by factors slower due to the weight lookup and multiplication.
             weighted_aggregation, w_idx, w_lookup = self._weights.get_weighting(idx_address)
             total = 0.0
-            facts = self._facts.facts # put object in local scope. this results in 16% faster code
-            addresses = self._facts.addresses  # put object in local scope. this results in 16% faster code
-            rows_count = len(rows)
+            # put objects in local scope (16% faster)
+            facts = self._facts.facts
+            addresses = self._facts.addresses
             if weighted_aggregation:
                 # weighted aggregation
                 self._weighted_aggregation_counter += rows_count
@@ -503,6 +510,7 @@ class Cube:
                         if isinstance(value, float):
                             total += value
                 else:
+
                     for row in rows:
                         value = facts[row]
                         if isinstance(value, float):
