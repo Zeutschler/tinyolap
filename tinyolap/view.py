@@ -22,6 +22,12 @@ from tinyolap.member import Member, MemberList
 from tinyolap.utilities.hybrid_dict import HybridDict
 from tinyolap.exceptions import TinyOlapViewError
 
+from enum import Enum, IntEnum, IntFlag
+import inspect
+import enum_tools.documentation
+
+enum_tools.documentation.INTERACTIVE = True
+
 
 class ViewCell:
     """Represents a single data cell in a view."""
@@ -66,6 +72,7 @@ class ViewStatistics:
 
 class ViewWindow:
     """Defines a window to a view by column (left, right) and row (top, bottom) coordinates."""
+
     def __init__(self, top: int, left: int, bottom: int, right: int):
         self.top = top
         self.left = left
@@ -127,7 +134,7 @@ class ViewWindow:
         d_cols = right - left
         d_rows = bottom - top
         if (d_cols >= 0) and (d_rows >= 0):
-            return ViewWindow(top, left,  bottom, right)
+            return ViewWindow(top, left, bottom, right)
         return None
 
     def __str__(self):
@@ -135,6 +142,7 @@ class ViewWindow:
 
     def __repr__(self):
         return self.__str__()
+
 
 class ViewAxisPositionMember:
     def __init__(self, view, axis, member: Member, indentation: int = 0):
@@ -160,6 +168,11 @@ class ViewAxisPosition:
     def __getitem__(self, item: int) -> Member:
         return self._members[item]
 
+    def __setitem__(self, item: int, value):
+        temp = list(self._members)
+        temp[item] = value
+        self._members = tuple(temp)
+
     def __str__(self):
         return f"ViewAxisPos['{[member for member in self._members]}']"
 
@@ -180,8 +193,9 @@ class ViewAxisDimension:
 
 class ViewAxis(Iterable[ViewAxisPosition]):
 
-    def __init__(self, view, idx, dimensions, member_lists):
+    def __init__(self, view, idx, dimensions, member_lists, name):
         self._view = view
+        self._name = name
         self._positions: tuple[ViewAxisPosition] = tuple()
 
         if isinstance(dimensions, Iterable):
@@ -232,10 +246,15 @@ class ViewAxis(Iterable[ViewAxisPosition]):
         return len(self._positions)
 
     def __str__(self):
-        return f"Axis[{', '.join([dim.name + f'({len(members)})' for dim, members in zip(self._dimensions, self._dim_members)])}]"
+        return f"{self._name} axis[{', '.join([dim.name + f'({len(members)})' for dim, members in zip(self._dimensions, self._dim_members)])}]".strip()
 
     def __repr__(self):
         return self.__str__()
+
+    @property
+    def name(self):
+        """Returns the name of the axis."""
+        return self._name
 
     @property
     def positions_count(self):
@@ -272,6 +291,31 @@ class ViewAxis(Iterable[ViewAxisPosition]):
                 ]} for row, position in enumerate(self._positions)
             ],
         }
+
+
+@enum_tools.documentation.document_enum
+class AxisCycleActionEnum(Enum):
+    """
+    Supported cycling actions for view axis and dimensions. The 'down' direction of cycling goes from filters to the
+    rows to the columns and back to the filters. Nested dimension will be cycled form outer to the inner position.
+    """
+    CYCLE_UP = "CYCLE_UP"  # doc: Cycles all dimensions in the view by one position up. From row to column to filter.
+    CYCLE_DOWN = "CYCLE_DOWN"  # doc: Cycles all dimensions in the view by one position down. From filter to column to row.
+    CYCLE_FILTERS_AND_ROWS_UP = "CYCLE_FILTERS_AND_ROWS_UP"  # doc: Cycles the filter and row dimensions by one position up.
+    CYCLE_FILTERS_AND_ROWS_DOWN = "CYCLE_FILTERS_AND_ROWS_DOWN"  # doc: Cycles the filter and row dimensions by one position down.
+    CYCLE_FILTERS_AND_COLS_UP = "CYCLE_FILTERS_AND_COLS_UP"  # doc: Cycles the filter and column dimensions by one position up.
+    CYCLE_FILTERS_AND_COLS_DOWN = "CYCLE_FILTERS_AND_COLS_DOWN"  # doc: Cycles the filter and column dimensions by one position down.
+    CYCLE_ROWS_AND_COLS_UP = "CYCLE_ROWS_AND_COLS_UP"  # doc: Cycles the row and column dimensions by one position up.
+    CYCLE_ROWS_AND_COLS_DOWN = "CYCLE_ROWS_AND_COLS_DOWN"  # doc: Cycles the row and column dimensions by one position down.
+
+
+@enum_tools.documentation.document_enum
+class MemberShiftActionEnum(Enum):
+    """Supported shifting for members in the view filter axis."""
+    SHIFT_UP = "SHIFT_UP"  # doc: Shifts to the previous member in the dimension.
+    SHIFT_DOWN = "SHIFT_DOWN"  # doc: Shifts to the next member in the dimension.
+    SHIFT_FIRST = "SHIFT_FIRST"  # doc: Shifts to the first member in the dimension.
+    SHIFT_LAST = "SHIFT_LAST"  # doc: Shifts to the last member in the dimension.
 
 
 class View:
@@ -356,11 +400,14 @@ class View:
 
     @definition.setter
     def definition(self, value: dict):
-        """Sets the title of the view."""
-        if self._parse(value):
-            self._definition = value
-        raise TinyOlapViewError(f"An unknown error occurred while pasring view '{self.name}'")
-
+        """Sets the definition of the view."""
+        if value is None:
+            self._create_default_definition()
+        else:
+            filters, rows, columns = self._parse(value)
+            self._filter_axis: ViewAxis = filters
+            self._row_axis: ViewAxis = rows
+            self._col_axis: ViewAxis = columns
     @property
     def uid(self) -> str:
         """Returns the uid of the view. Useful for client/server interaction, persistence and state management."""
@@ -576,6 +623,161 @@ class View:
     def __len__(self):
         return self._col_axis.positions_count * self._row_axis.positions_count
 
+    # region Shifting & Cycling
+    def shift(self, dimension, action: MemberShiftActionEnum=MemberShiftActionEnum.SHIFT_DOWN):
+        """
+        Shifts the member of a single dimension in the filter axis.
+
+        :param dimension: The dimension or name of the dimension to shift the current member.
+        :param action: The shift action to apply to the dimension (up, down, first, last).
+        :return: True if the shift action was executed and led to a change of the current member, what
+                 will cause the view to be refreshed.
+                 False if the shift action was valid, but cloud not be executed,
+                 e.g., if a shift up action on the already first member of the dimension was requested.
+        :raises:
+            TinyOlapViewError: If the dimension is either not present in the filter or invalid.
+        """
+        if not dimension:
+            raise TinyOlapViewError(f"Failed to execute shift action '{str(action)}'. Dimension missing.")
+        if isinstance(dimension, str):
+            if not self._cube.dimension_contained(dimension):
+                raise TinyOlapViewError(f"Failed to execute shift action '{str(action)}' on dimension {dimension}. "
+                                        f"The dimension is not a dimension of cube {self._cube.name}.")
+            dimension = self._cube.get_dimension(dimension)
+        if isinstance(dimension, Dimension):
+            if not dimension in self._filter_axis.dimensions:
+                raise TinyOlapViewError(f"Failed to execute shift action '{str(action)}' on dimension {dimension.name}. "
+                                        f"The dimension is not contained in the filter axis of the view.")
+
+        idx = self._filter_axis.dimensions.index(dimension)
+        # shift the member
+        member = self._filter_axis.positions[0][idx]
+        if action == MemberShiftActionEnum.SHIFT_UP:
+            if member.has_previous:
+                self._filter_axis.positions[0][idx] = member.previous
+                return True
+        elif action == MemberShiftActionEnum.SHIFT_DOWN:
+            if member.has_next:
+                self._filter_axis.positions[0][idx] = member.next
+                return True
+        elif action == MemberShiftActionEnum.SHIFT_FIRST:
+            if not member is member.first:
+                self._filter_axis.positions[0][idx] = member.first
+                return True
+        elif action == MemberShiftActionEnum.SHIFT_LAST:
+            if not member is member.last:
+                self._filter_axis.positions[0][idx] = member.last
+                return True
+
+        return False # The action request was valid, but does not lead to a change. e.g. shift_up on first member
+
+    # region Shifting & Cycling
+    def cycle(self, dimension, action: AxisCycleActionEnum=AxisCycleActionEnum.CYCLE_DOWN):
+        """
+        Cycles a dimension throw the axis of the view. Various cycling actions are supported.
+        The 'down' direction of cycling goes from filters to the rows to the columns and back
+        to the filters. Nested dimension will be cycled form outer to the inner position.
+
+        :param dimension: The dimension or name of the dimension to cycle.
+        :param action: The cycle action to apply to the dimension. See class AxisCycleActionEnum for details.
+        :return: True if the cycle action was executed and led to a change of view layout, what
+                 will cause the view to be refreshed.
+                 False if the cycle action was valid, but cloud not be executed,
+                 e.g., if a cycle on filter axis was requested but the filter axis is empty (no dimensions).
+        :raises:
+            TinyOlapViewError: If the dimension is either not present in the view.
+        """
+        if not dimension:
+            raise TinyOlapViewError(f"Failed to execute cycle action '{str(action)}'. Dimension missing.")
+        if isinstance(dimension, str):
+            if not self._cube.dimension_contained(dimension):
+                raise TinyOlapViewError(f"Failed to execute cycle action '{str(action)}' on dimension {dimension}. "
+                                        f"The dimension is not a dimension of cube {self._cube.name}.")
+            dimension = self._cube.get_dimension(dimension)
+        root_axis = None
+        dim_idx = 0
+        all_axes = (self._filter_axis, self._row_axis, self._col_axis)
+        axes = []
+        if isinstance(dimension, Dimension):
+            # locate the dimension in the view axis
+            for axis in all_axes:
+                if axis.dimensions_count > 0:
+                    axes.append(axis)
+                if dimension in axis.dimensions:
+                    root_axis = axis
+                    dim_idx = axis.dimensions.index(dimension)
+
+        if not root_axis:
+            raise TinyOlapViewError(f"Failed to execute cycle action '{str(action)}' on dimension {dimension}. "
+                                    f"The dimension is not contained in any axis of the view.")
+
+        # We will change the view definition and then parse and render from scratch.
+        view_def = deepcopy(self._definition)
+
+        # process special cases
+        if not axes:
+            # the view has no dimensions, a cube without dimension (a scalar). Nothing to cycle.
+            return False
+        if len(axes) == 1:
+            # the view has only 1 axis, dimensions can only be cycled within that axis
+            if axes[0].dimensions_count == 1:
+                # the single axis of the view has only 1 dimension, a cube with just one dimension. Nothing to cycle.
+                return False
+
+        # execute cycling actions
+        first_axis = axes[0]
+        last_axis = axes[-1]
+        if action == AxisCycleActionEnum.CYCLE_DOWN:
+            # all dimensions will be cycled by 1 position down
+            # get the last dimension from the right-most axis (normally the columns)
+            dims = view_def[last_axis.name]["dimensions"]
+            incoming_dim = dims.pop(len(dims) - 1)
+            if last_axis.name == "filters":
+                 del(incoming_dim["members"])
+
+            i_last = len(axes) - 1
+            for i, axis in enumerate(axes):
+                dims = view_def[axis.name]["dimensions"]
+                if axis.name == "filters":
+                    del(incoming_dim["members"])
+
+                dims.insert(0, incoming_dim)
+                if i < i_last:
+                    incoming_dim = dims.pop(len(dims) - 1)
+                    if axis.name == "filters":
+                         del(incoming_dim["members"])
+
+            self.definition = view_def
+            return True
+        elif action == AxisCycleActionEnum.CYCLE_UP:
+            # all dimensions will be cycled by 1 position up
+            # get the last dimension from the right-most axis (normally the columns)
+            dims = view_def[first_axis.name]["dimensions"]
+            incoming_dim = dims.pop(0)
+            i_last = len(axes) - 1
+            for i, axis in enumerate(reversed(axes)):
+                dims = view_def[axis.name]["dimensions"]
+                dims.append(incoming_dim)
+                if i < i_last:
+                    incoming_dim = dims.pop(0)
+
+            self.definition = view_def
+            return True
+        elif action == AxisCycleActionEnum.CYCLE_FILTERS_AND_ROWS_UP:
+            raise NotImplementedError()
+        elif action == AxisCycleActionEnum.CYCLE_FILTERS_AND_ROWS_DOWN:
+            raise NotImplementedError()
+        elif action == AxisCycleActionEnum.CYCLE_FILTERS_AND_COLS_UP:
+            raise NotImplementedError()
+        elif action == AxisCycleActionEnum.CYCLE_FILTERS_AND_COLS_DOWN:
+            raise NotImplementedError()
+        elif action == AxisCycleActionEnum.CYCLE_ROWS_AND_COLS_UP:
+            raise NotImplementedError()
+        elif action == AxisCycleActionEnum.CYCLE_ROWS_AND_COLS_DOWN:
+            raise NotImplementedError()
+
+    # endregion
+
     def cell(self, coordinates) -> ViewCell:
         """
         Retrieves a single view cell from the view using its coordinates.
@@ -775,7 +977,8 @@ class View:
                     dimensions.append(dimension)
                     member_lists.append(MemberList(dimension, members))
 
-            return ViewAxis(self, idx=tuple(dim_idx), dimensions=tuple(dimensions), member_lists=tuple(member_lists))
+            return ViewAxis(self, idx=tuple(dim_idx), dimensions=tuple(dimensions),
+                            member_lists=tuple(member_lists), name=axis_name)
         else:
             # no filter in axis defined, that's ok (maybe)
             return ViewAxis(self, [], [], [])
@@ -784,7 +987,7 @@ class View:
         """Refreshes missing data for a requested view window"""
         requires_refresh = False
         grid = self._grid
-        missing = ViewWindow(-1,-1,-1,-1)
+        missing = ViewWindow(-1, -1, -1, -1)
 
         # evaluate the rows and cols that require refresh
         for row in range(window.top, window.bottom + 1):
@@ -871,10 +1074,6 @@ class View:
                 if row not in indent:
                     indent[row] = dict()
                 indent[row][d] = member.level
-                # if d == 0:
-                #     indent.append([member.level])
-                # else:
-                #     indent[row].append(member.level)
 
                 if member.format:
                     number_format = member.format
@@ -915,11 +1114,6 @@ class View:
                         self._grid[row] = dict()
                 self._grid[row][col] = view_cell
 
-                # if col == 0:
-                #     cells.append([view_cell, ])
-                # else:
-                #     cells[row].append(view_cell)
-
             rows.positions[row].all_zero = all_zero
 
         # update indentations
@@ -927,9 +1121,6 @@ class View:
             for d in range(rows.dimensions_count):
                 indent[row][d] = indent_max[d] - indent[row][d]
 
-        # for p in range(len(indent)):
-        #     for d in range(rows.dimensions_count):
-        #         indent[p][d] = indent_max[d] - indent[p][d]
         rows.indentations = indent
 
         # update statistics
@@ -944,7 +1135,6 @@ class View:
         stat.cells_count = stat.rows * stat.columns
         stat.row_dimensions = rows._dim_count
         stat.column_dimensions = cols._dim_count
-
         self._last_refresh = datetime.now()
 
         return self
@@ -967,14 +1157,14 @@ class View:
         if remaining > 0:
             idx = remaining - 1
             self._col_axis = ViewAxis(self, idx=ordinal[idx], dimensions=dimensions[ordinal[idx]],
-                                      member_lists=dimensions[ordinal[idx]].members)
+                                      member_lists=dimensions[ordinal[idx]].members, name="columns")
             remaining -= 1
 
         # set up row axis
         if remaining > 0:
             idx = remaining - 1
             self._row_axis = ViewAxis(self, idx=ordinal[idx], dimensions=dimensions[ordinal[idx]],
-                                      member_lists=dimensions[ordinal[idx]].members)
+                                      member_lists=dimensions[ordinal[idx]].members, name="rows")
             remaining -= 1
 
         # if required, flip axis to show less members in the columns and more i the rows
@@ -982,7 +1172,6 @@ class View:
             temp = self._row_axis
             self._row_axis = self._col_axis
             self._col_axis = temp
-
 
         # set up filter axis
         if remaining > 0:
@@ -993,7 +1182,8 @@ class View:
                                              member_lists=tuple(
                                                  [MemberList(dimension=dimensions[ordinal[idx]],
                                                              members=random.choice(dimensions[ordinal[idx]].members))
-                                                  for idx in range(remaining)]))
+                                                  for idx in range(remaining)]),
+                                             name="filters")
             else:
                 self._filter_axis = ViewAxis(self,
                                              idx=tuple([ordinal[idx] for idx in range(remaining)]),
@@ -1001,9 +1191,11 @@ class View:
                                              member_lists=tuple(
                                                  [MemberList(dimension=dimensions[ordinal[idx]],
                                                              members=dimensions[ordinal[idx]].members[0])
-                                                  for idx in range(remaining)]))
+                                                  for idx in range(remaining)]),
+                                             name="filters")
         else:
-            self._filter_axis = ViewAxis(self, idx=tuple(), dimensions=tuple(), member_lists=tuple())
+            self._filter_axis = ViewAxis(self, idx=tuple(), dimensions=tuple(), member_lists=tuple(),
+                                             name="filters")
 
         # create report definition
         definition = {
@@ -1264,7 +1456,6 @@ class View:
             rows = self._row_axis
             cols = self._col_axis
 
-
             # for row in range(rows.positions_count):
             for row in range(window.top, window.bottom + 1):
                 hide_this_row = self.zero_suppression_on_rows and rows.positions[row].all_zero
@@ -1399,7 +1590,7 @@ class ViewList:
     def cube(self):
         return self._cube
 
-    def create(self, name: str, definition= None, random_view_layout: bool = False) -> View:
+    def create(self, name: str, definition=None, random_view_layout: bool = False) -> View:
         """
         Creates a new (default) view. A view can afterwards be modified and saved.
         :param definition: The definition that defines the layout of the view.

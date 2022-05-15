@@ -25,7 +25,8 @@ from halo import Halo
 
 def create_database(name: str = "enterprise", database_directory: str = None,
                     num_legal_entities: int = 50, num_products: int = 100,
-                    num_employees: int = 500, console_output: bool = True, caching=False):
+                    num_employees: int = 500, console_output: bool = True,
+                    caching=False, callback= None):
     """
     Creates a new Enterprise sample database instance.
     :param name: The name of the database.
@@ -34,6 +35,9 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     :param num_products: : Defines the number of legal products the enterprise should have.
     :param num_employees: : Defines the number of employees the enterprise should have.
     :param console_output: Identifies id console output is allowed.
+    :param caching: Defines is caching should be used.
+    :param callback: Callback function to report on progress.
+           Callback function signature: func(progress: int, message: str)
     :return: The created enterprise database.
     """
 
@@ -43,6 +47,9 @@ def create_database(name: str = "enterprise", database_directory: str = None,
         spinner = Halo(text=f"Creating database '{name}", spinner="dots")
         spinner.start()
 
+    if callback:
+        callback(0, f"Creating data model for database '{name}.")
+
     if not database_directory:
         db = Database(name=name, in_memory=True)
     else:
@@ -50,15 +57,40 @@ def create_database(name: str = "enterprise", database_directory: str = None,
     db.description = f"Planning & reporting of {name}"
 
     datatype = add_dimension_datatype(db)
+    if callback:
+        callback(1, f"Dimension '{datatype.name} with {len(datatype.members)} members added.")
+
     years = add_dimension_years(db)
+    if callback:
+        callback(2, f"Dimension '{years.name} with {len(years.members)} members added")
+
     periods = add_dimension_periods(db)
+    if callback:
+        callback(3, f"Dimension '{periods.name} with {len(periods.members)} members added")
+
     company = add_dimension_company(db, companies_count=num_legal_entities)
+    if callback:
+        callback(4, f"Dimension '{company.name} with {len(company.members)} members added")
+
     pnl = add_dimension_pnl_statement(db)
+    if callback:
+        callback(5, f"Dimension '{pnl.name} with {len(pnl.members)} members added")
+
     products = add_dimension_products(db, products_count=num_products)
+    if callback:
+        callback(6, f"Dimension '{products.name} with {len(products.members)} members added")
+
     salesfig = add_dimension_sales_figures(db)
+    if callback:
+        callback(7, f"Dimension '{salesfig.name} with {len(salesfig.members)} members added")
 
     employees = add_dimension_employees(db, company_dim_name=company.name, employees_count=num_employees)
+    if callback:
+        callback(8, f"Dimension '{employees.name} with {len(employees.members)} members added")
+
     hrfig = add_dimension_hr_figures(db)
+    if callback:
+        callback(9, f"Dimension '{hrfig.name} with {len(hrfig.members)} members added")
 
     # cube 'PnL'
     pnl_cube = db.add_cube("pnl", [datatype, years, periods, company, pnl])
@@ -68,29 +100,37 @@ def create_database(name: str = "enterprise", database_directory: str = None,
                        rule_datatype_fcvsactpy, rule_datatype_fcvsactpy_percent,
                        rule_datatype_actvactpy, rule_datatype_actvactpy_percent]:
         pnl_cube.register_rule(func)
-    populate_cube_pnl(db, pnl_cube, spinner)
+    populate_cube_pnl(db, pnl_cube, spinner, callback, 10, 40)
+    if callback:
+        callback(50, f"Cube '{pnl_cube.name} with {pnl_cube.dimensions_count} dimensions added.")
 
     # setup cubes: Sales
     sales_cube = db.add_cube("sales", [years, periods, company, products, salesfig])
     sales_cube.description = f"Product sales of {name}"
     for func in [rule_sales_price]:
         sales_cube.register_rule(func)
-    populate_cube_sales(db, sales_cube, spinner)
+    populate_cube_sales(db, sales_cube, spinner, callback, 50, 40)
+    if callback:
+        callback(90, f"Cube '{pnl_cube.name} with {pnl_cube.dimensions_count} dimensions added.")
 
     # setup cube: HR
     hr_cube = db.add_cube("hr", [years, employees, hrfig])
     hr_cube.description = f"Salary data per employee of {name}"
-    populate_cube_hr(db, hr_cube, spinner)
+    populate_cube_hr(db, hr_cube, spinner, callback, 90, 10)
+    if callback:
+        callback(100, f"Cube '{pnl_cube.name} with {pnl_cube.dimensions_count} dimensions added.")
 
     if console_output:
         spinner.stop()
 
     db.caching = caching
+    if callback:
+        callback(100, f"Database '{db.name} successfully created.")
     return db
 
 
 # region Cube Population
-def populate_cube_pnl(db: Database, cube: Cube, spinner):
+def populate_cube_pnl(db: Database, cube: Cube, spinner, callback=None, progress_start=0, progress_width=0):
     """Populate the Profit & Loss cube"""
     if spinner:
         spinner.text = f"Generating data for '{db.name}:{cube.name} "
@@ -104,7 +144,7 @@ def populate_cube_pnl(db: Database, cube: Cube, spinner):
     seasonality = [1.329471127, 0.997570548, 0.864137544, 0.987852738, 0.770697066, 0.791253971,
                    1.141095122, 0.83984302, 0.932909736, 1.158661932, 1.113810503, 1.072696692]
     z = 0
-    for company in companies:
+    for idx, company in enumerate(companies):
         trend_factor = random.gauss(.02, 0.02)  # annual trend for each company's sales, avg := 10% increase
         baseline_factor = max(1.0, random.gammavariate(2, 2))  # multiplier (growth) for all P&L figures
         monthly_factors = [m + random.gauss(0, 0.05) for m in seasonality]  # add some noise to the seasonality
@@ -124,16 +164,18 @@ def populate_cube_pnl(db: Database, cube: Cube, spinner):
                     cube["Actual", year, month, company, position] = actual
                     cube["Plan", year, month, company, position] = plan
                     cube["Forecast", year, month, company, position] = forecast
-                    z=z+3
+                    z = z + 3
 
                 # increase the monthly trend factor
                 trend_factor = trend_factor + random.gauss(0.01, 0.01)
 
         if spinner:
             spinner.text = f"Generating data for '{db.name}:{cube.name}' ({z:,} records) -> {company}"
+        if callback:
+            callback(progress_start + progress_width * idx // len(companies),
+                     f"Generating data for cube '{db.name}:{cube.name}' ({z:,} records) -> {company}")
 
-
-def populate_cube_sales(db: Database, cube: Cube, spinner):
+def populate_cube_sales(db: Database, cube: Cube, spinner, callback= None, progress_start=0, progress_width=0):
     """Populate the Sales cube"""
     # The basic idea is that not all companies sell all products, but only a few (as in real life)
 
@@ -148,7 +190,7 @@ def populate_cube_sales(db: Database, cube: Cube, spinner):
     seasonality = [1.329471127, 0.997570548, 0.864137544, 0.987852738, 0.770697066, 0.791253971,
                    1.141095122, 0.83984302, 0.932909736, 1.158661932, 1.113810503, 1.072696692]
     z = 0
-    for company in companies:
+    for idx, company in enumerate(companies):
         for product in products:
             if random.random() > 0.50:  # companies only sell 20% of the existing products
                 continue
@@ -174,9 +216,12 @@ def populate_cube_sales(db: Database, cube: Cube, spinner):
 
         if spinner:
             spinner.text = f"Generating data for '{db.name}:{cube.name}' ({z:,} records) -> {company}"
+        if callback:
+            callback(progress_start + progress_width * idx // len(companies),
+                     f"Generating data for cube '{db.name}:{cube.name}' ({z:,} records) -> {company}")
 
 
-def populate_cube_hr(db: Database, cube: Cube, spinner):
+def populate_cube_hr(db: Database, cube: Cube, spinner, callback= None, progress_start=0, progress_width=0):
     """Populate the HR cube"""
     if spinner:
         spinner.text = f"Generating data for '{db.name}:{cube.name}: "
@@ -186,7 +231,7 @@ def populate_cube_hr(db: Database, cube: Cube, spinner):
     employees = hr_dim.get_leaves()  # all non aggregated P&L positions
     root_salary = 100000.0
     z = 0
-    for employee in employees:
+    for idx, employee in enumerate(employees):
         yearly_salary_increase = 1.0
         salary = max(30000.0, round(root_salary * random.gauss(1.0, 0.2), -4))
         for year in years:
@@ -199,6 +244,9 @@ def populate_cube_hr(db: Database, cube: Cube, spinner):
             z = z + 2
         if spinner:
             spinner.text = f"Generating data for '{db.name}:{cube.name}' ({z:,} records) -> {employee}"
+        if callback:
+            callback(progress_start + progress_width * idx // len(employees),
+                     f"Generating data for cube '{db.name}:{cube.name}' ({z:,} records) -> {employee}")
 
     return cube
 # endregion

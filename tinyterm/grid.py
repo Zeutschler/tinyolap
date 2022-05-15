@@ -4,9 +4,10 @@ from tinyterm.colors import TermColors
 
 sys.path.append('../')
 
-from tinyolap.view import View, ViewWindow
+from tinyolap.view import View, ViewWindow, AxisCycleActionEnum, MemberShiftActionEnum
 import curses
 import chars
+
 
 class ViewGrid:
     def __init__(self, view, colors, grid_lines: bool = True, cell_width: int = 16):
@@ -34,14 +35,131 @@ class ViewGrid:
         self.bottom = 0
         self.right = 0
 
+        self.shifters = []
+        self.cyclers = []
+
         # update the TinyOlap view
-        view.refresh(window=ViewWindow(0,0, self.visible_rows, self.visible_cols))
+        view.refresh(window=ViewWindow(0, 0, self.visible_rows, self.visible_cols))
+
+    def reset_refresh_and_render(self):
+        self.data_rows = 0
+        self.data_cols = 0
+
+        self.row_offset = 0
+        self.col_offset = 0
+
+        self.shifters = []
+        self.cyclers = []
+
+        self.window = ViewWindow(0, 0, self.visible_rows, self.visible_cols)
+        self.view.refresh(window=self.window)
+        self.render_gridlines(self.screen, self.top, self.left, self.bottom, self.right)
+        self.render_view(self.window)
 
     def render(self, screen, top, left, bottom, right):
         self.screen = screen
         self.top, self.left, self.bottom, self.right = top, left, bottom, right
         self.render_gridlines(screen, top, left, bottom, right)
         self.render_view(self.window)
+
+    def process_mouse(self, x, y, action):
+        # Detect mouse clicks on shifters and cyclers
+        for shifter in self.shifters:
+            top = shifter["top"]
+            left = shifter["left"]
+            bottom = shifter["bottom"]
+            right = shifter["right"]
+            if top <= y <= bottom and left <= x <= right:
+                action = shifter["action"]
+                position = shifter["position"]
+                dimension = shifter["dimension"]
+                result = False
+                if action == "up":
+                    result = self.view.shift(dimension, action=MemberShiftActionEnum.SHIFT_UP)
+                elif action == "down":
+                    result = self.view.shift(dimension, action=MemberShiftActionEnum.SHIFT_DOWN)
+                if not result:
+                    curses.beep()
+                return result
+
+        for cycler in self.cyclers:
+            top = cycler["top"]
+            left = cycler["left"]
+            bottom = cycler["bottom"]
+            right = cycler["right"]
+            if top <= y <= bottom and left <= x <= right:
+                curses.beep()
+                return
+
+                action = cycler["action"]
+                dimension = cycler["dimension"]
+
+                print(f"cycler: {dimension} > {action}")
+                result = False
+                if action == "up":
+                    result = self.view.cycle(dimension, AxisCycleActionEnum.CYCLE_UP)
+                elif action == "down":
+                    result = self.view.cycle(dimension, AxisCycleActionEnum.CYCLE_DOWN)
+                if not result:
+                    curses.beep()
+                else:
+                    self.reset_refresh_and_render()
+                return result
+
+    def process_shifted_keys(self, x, y, action):
+        # Detect shifted navigation keys on shifters and cyclers
+        # print(f"{x}, {y}, {action}")
+        for shifter in self.shifters:
+            top = shifter["top"]
+            left = shifter["left"]
+            bottom = shifter["bottom"]
+            right = shifter["right"]
+            if top <= y <= bottom and left <= x <= right:
+                position = shifter["position"]
+                dimension = shifter["dimension"]
+                member = self.view.filter_axis.positions[0][position]
+                result = False
+                if action == "left":
+                    result = self.view.shift(dimension, action=MemberShiftActionEnum.SHIFT_UP)
+                elif action == "right":
+                    result = self.view.shift(dimension, action=MemberShiftActionEnum.SHIFT_DOWN)
+                elif action == "up":
+                    curses.beep()
+                    return
+                    result = self.view.cycle(dimension, AxisCycleActionEnum.CYCLE_UP)
+                elif action == "down":
+                    curses.beep()
+                    return
+                    result = self.view.cycle(dimension, AxisCycleActionEnum.CYCLE_DOWN)
+                if not result:
+                    curses.beep()
+                else:
+                    self.reset_refresh_and_render()
+                return result
+
+        for cycler in self.cyclers:
+            top = cycler["top"]
+            left = cycler["left"]
+            bottom = cycler["bottom"]
+            right = cycler["right"]
+            if top <= y <= bottom and left <= x <= right:
+                action = cycler["action"]
+                dimension = cycler["dimension"]
+                curses.beep()
+                return
+
+                print(f"cycler: {dimension} > {action}")
+                result = False
+                if action == "up":
+                    result = self.view.cycle(dimension, AxisCycleActionEnum.CYCLE_UP)
+                elif action == "down":
+                    result = self.view.cycle(dimension, AxisCycleActionEnum.CYCLE_DOWN)
+                if not result:
+                    curses.beep()
+                else:
+                    self.reset_refresh_and_render()
+                return result
+
 
     def render_view(self, window=None):
         row_offset = 0
@@ -54,6 +172,10 @@ class ViewGrid:
         self.data_rows = self.visible_rows - (vfilters.dimensions_count + vcols.dimensions_count + 1)
         self.data_cols = self.visible_cols - vrows.dimensions_count
 
+        # reset action areas
+        self.shifters = []
+        self.cyclers = []
+
         # ensure that the requested data is available and fits into the window
         if not window:
             window = ViewWindow(0, 0, self.data_rows, self.data_cols)
@@ -65,35 +187,57 @@ class ViewGrid:
             if window:
                 # ensure that we do not scroll out of the window. Show max. one empty row or column, then stop scrolling
                 if window.rows + 1 < self.data_rows:
-                    window.shift_up() #(self.data_rows - (window.rows + 1))
+                    window.shift_up()  # (self.data_rows - (window.rows + 1))
                     window.expand(self.visible_rows, self.visible_rows)
                     window = window.intersect(ViewWindow(0, 0, vrows.positions_count - 1, vcols.positions_count - 1))
                 if window.columns + 1 < self.data_cols:
-                    window.shift_left() #(self.data_cols - (window.columns + 1))
+                    window.shift_left()  # (self.data_cols - (window.columns + 1))
                     window.expand(self.visible_rows, self.visible_rows)
                     window = window.intersect(ViewWindow(0, 0, vrows.positions_count - 1, vcols.positions_count - 1))
         if not window:
             window = ViewWindow(0, 0, vrows.positions_count, vcols.positions_count)
 
         # draw filter dimensions
-        for member in vfilters.positions[0]:
-            self.render_cell(row_offset, 0, member.dimension.name, colors.dimension, "shifter")
+        for position, member in enumerate(vfilters.positions[0]):
+            x, y, text = self.render_cell(row_offset, 0, member.dimension.name, colors.dimension, "shifter")
             self.render_cell(row_offset, 1, member.name, colors.member, "left")
+
+            self.shifters.append({"dimension": member.dimension.name, "action": "up",
+                                  "top": y, "left": x, "bottom": y, "right": x + self.cell_width // 2,
+                                  "axis": "filter", "position": position})
+            self.shifters.append({"dimension": member.dimension.name, "action": "down",
+                                  "top": y, "left": x + self.cell_width // 2 + 1, "bottom": y,
+                                  "right": x + self.cell_width, "axis": "filter", "position": position})
+
             row_offset += 1
 
-        # draw column axis shifters
+        # draw column axis cyclers
         for c in range(vcols.dimensions_count):
             grid_col = vrows.dimensions_count
-            text = vcols.positions[0][c].dimension.name
-            self.render_cell(row_offset, grid_col + c, text, colors.dimension, "cycler")
+            dim_name = vcols.positions[0][c].dimension.name
+            x, y, text = self.render_cell(row_offset, grid_col + c, dim_name, colors.dimension, "cycler")
+
+            self.cyclers.append({"dimension": dim_name, "action": "up",
+                                 "top": y, "left": x, "bottom": y, "right": x + self.cell_width // 2,
+                                 "axis": "cols", "position": c})
+            self.cyclers.append({"dimension": dim_name, "action": "down",
+                                 "top": y, "left": x + self.cell_width // 2 + 1, "bottom": y,
+                                 "right": x + self.cell_width,"axis": "cols", "position": c})
+
         row_offset += 1
 
-        # draw row axis shifters
+        # draw row axis cyclers
         for r in range(vrows.dimensions_count):
             grid_row = vcols.dimensions_count - 1
-            text = vrows.positions[0][r].dimension.name
-            self.render_cell(row_offset + grid_row, r, text, colors.dimension, "cycler")
+            dim_name = vrows.positions[0][r].dimension.name
+            x, y, text = self.render_cell(row_offset + grid_row, r, dim_name, colors.dimension, "cycler")
 
+            self.cyclers.append({"dimension": dim_name, "action": "up",
+                                 "top": y, "left": x, "bottom": y, "right": x + self.cell_width // 2,
+                                 "axis": "rows", "position": r})
+            self.cyclers.append({"dimension": dim_name, "action": "down",
+                                 "top": y, "left": x + self.cell_width // 2 + 1, "bottom": y,
+                                 "right": x + self.cell_width,"axis": "rows", "position": r})
         # draw column headers
         for c in range(vcols.dimensions_count):
             grid_col = vrows.dimensions_count
@@ -140,12 +284,12 @@ class ViewGrid:
         self.window = window
 
     def render_cell(self, row, col, text, color=None, align=None):
-        x = 1 + self.top + self.cell_height * row
-        if x >= self.bottom:
-            return  # invisible
-        y = 1 + self.left + self.cell_offset * col
-        if y >= self.right:
-            return  # invisible
+        y = 1 + self.top + self.cell_height * row
+        if y >= self.bottom:
+            return -1, -1, text  # invisible
+        x = 1 + self.left + self.cell_offset * col
+        if x >= self.right:
+            return -1, -1, text  # invisible
 
         text_width = len(text)
         if align:
@@ -194,15 +338,17 @@ class ViewGrid:
             else:
                 text = " " * (self.cell_width - text_width) + text
 
-        overflow = self.right - (y + len(text))
+        overflow = self.right - (x + len(text))
         if overflow < 0:
             text = text[:len(text) + overflow]
 
         if color:
             self.screen.attron(color)
-        self.screen.addstr(x, y, text)
+        self.screen.addstr(y, x, text)
         if color:
             self.screen.attroff(color)
+
+        return x, y, text
 
     def render_gridlines(self, screen, top, left, bottom, right):
         """Renders a grid"""

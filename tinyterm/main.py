@@ -6,12 +6,16 @@ import curses
 from terminal import TinyTerminal
 
 
-def draw_menu(screen):
+def initialize_database(callback_function):
     database = create_database(name="TinyCorp", database_directory=None,
-                                    num_legal_entities=100, num_products=50,
-                                    num_employees=50, console_output=False,
-                                    caching=True)
-    term = TinyTerminal(screen, database=database)
+                                    num_legal_entities=25, num_products=100,
+                                    num_employees=100, console_output=False,
+                                    caching=True, callback=callback_function)
+    return database
+
+
+def draw_menu(screen):
+    term = TinyTerminal(screen, init_function=initialize_database)
 
 
 def main():

@@ -10,6 +10,8 @@ class TermColors:
         self.default = None
         self.title = None
         self.statusbar = None
+        self.progressbar = None
+        self.progressbar_hot = None
         self.grid = None
         self.logo_light = None
         self.logo = None
@@ -23,27 +25,30 @@ class TermColors:
         self.number_red = None
         self.number_green = None
 
-        # name : (number, fore-color, back-color)
+        # name : (number, fore-color, back-color, style)
         if schema == "tiny":
             default_colors = {}
         else:
             default_colors = \
-                {"default": (1, 15, 0),     # white on black
-                 "disabled": (2, 247, 0),   # light-grey on black
-                 "title": (3, 0, 33),       # white on Tiny-blue
-                 "statusbar": (4, 248, 8),  # white on dark-grey
-                 "grid": (5, 239, 0),       # dark-grey on black
-                 "logo_light": (6, 45, 0),  # Tiny-cyan on black
-                 "logo": (7, 33, 0),        # Tiny-blue on black
-                 "logo_dark": (8, 20, 0),   # Tiny-dark-blue on black
+                {"default": (1, 15, 0, None),     # white on black
+                 "disabled": (2, 247, 0, None),   # light-grey on black
+                 "title": (3, 0, 33, None),       # white on Tiny-blue
+                 "statusbar": (4, 248, 8, None),  # white on dark-grey
+                 "progressbar": (16, 15, 8, None),  # white on dark-grey
+                 "progressbar_hot": (17, 15, 88, None),  # white on dark-grey
 
-                 "label": (9, 243, 0),          # grey on black
-                 "dimension": (10, 208, 0),     # orange on black
-                 "member": (11, 15, 236),        # white on dark-blue
-                 "arrow": (12, 208, 0),         # orange on black
-                 "number": (13, 15, 0),         # white on black
-                 "number_red": (14, 196, 0),    # red on black
-                 "number_green": (15, 40, 0),   # green on black
+                 "grid": (5, 239, 0, None),       # dark-grey on black
+                 "logo_light": (6, 45, 0, None),  # Tiny-cyan on black
+                 "logo": (7, 33, 0, None),        # Tiny-blue on black
+                 "logo_dark": (8, 20, 0, None),   # Tiny-dark-blue on black
+
+                 "label": (9, 243, 0, None),          # grey on black
+                 "dimension": (10, 208, 0, None),     # orange on black
+                 "member": (11, 15, 236, None),        # white on dark-blue
+                 "arrow": (12, 208, 0, None),         # orange on black
+                 "number": (13, 15, 0, None),         # white on black
+                 "number_red": (14, 196, 0, None),    # red on black
+                 "number_green": (15, 40, 0, None),   # green on black
                  }
         # create color instances
         for name, v in default_colors.items():
