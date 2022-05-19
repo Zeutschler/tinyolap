@@ -841,15 +841,15 @@ class View:
         if "filters" in definition:
             filter_axis = self._parse_axis(definition["filters"], "filters", False)
         else:
-            filter_axis = ViewAxis(self, [], [], [])
+            filter_axis = ViewAxis(self, [], [], [], "filters")
         if "rows" in definition:
             row_axis = self._parse_axis(definition["rows"], "rows")
         else:
-            row_axis = ViewAxis(self, [], [], [])
+            row_axis = ViewAxis(self, [], [], [], "rows")
         if "columns" in definition:
             column_axis = self._parse_axis(definition["columns"], "columns")
         else:
-            column_axis = ViewAxis(self, [], [], [])
+            column_axis = ViewAxis(self, [], [], [], "columns")
 
         # are dimensions missing?
         missing_dims = self._get_missing_dims((filter_axis, row_axis, column_axis))
