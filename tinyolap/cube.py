@@ -457,6 +457,9 @@ class Cube:
             # put objects in local scope (16% faster)
             facts = self._facts.facts
             addresses = self._facts.addresses
+            cache = self._cache
+            caching = self._caching
+            create_cell_from_bolt = self._create_cell_from_bolt
             if weighted_aggregation:
                 # weighted aggregation
                 self._weighted_aggregation_counter += rows_count
@@ -473,9 +476,16 @@ class Cube:
                         for modifier in trigger_idx_pattern:
                             trigger_idx[modifier[0]] = modifier[1]
                         idx_address = tuple(trigger_idx)
-                        cursor = self._create_cell_from_bolt(None, (super_level, idx_address))
+                        cursor = create_cell_from_bolt(None, (super_level, idx_address))
+
                         # call the rule
-                        value = func(cursor)
+                        if caching and idx_address in cache:
+                            value = cache[idx_address]
+                        else:
+                            value = func(cursor)
+                            if caching:
+                                cache[idx_address] = value  # save value to cache
+
                         if isinstance(value, float):  # makes the overall code 5% faster than 'if type(value) is float'
                             weight = 1.0
                             for idx in w_idx:  # only process dimensions with non-standard (+1.0) weighting
@@ -485,6 +495,7 @@ class Cube:
                                 # so we do an unnecessary (but cheaper) multiplications here.
                                 weight *= w_lookup[idx].get(addresses[row][idx], 1.0)
                             total += value * weight
+
                 else:
                     for row in rows:
                         value = facts[row]
@@ -800,11 +811,28 @@ class Cube:
         function_name = str(function).split(" ")[1 + offset]
         cube_name = self.name
         if hasattr(function, "cube"):
-            cube_name = function.cube
-            if cube_name.lower() != self.name.lower():
-                raise TinyOlapRuleError(
-                    f"Failed to add rule function. Function '{function_name}' does not seem to be associated "
-                    f"with this cube '{self.name}', but with cube '{cube_name}'.")
+            if isinstance(function.cube, str):
+                cube_names = [function.cube]
+            elif type(function.cube) in (list, tuple):
+                cube_names = function.cube
+            elif function.cube is None:
+                cube_names = []
+            else:
+                cube_names = [str(function.cube)]
+            if cube_names:
+                found = False
+                for cube_name in cube_names:
+                    if cube_name.lower() == self.name.lower():
+                        found = True
+                if not found:
+                    raise TinyOlapRuleError(
+                        f"Failed to add rule function. Function '{function_name}' does not seem to be associated "
+                        f"with this cube '{self.name}', but with cube(s) '{str(function.cube)}'.")
+            # cube_name = function.cube
+            # if cube_name.lower() != self.name.lower():
+            #     raise TinyOlapRuleError(
+            #         f"Failed to add rule function. Function '{function_name}' does not seem to be associated "
+            #         f"with this cube '{self.name}', but with cube '{cube_name}'.")
         if not trigger:
             if hasattr(function, "trigger"):
                 trigger = function.trigger

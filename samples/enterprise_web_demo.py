@@ -21,7 +21,7 @@ from samples.enterprise_model.model import create_database
 # Configure the database and cube to show here...
 caching = False  # Switch True / False to enable / disable caching in cubes
 db = create_database("enterprise", num_legal_entities=25, num_products=100, num_employees=500)
-cubes = [db.cubes["pnl"], db.cubes["sales"],db.cubes["hr"]]
+cubes = [db.cubes["pnl"], db.cubes["pnl_lcgc"], db.cubes["exrates"], db.cubes["sales"],  db.cubes["hr"]]
 # ... the following code does not need to be touched. Just run and enjoy...
 
 # TinyOlap setup

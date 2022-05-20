@@ -38,7 +38,6 @@ async def resolve_read():
         raise HTTPException(status_code=404, detail="Item not found. " + str(e))
 
 
-
 @router.put("/")
 async def resolve_write():
     database = server["db"]

@@ -10,7 +10,7 @@ import inspect
 from tinyolap.rules import RuleScope, RuleInjectionStrategy
 
 
-def rule(cube: str, trigger: list[str], feeder: list[str] = None, scope: RuleScope = RuleScope.ALL_LEVELS,
+def rule(cube = None, trigger: list[str] = None, feeder: list[str] = None, scope: RuleScope = RuleScope.ALL_LEVELS,
          injection: RuleInjectionStrategy = RuleInjectionStrategy.NO_INJECTION,
          volatile: bool = False, command=None):
     """

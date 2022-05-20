@@ -1061,24 +1061,21 @@ class Dimension:
         :raises KeyError: Raised when either the member or the attribute name does not exist.
         :return: The value of the attribute, or ``None`` if the attribute is not defined for the specific member.
         """
-        raise NotImplementedError()
-        warnings.warn("deprecated", DeprecationWarning)
+        # raise NotImplementedError()
+        # warnings.warn("deprecated", DeprecationWarning)
 
         if attribute not in self._attributes:
             raise KeyError(f"Failed to get attribute value. "
                            f"'{attribute}' is not an attribute of dimension {self._name}.")
-        if member not in self._attributes[attribute]:
-            raise KeyError(f"Failed to get attribute value. "
-                           f"'{member}' is not a member of dimension {self._name}.")
         return self._attributes[attribute][member]
 
         # if member not in self._member_idx_lookup:
         #     raise KeyError(f"Failed to get attribute value. "
         #                    f"'{member}' is not a member of dimension {self._name}.")
-        idx = self._member_idx_lookup[member]
-        if attribute not in self.member_defs[idx][self.ATTRIBUTES]:
-            return None
-        return self.member_defs[idx][self.ATTRIBUTES][attribute]
+        # idx = self._member_idx_lookup[member]
+        # if attribute not in self.member_defs[idx][self.ATTRIBUTES]:
+        #    return None
+        # return self.member_defs[idx][self.ATTRIBUTES][attribute]
 
 
     def get_attribute_type(self, attribute: str):
@@ -1408,7 +1405,7 @@ class Dimension:
     def _valid_member_name(name):
         return not (("\t" in name) or ("\n" in name) or ("\r" in name))
 
-    def add(self, member: str, parent: str, weight: float = 1.0, description: str = None) -> int:
+    def add(self, member: str, parent: str = None, weight: float = 1.0, description: str = None) -> int:
         """
         Adds a member to the dimension. The dimension must be in 'edit' mode.
         :param member: Name of the member to be added.
@@ -1474,6 +1471,14 @@ class Dimension:
             self.member_defs[member_idx][self.PARENT_WEIGHTS][parent_idx] = weight
         else:
             parent_idx = self._member_idx_lookup[parent]
+
+            # ensure the new parent is not already a parent of the member
+            if parent_idx in self.member_defs[member_idx][self.PARENTS] and \
+                member_idx in self.member_defs[parent_idx][self.CHILDREN]:
+                # just update the weight and exit
+                self.member_defs[member_idx][self.PARENT_WEIGHTS][parent_idx] = weight
+                return
+
             self.member_defs[parent_idx][self.LEVEL] = level + 1
             if member_idx not in self.member_defs[parent_idx][self.CHILDREN]:
                 self.member_defs[parent_idx][self.CHILDREN].append(member_idx)

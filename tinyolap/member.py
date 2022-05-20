@@ -32,6 +32,7 @@ class Member:
         self._parents = None
         self._leaves = None
         self._roots = None
+        self._parent_hierarchy = None
 
     def __repr__(self) -> str:
         return self._name
@@ -246,24 +247,28 @@ class Member:
     def first_child(self) -> Member:
         """
         Returns the first child member of a member, if such exists
-        :return:
+        :return: The first child member. None if no parent member exists.
         """
-        # todo: Implementation missing
-        raise NotImplementedError()
+        idx_children = self._dimension.member_defs[self._idx_member][self._dimension.CHILDREN]
+        if idx_children:
+             return self._dimension.member(idx_children[0])
+        return None
 
     @property
     def first_parent(self) -> Member:
         """
-        Returns the first parent member of a member, if such exists
-        :return:
+        Returns the first parent member of a member, if a parent exists.
+        :return: The first parent member. None if no parent member exists.
         """
-        # todo: Implementation missing
-        raise NotImplementedError()
+        idx_parents = self._dimension.member_defs[self._idx_member][self._dimension.PARENTS]
+        if idx_parents:
+             return self._dimension.member(idx_parents[0])
+        return None
 
     @property
     def first_sibling(self) -> Member:
         """
-        Returns the first sibling member (going from left to right) of a member, if such exists.
+        Returns the first sibling member (going from left to right) of a member, if a sibling exists.
         :return:
         """
         # todo: Implementation missing
@@ -298,7 +303,7 @@ class Member:
         # todo: Implementation missing
         raise NotImplementedError()
 
-    def sibling(self, offset:int = 1) -> Member:
+    def sibling(self, offset: int = 1) -> Member:
         """
         Returns a specific sibling member (going from left to right) of a member by an offset, if such exists.
         :param offset: Offset to the sibling member to return. 0 returns the current member itself, +1
@@ -524,6 +529,7 @@ class Member:
         """
         return self._member_level > 0
 
+
     @property
     def parents(self) -> MemberList:
         """
@@ -539,6 +545,26 @@ class Member:
                 self._parents = MemberList(self._dimension, members)
             else:
                 self._parents = tuple()
+        return self._parents
+
+    @property
+    def parent_hierarchy(self) -> MemberList:
+        """
+        Returns the parent hierarchy for a member, incl. the member itself, from inner to outer.
+        If the member or one of its parents has multiple parents, then always the 1st parent will be returned.
+        If the member does not have parents, then an empty list will be returned.
+        :return: List of parents in the parent hierarchy of the member.
+        """
+        if self._parent_hierarchy is None:
+            idx_member = self._idx_member
+            col_parents = self._dimension.PARENTS
+            parent_hierarchy = [self, ]
+            idx_parents = self._dimension.member_defs[idx_member][col_parents]
+            while idx_parents:
+                idx_member = idx_parents[0]
+                parent_hierarchy.append(self._dimension.member(idx_member))
+                idx_parents = self._dimension.member_defs[idx_member][col_parents]
+            self._parents = MemberList(self._dimension, parent_hierarchy)
         return self._parents
 
     @property
